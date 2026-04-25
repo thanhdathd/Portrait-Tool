@@ -1,30 +1,30 @@
 package core.history;
 
 import core.state.CanvasState;
-import userpackage.ImgFrame;
+import ui.canvas.ImageCanvas;
 import userpackage.SPoint;
 
 public class GridCommand implements Command {
 
     private final CanvasState canvasState;
-    private final ImgFrame imgFrame;
+    private final ImageCanvas canvas;
     private final SPoint gridData;
 
-    public GridCommand(CanvasState canvasState, ImgFrame imgFrame, SPoint gridData) {
+    public GridCommand(CanvasState canvasState, ImageCanvas canvas, SPoint gridData) {
         this.canvasState = canvasState;
-        this.imgFrame = imgFrame;
+        this.canvas = canvas;
         this.gridData = gridData;
     }
 
     @Override
     public void execute() {
         canvasState.addGrid(gridData);
-        imgFrame.repaint();
+        if (canvas != null) canvas.repaint();
     }
 
     @Override
     public void undo() {
         canvasState.removeGrid(gridData);
-        imgFrame.repaint();
+        if (canvas != null) canvas.repaint();
     }
 }

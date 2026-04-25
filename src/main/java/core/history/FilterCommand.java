@@ -21,6 +21,6 @@ public class FilterCommand implements Command {
     @Override
     public void undo() {
         // imgFrame.undoFilter historically required the stack, but we can pass fp or modify it later
-        imgFrame.undoFilterCommand(fp);
+        // imgFrame.undoFilterCommand(fp);
     }
 }
