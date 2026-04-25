@@ -28,8 +28,8 @@ public class GridTool implements Tool {
     @Override
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (e.getButton() == MouseEvent.BUTTON1) {
-            int x = e.getX();
-            int y = e.getY();
+            int x = e.getX() - appState.getCanvasState().getImageOffsetX();
+            int y = e.getY() - appState.getCanvasState().getImageOffsetY();
             
             // Adjust for zoom
             if (appState.getCurrentZoom() != 1.0F) {

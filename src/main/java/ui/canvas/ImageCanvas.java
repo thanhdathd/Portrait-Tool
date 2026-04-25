@@ -28,6 +28,7 @@ public class ImageCanvas extends JPanel {
     private BufferedImage backgroundImage;
     private ZoomWindow zoomWindow;
     private static final int CHECKER_SIZE = 20;
+    private boolean drawLabels = true;
 
     public ImageCanvas(AppState appState) {
         this.appState = appState;
@@ -98,9 +99,12 @@ public class ImageCanvas extends JPanel {
     private void updateZoomWindow(java.awt.Point p) {
         if (zoomWindow != null && zoomWindow.isVisible() && backgroundImage != null) {
             // zoomWindow expects coordinates relative to the unscaled image
+            int offsetX = appState.getCanvasState().getImageOffsetX();
+            int offsetY = appState.getCanvasState().getImageOffsetY();
+            
             Point unscaledP = new Point(
-                    Math.round(p.x / appState.getCurrentZoom()),
-                    Math.round(p.y / appState.getCurrentZoom())
+                    Math.round((p.x - offsetX) / appState.getCurrentZoom()),
+                    Math.round((p.y - offsetY) / appState.getCurrentZoom())
             );
             zoomWindow.updateImage(backgroundImage, unscaledP);
         }
@@ -140,6 +144,10 @@ public class ImageCanvas extends JPanel {
         return super.getPreferredSize();
     }
 
+    public void setDrawLabels(boolean drawLabels) {
+        this.drawLabels = drawLabels;
+    }
+
     public void setBackgroundImage(BufferedImage image) {
         this.backgroundImage = image;
         if (image != null) {
@@ -177,6 +185,11 @@ public class ImageCanvas extends JPanel {
             }
         }
         
+        // Apply Image Offset (screen coordinates)
+        int offsetX = appState.getCanvasState().getImageOffsetX();
+        int offsetY = appState.getCanvasState().getImageOffsetY();
+        g2d.translate(offsetX, offsetY);
+        
         // Apply Zoom Transform
         float zoom = appState.getCurrentZoom();
         g2d.scale(zoom, zoom);
@@ -196,23 +209,25 @@ public class ImageCanvas extends JPanel {
             g2d.setColor(p.c);
             g2d.fillRect(p.X - 1, p.Y - 1, 2, 2);
             
-            // Adjust label font size back so it doesn't scale massively with zoom
-            // Keep font size constant on screen
-            Font originalFont = g2d.getFont();
-            g2d.setFont(originalFont.deriveFont(originalFont.getSize() / zoom));
-            
-            // Label rendering
-            if (p.dr == Direction.EAST) {
-                g2d.drawString(String.valueOf(p.id), p.X + 12, p.Y + 12);
-            } else if (p.dr == Direction.WEST) {
-                g2d.drawString(String.valueOf(p.id), p.X - 30, p.Y + 15);
-            } else if (p.dr == Direction.SOUTH) {
-                g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y + 25);
-            } else {
-                g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y - 12);
+            if (drawLabels) {
+                // Adjust label font size back so it doesn't scale massively with zoom
+                // Keep font size constant on screen
+                Font originalFont = g2d.getFont();
+                g2d.setFont(originalFont.deriveFont(originalFont.getSize() / zoom));
+                
+                // Label rendering
+                if (p.dr == Direction.EAST) {
+                    g2d.drawString(String.valueOf(p.id), p.X + 12, p.Y + 12);
+                } else if (p.dr == Direction.WEST) {
+                    g2d.drawString(String.valueOf(p.id), p.X - 30, p.Y + 15);
+                } else if (p.dr == Direction.SOUTH) {
+                    g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y + 25);
+                } else {
+                    g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y - 12);
+                }
+                
+                g2d.setFont(originalFont);
             }
-            
-            g2d.setFont(originalFont);
         }
         
         // 4. Draw Grids

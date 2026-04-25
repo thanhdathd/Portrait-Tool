@@ -9,19 +9,33 @@ import java.awt.event.MouseEvent;
 
 public class ZoomCanvasTool implements Tool {
 
+    private boolean zoomInMode = true;
+
+    public void toggleMode() {
+        zoomInMode = !zoomInMode;
+    }
+
+    public boolean isZoomInMode() {
+        return zoomInMode;
+    }
+
     @Override
     public void onMousePressed(MouseEvent e, AppState appState, ImageCanvas canvas) {
         float zoom = appState.getCurrentZoom();
         float oldZoom = zoom;
-
-        // Left click zooms in, right click zooms out
-        if (SwingUtilities.isLeftMouseButton(e)) {
-            zoom += 0.1f;
-        } else if (SwingUtilities.isRightMouseButton(e)) {
-            zoom -= 0.1f;
+        
+        boolean effectiveZoomIn = zoomInMode;
+        if (e.isShiftDown()) {
+            effectiveZoomIn = !effectiveZoomIn; // Shift temporarily inverts
         }
 
-        zoom = Math.max(0.1f, Math.min(zoom, 10.0f)); // clamp
+        if (effectiveZoomIn) {
+            zoom *= 1.25f;
+        } else {
+            zoom /= 1.25f;
+        }
+
+        zoom = Math.max(0.05f, Math.min(zoom, 8.0f)); // clamp between 5% and 800%
         
         if (zoom == oldZoom) return;
 

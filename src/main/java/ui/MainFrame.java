@@ -68,6 +68,29 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void performSaveTicksOnly() {
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (!file.getName().endsWith(".png")) {
+                file = new java.io.File(file.getAbsolutePath() + ".png");
+            }
+            
+            // Temporarily disable labels
+            canvas.setDrawLabels(false);
+            
+            workers.SaveWorker worker = new workers.SaveWorker(canvas, file) {
+                @Override
+                protected void done() {
+                    super.done();
+                    canvas.setDrawLabels(true); // Restore labels
+                    canvas.repaint();
+                }
+            };
+            worker.execute();
+        }
+    }
+
     private void performExportMatrix() {
         if (canvas.getBackgroundImage() == null) {
             JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
@@ -110,9 +133,34 @@ public class MainFrame extends JFrame {
             new ui.dialogs.FilterDialog(this, currentImage, (newImage) -> {
                 core.history.Command filterCmd = new core.history.FilterCommand(canvas, currentImage, newImage);
                 appState.getHistoryManager().push(filterCmd);
+                canvas.repaint();
             }).setVisible(true);
         } else {
             JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private void performExportToExcel() {
+        if (canvas.getBackgroundImage() == null) {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (!file.getName().endsWith(".csv")) {
+                file = new java.io.File(file.getAbsolutePath() + ".csv");
+            }
+            
+            try (java.io.PrintWriter pw = new java.io.PrintWriter(file)) {
+                pw.println("ID,X,Y,ColorRGB");
+                for (userpackage.SPoint p : appState.getCanvasState().getStickyPoints()) {
+                    pw.printf("%d,%d,%d,%d\n", p.id, p.X, p.Y, p.c.getRGB());
+                }
+                JOptionPane.showMessageDialog(this, "Successfully exported to " + file.getName(), "Export Complete", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Failed to export: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -150,6 +198,7 @@ public class MainFrame extends JFrame {
         undoItem.addActionListener(e -> {
             if (appState.getHistoryManager().canUndo()) {
                 appState.getHistoryManager().undo();
+                canvas.repaint();
             }
         });
 
@@ -158,6 +207,7 @@ public class MainFrame extends JFrame {
         redoItem.addActionListener(e -> {
             if (appState.getHistoryManager().canRedo()) {
                 appState.getHistoryManager().redo();
+                canvas.repaint();
             }
         });
         
@@ -226,60 +276,84 @@ public class MainFrame extends JFrame {
         setJMenuBar(menuBar);
     }
     
+    private JButton createIconButton(String iconName, String tooltip) {
+        JButton btn = new JButton();
+        try {
+            java.net.URL url = getClass().getClassLoader().getResource("icons/" + iconName);
+            if (url != null) {
+                btn.setIcon(new ImageIcon(url));
+            } else {
+                btn.setText(tooltip); // fallback
+            }
+        } catch (Exception e) {
+            btn.setText(tooltip);
+        }
+        btn.setToolTipText(tooltip);
+        btn.setFocusPainted(false);
+        return btn;
+    }
+
     private void initToolBar() {
         JToolBar toolBar = new JToolBar();
         toolBar.setOrientation(JToolBar.HORIZONTAL);
         
         // File Ops
-        JButton openBtn = new JButton("Open");
+        JButton openBtn = createIconButton("icon3.png", "Open");
         openBtn.addActionListener(e -> performOpenFile());
         
-        JButton saveBtn = new JButton("Save");
+        JButton saveBtn = createIconButton("icon2.png", "Save");
         saveBtn.addActionListener(e -> performSaveFile());
         
-        JButton exportBtn = new JButton("Export Matrix");
-        exportBtn.addActionListener(e -> performExportMatrix());
+        JButton saveTicksBtn = createIconButton("icon9.png", "Save Image with Ticks Only");
+        saveTicksBtn.addActionListener(e -> performSaveTicksOnly());
         
         toolBar.add(openBtn);
         toolBar.add(saveBtn);
-        toolBar.add(exportBtn);
+        toolBar.add(saveTicksBtn);
         toolBar.addSeparator();
         
         // History Ops
-        JButton undoBtn = new JButton("Undo");
+        JButton undoBtn = createIconButton("icon12.png", "Undo");
         undoBtn.addActionListener(e -> {
-            if (appState.getHistoryManager().canUndo()) appState.getHistoryManager().undo();
+            if (appState.getHistoryManager().canUndo()) {
+                appState.getHistoryManager().undo();
+                canvas.repaint();
+            }
         });
-        JButton redoBtn = new JButton("Redo");
+        
+        JButton redoBtn = createIconButton("icon5.png", "Redo");
         redoBtn.addActionListener(e -> {
-            if (appState.getHistoryManager().canRedo()) appState.getHistoryManager().redo();
+            if (appState.getHistoryManager().canRedo()) {
+                appState.getHistoryManager().redo();
+                canvas.repaint();
+            }
         });
         
         toolBar.add(undoBtn);
         toolBar.add(redoBtn);
         toolBar.addSeparator();
         
-        // Image Ops
-        JButton filterBtn = new JButton("Filters");
-        filterBtn.addActionListener(e -> performOpenFilter());
-        toolBar.add(filterBtn);
-        toolBar.addSeparator();
-        
         // Mouse Modes
-        JButton handBtn = new JButton("Hand");
+        JButton handBtn = createIconButton("icon6.png", "Hand");
         handBtn.addActionListener(e -> canvas.setActiveTool(new tools.HandTool()));
         
-        JButton stickBtn = new JButton("Stick");
+        JButton stickBtn = createIconButton("icon11.png", "Stick");
         stickBtn.addActionListener(e -> canvas.setActiveTool(new tools.StickTool()));
         
-        JButton p2pBtn = new JButton("P2P");
+        JButton p2pBtn = createIconButton("icon8.png", "P2P");
         p2pBtn.addActionListener(e -> canvas.setActiveTool(new tools.P2PTool()));
         
-        JButton gridBtn = new JButton("Grid");
+        JButton gridBtn = createIconButton("icon4.png", "Grid");
         gridBtn.addActionListener(e -> canvas.setActiveTool(new tools.GridTool(appState.getGridSize())));
         
-        JButton zoomBtn = new JButton("Zoom");
-        zoomBtn.addActionListener(e -> canvas.setActiveTool(new tools.ZoomCanvasTool()));
+        JButton zoomBtn = createIconButton("icon1.png", "Zoom");
+        zoomBtn.addActionListener(e -> {
+            if (canvas.getActiveTool() instanceof tools.ZoomCanvasTool) {
+                ((tools.ZoomCanvasTool) canvas.getActiveTool()).toggleMode();
+            } else {
+                canvas.setActiveTool(new tools.ZoomCanvasTool());
+            }
+        });
 
         toolBar.add(handBtn);
         toolBar.add(stickBtn);
@@ -289,11 +363,23 @@ public class MainFrame extends JFrame {
         
         toolBar.addSeparator();
         
+        // Data & Settings
+        JButton exportBtn = createIconButton("icon7.png", "Export to Excel");
+        exportBtn.addActionListener(e -> performExportToExcel());
+        
+        JButton settingsBtn = createIconButton("icon10.png", "Settings");
+        settingsBtn.addActionListener(e -> new ui.dialogs.SettingsDialog(this, appState).setVisible(true));
+        
+        toolBar.add(exportBtn);
+        toolBar.add(settingsBtn);
+        toolBar.addSeparator();
+        
         // Color
-        JButton colorBtn = new JButton(" Color ");
+        JButton colorBtn = new JButton("   ");
         colorBtn.setBackground(appState.getBrushColor());
         colorBtn.setOpaque(true);
         colorBtn.setBorderPainted(false);
+        colorBtn.setToolTipText("Select Brush Color");
         colorBtn.addActionListener(e -> {
             Color newColor = JColorChooser.showDialog(this, "Select Brush Color", appState.getBrushColor());
             if (newColor != null) {

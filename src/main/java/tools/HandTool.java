@@ -13,7 +13,7 @@ public class HandTool implements Tool {
 
     @Override
     public void onMousePressed(MouseEvent e, AppState appState, ImageCanvas canvas) {
-        dragStartPoint = e.getPoint();
+        dragStartPoint = e.getLocationOnScreen();
     }
 
     @Override
@@ -29,21 +29,34 @@ public class HandTool implements Tool {
                 JViewport viewport = (JViewport) parent;
                 Point viewPosition = viewport.getViewPosition();
                 
-                int dx = dragStartPoint.x - e.getX();
-                int dy = dragStartPoint.y - e.getY();
-                
-                viewPosition.translate(dx, dy);
+                Point currentScreen = e.getLocationOnScreen();
+                int dx = dragStartPoint.x - currentScreen.x;
+                int dy = dragStartPoint.y - currentScreen.y;
                 
                 // Keep the view bounded
-                int maxX = canvas.getWidth() - viewport.getWidth();
-                int maxY = canvas.getHeight() - viewport.getHeight();
+                int maxX = Math.max(0, canvas.getWidth() - viewport.getWidth());
+                int maxY = Math.max(0, canvas.getHeight() - viewport.getHeight());
                 
-                viewPosition.x = Math.max(0, Math.min(viewPosition.x, maxX));
-                viewPosition.y = Math.max(0, Math.min(viewPosition.y, maxY));
+                // If the canvas is smaller than the viewport in a dimension, panning the viewport does nothing.
+                // So we pan the image inside the canvas instead.
+                core.state.CanvasState cs = appState.getCanvasState();
+                
+                if (maxX == 0) {
+                    cs.setImageOffsetX(cs.getImageOffsetX() - dx);
+                } else {
+                    viewPosition.x = Math.max(0, Math.min(viewPosition.x + dx, maxX));
+                }
+                
+                if (maxY == 0) {
+                    cs.setImageOffsetY(cs.getImageOffsetY() - dy);
+                } else {
+                    viewPosition.y = Math.max(0, Math.min(viewPosition.y + dy, maxY));
+                }
                 
                 viewport.setViewPosition(viewPosition);
-                // Note: we don't update dragStartPoint because e.getX() is relative to the canvas,
-                // and translating the viewport changes the visible area but not the canvas coordinate system
+                canvas.repaint();
+                
+                dragStartPoint = currentScreen; // Update drag start
             }
         }
     }

@@ -15,15 +15,25 @@ public class P2PTool implements Tool {
     @Override
     public void onMousePressed(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (e.getButton() == MouseEvent.BUTTON1) {
-            startPoint = e.getPoint();
-            endPoint = e.getPoint();
+            startPoint = getAdjustedPoint(e.getPoint(), appState);
+            endPoint = startPoint;
         }
+    }
+
+    private Point getAdjustedPoint(Point p, AppState appState) {
+        int x = p.x - appState.getCanvasState().getImageOffsetX();
+        int y = p.y - appState.getCanvasState().getImageOffsetY();
+        if (appState.getCurrentZoom() != 1.0F) {
+            x = Math.round((float) x / appState.getCurrentZoom());
+            y = Math.round((float) y / appState.getCurrentZoom());
+        }
+        return new Point(x, y);
     }
 
     @Override
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (e.getButton() == MouseEvent.BUTTON1 && startPoint != null) {
-            endPoint = e.getPoint();
+            endPoint = getAdjustedPoint(e.getPoint(), appState);
             // TODO: Execute a P2PCommand to finalize the measurement line
             // Currently omitted for simplicity, as legacy code didn't even track it in the undo stack
             canvas.repaint();
@@ -34,7 +44,7 @@ public class P2PTool implements Tool {
     @Override
     public void onMouseDragged(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (startPoint != null) {
-            endPoint = e.getPoint();
+            endPoint = getAdjustedPoint(e.getPoint(), appState);
             canvas.repaint();
         }
     }

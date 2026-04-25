@@ -11,10 +11,30 @@ public class CanvasState {
     
     private final List<SPoint> stickyPoints;
     private final List<SPoint> grids;
+    
+    // Properties to allow free-floating small images on the canvas
+    private int imageOffsetX = 0;
+    private int imageOffsetY = 0;
 
     public CanvasState() {
         this.stickyPoints = new ArrayList<>();
         this.grids = new ArrayList<>();
+    }
+
+    public int getImageOffsetX() {
+        return imageOffsetX;
+    }
+
+    public void setImageOffsetX(int imageOffsetX) {
+        this.imageOffsetX = imageOffsetX;
+    }
+
+    public int getImageOffsetY() {
+        return imageOffsetY;
+    }
+
+    public void setImageOffsetY(int imageOffsetY) {
+        this.imageOffsetY = imageOffsetY;
     }
 
     public List<SPoint> getStickyPoints() {
