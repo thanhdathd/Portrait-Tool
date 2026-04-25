@@ -11,12 +11,14 @@ import java.awt.event.MouseMotionAdapter;
 import java.awt.image.BufferedImage;
 import userpackage.SPoint;
 import user.Enum.Direction;
+import ui.dialogs.ZoomWindow;
 
 public class ImageCanvas extends JPanel {
 
     private final AppState appState;
     private Tool activeTool;
     private BufferedImage backgroundImage;
+    private ZoomWindow zoomWindow;
 
     public ImageCanvas(AppState appState) {
         this.appState = appState;
@@ -44,8 +46,24 @@ public class ImageCanvas extends JPanel {
                 if (activeTool != null) {
                     activeTool.onMouseDragged(e, appState, ImageCanvas.this);
                 }
+                updateZoomWindow(e.getPoint());
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                updateZoomWindow(e.getPoint());
             }
         });
+    }
+
+    public void setZoomWindow(ZoomWindow zoomWindow) {
+        this.zoomWindow = zoomWindow;
+    }
+
+    private void updateZoomWindow(java.awt.Point p) {
+        if (zoomWindow != null && zoomWindow.isVisible() && backgroundImage != null) {
+            zoomWindow.updateImage(backgroundImage, p);
+        }
     }
 
     public void setActiveTool(Tool tool) {

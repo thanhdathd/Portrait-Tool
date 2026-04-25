@@ -56,11 +56,60 @@ public class MainFrame extends JFrame {
         });
         
         JMenuItem saveItem = new JMenuItem("Save");
+        saveItem.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                java.io.File file = chooser.getSelectedFile();
+                if (!file.getName().endsWith(".png")) {
+                    file = new java.io.File(file.getAbsolutePath() + ".png");
+                }
+                new workers.SaveWorker(canvas, file).execute();
+            }
+        });
+        
+        JMenuItem exportMatrixItem = new JMenuItem("Export Matrix...");
+        exportMatrixItem.addActionListener(e -> {
+            if (canvas.getBackgroundImage() == null) {
+                JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            JFileChooser chooser = new JFileChooser();
+            if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                java.io.File file = chooser.getSelectedFile();
+                if (!file.getName().endsWith(".png")) {
+                    file = new java.io.File(file.getAbsolutePath() + ".png");
+                }
+                
+                JProgressBar progress = new JProgressBar(0, 100);
+                progress.setStringPainted(true);
+                
+                JDialog progressDialog = new JDialog(this, "Exporting Matrix...", true);
+                progressDialog.setLayout(new BorderLayout(10, 10));
+                progressDialog.add(new JLabel("Processing Point Matrix..."), BorderLayout.NORTH);
+                progressDialog.add(progress, BorderLayout.CENTER);
+                progressDialog.pack();
+                progressDialog.setLocationRelativeTo(this);
+                
+                workers.ExportMatrixWorker worker = new workers.ExportMatrixWorker(
+                        canvas.getBackgroundImage(), appState.getCanvasState(), file, progress) {
+                    @Override
+                    protected void done() {
+                        super.done();
+                        progressDialog.dispose();
+                    }
+                };
+                
+                worker.execute();
+                progressDialog.setVisible(true); // Blocks until worker calls dispose
+            }
+        });
+
         JMenuItem exitItem = new JMenuItem("Exit");
         exitItem.addActionListener(e -> System.exit(0));
 
         fileMenu.add(openItem);
         fileMenu.add(saveItem);
+        fileMenu.add(exportMatrixItem);
         fileMenu.addSeparator();
         fileMenu.add(exitItem);
 
@@ -86,10 +135,33 @@ public class MainFrame extends JFrame {
         
         editMenu.add(undoItem);
         editMenu.add(redoItem);
+        editMenu.addSeparator();
+        
+        JMenuItem settingsItem = new JMenuItem("Settings...");
+        settingsItem.addActionListener(e -> {
+            new ui.dialogs.SettingsDialog(this, appState).setVisible(true);
+        });
+        editMenu.add(settingsItem);
 
         // View Menu
         JMenu viewMenu = new JMenu("View");
         viewMenu.setMnemonic(KeyEvent.VK_V);
+        
+        JMenuItem zoomItem = new JMenuItem("Toggle Zoom/Measure Calipers");
+        zoomItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        zoomItem.addActionListener(e -> {
+            if (canvas.getBackgroundImage() == null) {
+                JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            // Ideally we'd hold a single instance of ZoomWindow, but for now we create one and show it
+            ui.dialogs.ZoomWindow zoom = new ui.dialogs.ZoomWindow(this, appState);
+            canvas.setZoomWindow(zoom);
+            zoom.updateImage(canvas.getBackgroundImage(), new Point(canvas.getWidth()/2, canvas.getHeight()/2));
+            zoom.setVisible(true);
+            zoom.toggleMeasurement();
+        });
+        viewMenu.add(zoomItem);
 
         // Help Menu
         JMenu helpMenu = new JMenu("Help");
