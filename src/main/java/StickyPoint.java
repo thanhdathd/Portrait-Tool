@@ -909,96 +909,15 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     }
 
     public void redo() {
-        SPoint sp = this.imageFrame.reaction.pop();
-        this.imageFrame.action.push(sp);
-        int var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 66772508) {
-            this.imageFrame.redoClick();
-            this.stackAvailableSpaceNoitifier();
-            this.redoButton.setFocusable(false);
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 25251325) {
-            this.imageFrame.redoGrid();
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 1001001) {
-            FilterProperties fp = this.filterReAction.pop();
-            this.filterAction.push(fp);
-            this.imageFrame.redoFilter(fp);
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 2002002) {
-            this.imageFrame.redoTranform(sp.Y);
-            this.updateLayout();
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 3003001) {
-            this.imageFrame.FlipImg(0);
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 3003002) {
-            this.imageFrame.FlipImg(1);
-        }
-
-        this.imageFrame.currentAction = sp;
+        appState.getHistoryManager().redo();
+        this.buttonStateTracking();
+        this.menuItemStateTracking();
     }
 
     public void undo() {
-        SPoint sp = this.imageFrame.action.pop();
-        this.imageFrame.reaction.push(sp);
-        int var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 66772508) {
-            this.imageFrame.undoStick();
-            this.stackAvailableSpaceNoitifier();
-            this.undoButton.setFocusable(false);
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 25251325) {
-            this.imageFrame.undoGrid();
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 1001001) {
-            FilterProperties fp = this.filterAction.pop();
-            this.imageFrame.undoFilter(this.filterAction);
-            this.filterReAction.push(fp);
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 2002002) {
-            this.imageFrame.undoTranForm(sp.Y);
-            this.updateLayout();
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 3003001) {
-            this.imageFrame.FlipImg(0);
-        }
-
-        var10000 = sp.X;
-        this.imageFrame.getClass();
-        if (var10000 == 3003002) {
-            this.imageFrame.FlipImg(1);
-        }
-
+        appState.getHistoryManager().undo();
+        this.buttonStateTracking();
+        this.menuItemStateTracking();
     }
 
     public void exportStickPoint() {
@@ -1170,7 +1089,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     }
 
     private void menuItemStateTracking() {
-        if (this.imageFrame.action.isEmpty()) {
+        if (!appState.getHistoryManager().canUndo()) {
             this.Undo.setEnabled(false);
             this.imageFrame.undo.setEnabled(false);
         } else {
@@ -1178,7 +1097,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.undo.setEnabled(true);
         }
 
-        if (this.imageFrame.reaction.isEmpty()) {
+        if (!appState.getHistoryManager().canRedo()) {
             this.Redo.setEnabled(false);
             this.imageFrame.redo.setEnabled(false);
         } else {
@@ -1186,7 +1105,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.redo.setEnabled(true);
         }
 
-        if (this.imageFrame.s.isEmpty()) {
+        if (appState.getCanvasState().getStickyPoints().isEmpty()) {
             this.export.setEnabled(false);
             this.savepoint.setEnabled(false);
             this.menuImage.setEnabled(true);

@@ -1,6 +1,7 @@
 package core.state;
 
 import user.Enum.MouseMode;
+import core.history.HistoryManager;
 import java.awt.Color;
 
 public class AppState {
@@ -21,8 +22,20 @@ public class AppState {
     private EditState editState = EditState.SAVED;
     private Color brushColor = Color.CYAN;
     private boolean floating = false;
+    private final HistoryManager historyManager;
+    private final CanvasState canvasState;
 
     public AppState() {
+        this.historyManager = new HistoryManager(115);
+        this.canvasState = new CanvasState();
+    }
+
+    public HistoryManager getHistoryManager() {
+        return historyManager;
+    }
+
+    public CanvasState getCanvasState() {
+        return canvasState;
     }
 
     public boolean isFloating() {
