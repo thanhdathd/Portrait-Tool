@@ -8,17 +8,26 @@ import java.awt.Graphics2D;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
+import ui.dialogs.ZoomWindow;
+import ui.CustomCursors;
+import tools.HandTool;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import userpackage.SPoint;
 import user.Enum.Direction;
-import ui.dialogs.ZoomWindow;
 
 public class ImageCanvas extends JPanel {
 
     private final AppState appState;
     private Tool activeTool;
+    private Tool previousTool; // For spacebar toggle
+    private final HandTool globalHandTool = new HandTool();
     private BufferedImage backgroundImage;
     private ZoomWindow zoomWindow;
+    private static final int CHECKER_SIZE = 20;
 
     public ImageCanvas(AppState appState) {
         this.appState = appState;
@@ -54,6 +63,32 @@ public class ImageCanvas extends JPanel {
                 updateZoomWindow(e.getPoint());
             }
         });
+        
+        // KeyBindings for Spacebar to temporary toggle HandTool
+        InputMap im = this.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap am = this.getActionMap();
+        
+        im.put(KeyStroke.getKeyStroke("pressed SPACE"), "spacePressed");
+        am.put("spacePressed", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (activeTool != globalHandTool) {
+                    previousTool = activeTool;
+                    setActiveTool(globalHandTool);
+                }
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke("released SPACE"), "spaceReleased");
+        am.put("spaceReleased", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (previousTool != null) {
+                    setActiveTool(previousTool);
+                    previousTool = null;
+                }
+            }
+        });
     }
 
     public void setZoomWindow(ZoomWindow zoomWindow) {
@@ -62,22 +97,52 @@ public class ImageCanvas extends JPanel {
 
     private void updateZoomWindow(java.awt.Point p) {
         if (zoomWindow != null && zoomWindow.isVisible() && backgroundImage != null) {
-            zoomWindow.updateImage(backgroundImage, p);
+            // zoomWindow expects coordinates relative to the unscaled image
+            Point unscaledP = new Point(
+                    Math.round(p.x / appState.getCurrentZoom()),
+                    Math.round(p.y / appState.getCurrentZoom())
+            );
+            zoomWindow.updateImage(backgroundImage, unscaledP);
         }
     }
 
     public void setActiveTool(Tool tool) {
         this.activeTool = tool;
+        updateCursor();
+    }
+    
+    private void updateCursor() {
+        if (activeTool instanceof HandTool) {
+            setCursor(CustomCursors.HAND_CURSOR);
+        } else if (activeTool instanceof tools.StickTool) {
+            setCursor(CustomCursors.STICK_CURSOR);
+        } else if (activeTool instanceof tools.P2PTool) {
+            setCursor(CustomCursors.P2P_CURSOR);
+        } else if (activeTool instanceof tools.ZoomCanvasTool) {
+            // Note: we'd need a way to distinguish ZoomIn vs ZoomOut based on state or modifier keys, 
+            // but for now default to ZoomIn cursor for the Zoom tool mode.
+            setCursor(CustomCursors.ZOOM_IN_CURSOR);
+        } else {
+            setCursor(CustomCursors.DEFAULT_CURSOR);
+        }
     }
     
     public Tool getActiveTool() {
         return activeTool;
     }
 
+    @Override
+    public Dimension getPreferredSize() {
+        if (backgroundImage != null) {
+            float zoom = appState.getCurrentZoom();
+            return new Dimension((int) (backgroundImage.getWidth() * zoom), (int) (backgroundImage.getHeight() * zoom));
+        }
+        return super.getPreferredSize();
+    }
+
     public void setBackgroundImage(BufferedImage image) {
         this.backgroundImage = image;
         if (image != null) {
-            this.setPreferredSize(new java.awt.Dimension(image.getWidth(), image.getHeight()));
             this.revalidate();
         }
         this.repaint();
@@ -90,7 +155,31 @@ public class ImageCanvas extends JPanel {
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g;
+        Graphics2D g2d = (Graphics2D) g.create();
+        
+        // Draw Checkerboard Background
+        int viewWidth = getWidth();
+        int viewHeight = getHeight();
+        Container parent = SwingUtilities.getUnwrappedParent(this);
+        if (parent instanceof JViewport) {
+            viewWidth = Math.max(viewWidth, parent.getWidth());
+            viewHeight = Math.max(viewHeight, parent.getHeight());
+        }
+        
+        g2d.setColor(Color.LIGHT_GRAY);
+        g2d.fillRect(0, 0, viewWidth, viewHeight);
+        g2d.setColor(Color.WHITE);
+        for (int y = 0; y < viewHeight; y += CHECKER_SIZE) {
+            for (int x = 0; x < viewWidth; x += CHECKER_SIZE) {
+                if (((x / CHECKER_SIZE) ^ (y / CHECKER_SIZE)) % 2 == 0) {
+                    g2d.fillRect(x, y, CHECKER_SIZE, CHECKER_SIZE);
+                }
+            }
+        }
+        
+        // Apply Zoom Transform
+        float zoom = appState.getCurrentZoom();
+        g2d.scale(zoom, zoom);
         
         // 1. Draw Background Image
         if (backgroundImage != null) {
@@ -106,7 +195,13 @@ public class ImageCanvas extends JPanel {
         for (SPoint p : appState.getCanvasState().getStickyPoints()) {
             g2d.setColor(p.c);
             g2d.fillRect(p.X - 1, p.Y - 1, 2, 2);
-            // Label rendering simplified for now
+            
+            // Adjust label font size back so it doesn't scale massively with zoom
+            // Keep font size constant on screen
+            Font originalFont = g2d.getFont();
+            g2d.setFont(originalFont.deriveFont(originalFont.getSize() / zoom));
+            
+            // Label rendering
             if (p.dr == Direction.EAST) {
                 g2d.drawString(String.valueOf(p.id), p.X + 12, p.Y + 12);
             } else if (p.dr == Direction.WEST) {
@@ -116,6 +211,8 @@ public class ImageCanvas extends JPanel {
             } else {
                 g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y - 12);
             }
+            
+            g2d.setFont(originalFont);
         }
         
         // 4. Draw Grids
@@ -125,9 +222,8 @@ public class ImageCanvas extends JPanel {
             int xR = grid.X;
             int yR = grid.Y;
             
-            // Simplified grid rendering
-            int width = this.getWidth() > 0 ? this.getWidth() : 800;
-            int height = this.getHeight() > 0 ? this.getHeight() : 600;
+            int width = backgroundImage != null ? backgroundImage.getWidth() : (this.getWidth() > 0 ? this.getWidth() : 800);
+            int height = backgroundImage != null ? backgroundImage.getHeight() : (this.getHeight() > 0 ? this.getHeight() : 600);
             
             for (int x = xR; x < width; x += gridSize) {
                 g2d.drawLine(x, 0, x, height);
@@ -142,5 +238,7 @@ public class ImageCanvas extends JPanel {
                 g2d.drawLine(0, y, width, y);
             }
         }
+        
+        g2d.dispose();
     }
 }
