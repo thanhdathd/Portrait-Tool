@@ -10,8 +10,6 @@ import java.awt.event.MouseEvent;
 
 public class StickTool implements Tool {
 
-    private int clickCount = 0;
-
     @Override
     public void onMousePressed(MouseEvent e, AppState appState, ImageCanvas canvas) {
         // Sticky point placement relies on mouse release in the original implementation
@@ -20,7 +18,13 @@ public class StickTool implements Tool {
     @Override
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (e.getButton() == MouseEvent.BUTTON1) {
-            clickCount++;
+            int nextId = 1;
+            for (SPoint p : appState.getCanvasState().getStickyPoints()) {
+                if (p.id >= nextId) {
+                    nextId = p.id + 1;
+                }
+            }
+            
             int x = e.getX() - appState.getCanvasState().getImageOffsetX();
             int y = e.getY() - appState.getCanvasState().getImageOffsetY();
             
@@ -31,7 +35,7 @@ public class StickTool implements Tool {
             }
 
             // Create point and push to history
-            SPoint point = new SPoint(clickCount, x, y, appState.getBrushColor()); // numLocation is EAST by default
+            SPoint point = new SPoint(nextId, x, y, appState.getBrushColor()); // numLocation is EAST by default
             StickCommand command = new StickCommand(appState.getCanvasState(), null, point); // ImgFrame is null because we decouple it
             appState.getHistoryManager().push(command);
             canvas.repaint();

@@ -29,6 +29,7 @@ public class ImageCanvas extends JPanel {
     private ZoomWindow zoomWindow;
     private static final int CHECKER_SIZE = 20;
     private boolean drawLabels = true;
+    private boolean isShiftDown = false;
 
     public ImageCanvas(AppState appState) {
         this.appState = appState;
@@ -90,6 +91,20 @@ public class ImageCanvas extends JPanel {
                 }
             }
         });
+        
+        // Listen for SHIFT to update Zoom cursor
+        KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
+            if (e.getKeyCode() == KeyEvent.VK_SHIFT) {
+                boolean shiftNow = (e.getID() == KeyEvent.KEY_PRESSED);
+                if (isShiftDown != shiftNow) {
+                    isShiftDown = shiftNow;
+                    if (activeTool instanceof tools.ZoomCanvasTool) {
+                        updateCursor();
+                    }
+                }
+            }
+            return false;
+        });
     }
 
     public void setZoomWindow(ZoomWindow zoomWindow) {
@@ -115,17 +130,25 @@ public class ImageCanvas extends JPanel {
         updateCursor();
     }
     
-    private void updateCursor() {
+    public void updateCursor() {
         if (activeTool instanceof HandTool) {
             setCursor(CustomCursors.HAND_CURSOR);
         } else if (activeTool instanceof tools.StickTool) {
             setCursor(CustomCursors.STICK_CURSOR);
         } else if (activeTool instanceof tools.P2PTool) {
             setCursor(CustomCursors.P2P_CURSOR);
+        } else if (activeTool instanceof tools.GridTool) {
+            setCursor(CustomCursors.GRID_CURSOR);
         } else if (activeTool instanceof tools.ZoomCanvasTool) {
-            // Note: we'd need a way to distinguish ZoomIn vs ZoomOut based on state or modifier keys, 
-            // but for now default to ZoomIn cursor for the Zoom tool mode.
-            setCursor(CustomCursors.ZOOM_IN_CURSOR);
+            boolean isZoomIn = ((tools.ZoomCanvasTool) activeTool).isZoomInMode();
+            
+            // Invert if SHIFT is currently held
+            if (isShiftDown) {
+                isZoomIn = !isZoomIn;
+            }
+            
+            setCursor(isZoomIn ? CustomCursors.ZOOM_IN_CURSOR : CustomCursors.ZOOM_OUT_CURSOR);
+            
         } else {
             setCursor(CustomCursors.DEFAULT_CURSOR);
         }
@@ -139,7 +162,18 @@ public class ImageCanvas extends JPanel {
     public Dimension getPreferredSize() {
         if (backgroundImage != null) {
             float zoom = appState.getCurrentZoom();
-            return new Dimension((int) (backgroundImage.getWidth() * zoom), (int) (backgroundImage.getHeight() * zoom));
+            int imgWidth = (int) (backgroundImage.getWidth() * zoom);
+            int imgHeight = (int) (backgroundImage.getHeight() * zoom);
+            
+            Container parent = SwingUtilities.getUnwrappedParent(this);
+            if (parent instanceof JViewport) {
+                JViewport viewport = (JViewport) parent;
+                return new Dimension(
+                    Math.max(imgWidth, viewport.getWidth()),
+                    Math.max(imgHeight, viewport.getHeight())
+                );
+            }
+            return new Dimension(imgWidth, imgHeight);
         }
         return super.getPreferredSize();
     }

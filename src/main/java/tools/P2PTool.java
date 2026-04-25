@@ -6,9 +6,21 @@ import ui.canvas.ImageCanvas;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.List;
 
 public class P2PTool implements Tool {
 
+    private static class Line {
+        Point start;
+        Point end;
+        Line(Point start, Point end) {
+            this.start = start;
+            this.end = end;
+        }
+    }
+
+    private final List<Line> completedLines = new ArrayList<>();
     private Point startPoint;
     private Point endPoint;
 
@@ -34,10 +46,10 @@ public class P2PTool implements Tool {
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (e.getButton() == MouseEvent.BUTTON1 && startPoint != null) {
             endPoint = getAdjustedPoint(e.getPoint(), appState);
-            // TODO: Execute a P2PCommand to finalize the measurement line
-            // Currently omitted for simplicity, as legacy code didn't even track it in the undo stack
+            completedLines.add(new Line(startPoint, endPoint));
             canvas.repaint();
             startPoint = null;
+            endPoint = null;
         }
     }
 
@@ -51,17 +63,24 @@ public class P2PTool implements Tool {
 
     @Override
     public void onPaint(Graphics2D g2d, AppState appState, ImageCanvas canvas) {
-        if (startPoint != null && endPoint != null) {
-            g2d.setColor(appState.getBrushColor());
-            g2d.drawLine(startPoint.x, startPoint.y, endPoint.x, endPoint.y);
-            
-            // Draw measurement text
-            int dx = endPoint.x - startPoint.x;
-            int dy = endPoint.y - startPoint.y;
-            float distance = (float) Math.sqrt(dx * dx + dy * dy);
-            
-            // Scale and draw logic here (simplified)
-            g2d.drawString(String.format("%.2f px", distance), endPoint.x + 10, endPoint.y);
+        g2d.setColor(appState.getBrushColor());
+        
+        // Draw completed lines
+        for (Line line : completedLines) {
+            drawLine(g2d, line.start, line.end);
         }
+        
+        // Draw active drag line
+        if (startPoint != null && endPoint != null) {
+            drawLine(g2d, startPoint, endPoint);
+        }
+    }
+    
+    private void drawLine(Graphics2D g2d, Point p1, Point p2) {
+        g2d.drawLine(p1.x, p1.y, p2.x, p2.y);
+        int dx = p2.x - p1.x;
+        int dy = p2.y - p1.y;
+        float distance = (float) Math.sqrt(dx * dx + dy * dy);
+        g2d.drawString(String.format("%.2f px", distance), p2.x + 10, p2.y);
     }
 }
