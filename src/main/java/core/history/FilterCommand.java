@@ -1,21 +1,21 @@
 package core.history;
 
 import filter.FilterProperties;
-import userpackage.ImgFrame;
+// import userpackage.ImgFrame;
 
 public class FilterCommand implements Command {
 
-    private final ImgFrame imgFrame;
+    // private final ImgFrame imgFrame;
     private final FilterProperties fp;
 
-    public FilterCommand(ImgFrame imgFrame, FilterProperties fp) {
-        this.imgFrame = imgFrame;
+    public FilterCommand(/*ImgFrame imgFrame,*/ FilterProperties fp) {
+        // this.imgFrame = imgFrame;
         this.fp = fp;
     }
 
     @Override
     public void execute() {
-        imgFrame.redoFilter(fp);
+        // imgFrame.redoFilter(fp);
     }
 
     @Override
