@@ -5,6 +5,7 @@ import ui.canvas.ImageCanvas;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
 
 public class MainFrame extends JFrame {
 
@@ -35,6 +36,25 @@ public class MainFrame extends JFrame {
         fileMenu.setMnemonic(KeyEvent.VK_F);
         
         JMenuItem openItem = new JMenuItem("Open");
+        openItem.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                java.io.File file = chooser.getSelectedFile();
+                
+                // Show loading state
+                setTitle("Portrait Tool Modernized - Loading...");
+                
+                new workers.ImageLoadWorker(file, image -> {
+                    canvas.setBackgroundImage(image);
+                    appState.setFilePath(file.getAbsolutePath());
+                    setTitle("Portrait Tool Modernized - " + file.getName());
+                }, ex -> {
+                    JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    setTitle("Portrait Tool Modernized");
+                }).execute();
+            }
+        });
+        
         JMenuItem saveItem = new JMenuItem("Save");
         JMenuItem exitItem = new JMenuItem("Exit");
         exitItem.addActionListener(e -> System.exit(0));
@@ -89,9 +109,29 @@ public class MainFrame extends JFrame {
         helpMenu.add(keyAssistItem);
         helpMenu.add(aboutItem);
 
+        // Image Menu
+        JMenu imageMenu = new JMenu("Image");
+        imageMenu.setMnemonic(KeyEvent.VK_I);
+        
+        JMenuItem filterItem = new JMenuItem("Filters...");
+        filterItem.addActionListener(e -> {
+            BufferedImage currentImage = canvas.getBackgroundImage();
+            if (currentImage != null) {
+                new ui.dialogs.FilterDialog(this, currentImage, (newImage) -> {
+                    // Apply lambda
+                    core.history.Command filterCmd = new core.history.FilterCommand(canvas, currentImage, newImage);
+                    appState.getHistoryManager().push(filterCmd);
+                }).setVisible(true);
+            } else {
+                JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+            }
+        });
+        imageMenu.add(filterItem);
+
         menuBar.add(fileMenu);
         menuBar.add(editMenu);
         menuBar.add(viewMenu);
+        menuBar.add(imageMenu);
         menuBar.add(helpMenu);
 
         setJMenuBar(menuBar);

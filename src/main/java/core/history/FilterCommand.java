@@ -1,26 +1,28 @@
 package core.history;
 
-import filter.FilterProperties;
-// import userpackage.ImgFrame;
+import ui.canvas.ImageCanvas;
+
+import java.awt.image.BufferedImage;
 
 public class FilterCommand implements Command {
 
-    // private final ImgFrame imgFrame;
-    private final FilterProperties fp;
+    private final ImageCanvas canvas;
+    private final BufferedImage oldImage;
+    private final BufferedImage newImage;
 
-    public FilterCommand(/*ImgFrame imgFrame,*/ FilterProperties fp) {
-        // this.imgFrame = imgFrame;
-        this.fp = fp;
+    public FilterCommand(ImageCanvas canvas, BufferedImage oldImage, BufferedImage newImage) {
+        this.canvas = canvas;
+        this.oldImage = oldImage;
+        this.newImage = newImage;
     }
 
     @Override
     public void execute() {
-        // imgFrame.redoFilter(fp);
+        canvas.setBackgroundImage(newImage);
     }
 
     @Override
     public void undo() {
-        // imgFrame.undoFilter historically required the stack, but we can pass fp or modify it later
-        // imgFrame.undoFilterCommand(fp);
+        canvas.setBackgroundImage(oldImage);
     }
 }

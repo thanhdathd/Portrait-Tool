@@ -65,6 +65,10 @@ public class ImageCanvas extends JPanel {
         this.repaint();
     }
 
+    public BufferedImage getBackgroundImage() {
+        return backgroundImage;
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);

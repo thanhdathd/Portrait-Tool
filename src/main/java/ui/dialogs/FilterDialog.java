@@ -8,20 +8,22 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.util.function.Consumer;
 
+import workers.FilterWorker;
+
 public class FilterDialog extends JDialog {
 
     private final BufferedImage originalImage;
-    private final Consumer<FilterProperties> onApply;
-    private final Consumer<FilterProperties> onPreview;
+    private final Consumer<BufferedImage> onApply;
 
     private JSlider redSlider, greenSlider, blueSlider, alphaSlider, graySlider;
     private JComboBox<String> filterModeCombo;
     private JLabel previewLabel;
+    
+    private FilterWorker currentWorker; // Keep track to avoid too many running
 
-    public FilterDialog(Frame owner, BufferedImage image, Consumer<FilterProperties> onPreview, Consumer<FilterProperties> onApply) {
+    public FilterDialog(Frame owner, BufferedImage image, Consumer<BufferedImage> onApply) {
         super(owner, "Image Filters", false); // Non-modal so user can see main canvas
         this.originalImage = image;
-        this.onPreview = onPreview;
         this.onApply = onApply;
 
         setupUI();
@@ -72,10 +74,16 @@ public class FilterDialog extends JDialog {
         JButton btnCancel = new JButton("Cancel");
 
         btnApply.addActionListener(e -> {
-            if (onApply != null) {
-                onApply.accept(getCurrentProperties());
-            }
-            dispose();
+            btnApply.setEnabled(false);
+            btnApply.setText("Applying...");
+            
+            // Run full apply in background
+            new FilterWorker(originalImage, getCurrentProperties(), result -> {
+                if (onApply != null) {
+                    onApply.accept(result);
+                }
+                dispose();
+            }).execute();
         });
 
         btnCancel.addActionListener(e -> dispose());
@@ -117,11 +125,26 @@ public class FilterDialog extends JDialog {
     }
 
     private void firePreviewUpdate() {
-        if (onPreview != null) {
-            onPreview.accept(getCurrentProperties());
+        if (originalImage == null) return;
+        
+        FilterProperties props = getCurrentProperties();
+        
+        // Cancel the old worker if it's still running
+        if (currentWorker != null && !currentWorker.isDone()) {
+            currentWorker.cancel(true);
         }
-        // Locally, we would also update previewLabel, but doing that synchronously here 
-        // with the old FilteredImageSource would lock the EDT. 
-        // We will wire this up to SwingWorker later.
+        
+        // Scale down original image for faster live preview processing
+        Image scaledSource = originalImage.getScaledInstance(300, 300, Image.SCALE_SMOOTH);
+        BufferedImage previewSource = new BufferedImage(300, 300, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = previewSource.createGraphics();
+        g2.drawImage(scaledSource, 0, 0, null);
+        g2.dispose();
+        
+        // Spawn a background worker just for the live preview window
+        currentWorker = new FilterWorker(previewSource, props, resultImage -> {
+            previewLabel.setIcon(new ImageIcon(resultImage));
+        });
+        currentWorker.execute();
     }
 }
