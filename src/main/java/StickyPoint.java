@@ -109,7 +109,6 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     MenuItem enItem;
     CheckboxMenuItem stateBarChk;
     CheckboxMenuItem ctrlPnlChk;
-    String filePath;
     File curF;
     Image img;
     ImgFrame imageFrame;
@@ -140,21 +139,14 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     private Panel currentColorWarper;
     private TextField state;
     private TextField currentZoomState;
-    public EditState editstate;
+    public core.state.AppState appState = new core.state.AppState();
     private FStack filterAction;
     private FStack filterReAction;
     public Point _start;
     public Point currentScrollPosition;
     private boolean dragMode;
-    private float currentZoom;
-    private float scale;
     private Point currentMousePosition;
-    private MouseMode mouseMode;
-    private boolean floating;
-    private boolean cmUnit;
-    private boolean viLang;
     private boolean cmMeaUnit;
-    private boolean round;
     private boolean autoLoad;
     private int zW;
     private int zH;
@@ -197,16 +189,16 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         this.Alt = Key.NONE_PRESSED;
         this.Shf = Key.NONE_PRESSED;
         this.clickCount = 0;
-        this.filePath = "Untitled-00.jpg";
-        this.editstate = StickyPoint.EditState.SAVED;
+        appState.setFilePath("Untitled-00.jpg");
+        appState.setEditState(core.state.AppState.EditState.SAVED);
         this.filterAction = new FStack(115, "Filter Action", true);
         this.filterReAction = new FStack(115, "Filter ReAction", true);
         this.dragMode = true;
-        this.currentZoom = 1.0F;
-        this.scale = 1.0F;
+        appState.setCurrentZoom(1.0F);
+        appState.setScale(1.0F);
         this.currentMousePosition = new Point(0, 0);
-        this.mouseMode = MouseMode.DRAG;
-        this.floating = false;
+        appState.setMouseMode(MouseMode.DRAG);
+        appState.setFloating(false);
         this.ab_ck = false;
         this.cm_ck = false;
         this.not_support_format_export_file = "File formart not supported";
@@ -236,19 +228,19 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         this.filter_08 = "Image in Gray Filter with Red Chanel off, Gray level 255 - (Preview)";
         this.filter_09 = "Image in Gray Filter with Red Chanel off, Gray level 16 - (Preview)";
         this.filter_00 = "Reset layout!";
-        this.cmUnit = false;
-        this.viLang = false;
+        appState.setCmUnit(false);
+        appState.setViLang(false);
         this.cmMeaUnit = true;
-        this.round = false;
+        appState.setRound(false);
         this.autoLoad = true;
         this.zW = 550;
         this.zH = 500;
         this.setLayout(new BorderLayout(0, 0));
         this.setMinimumSize(new Dimension(640, 525));
-        this.img = this.getToolkit().getImage(this.filePath);
+        this.img = this.getToolkit().getImage(appState.getFilePath());
         this.imageFrame = new ImgFrame(this.img);
         this.imageFrame.setFocusable(true);
-        this.imageFrame.scale = this.scale;
+        this.imageFrame.scale = appState.getScale();
         this.imageFrame.setFrame(this);
         this.imageFrame.setAPP_NAME("Portrait Tool 1.05 - ");
         this.imgScrollPane = new ImageScrollPane(this.imageFrame);
@@ -642,15 +634,15 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
 
                 this.state.setText(this.imageFrame.noity);
                 if (this.imageFrame.noity != this.unknow_file_format_img_save) {
-                    this.editstate = StickyPoint.EditState.SAVED;
+                    appState.setEditState(core.state.AppState.EditState.SAVED);
                 } else {
-                    this.editstate = StickyPoint.EditState.NOT_SAVED;
+                    appState.setEditState(core.state.AppState.EditState.NOT_SAVED);
                 }
             } else {
                 Noitifier.printConsole("Save cancel");
                 this.state.setBackground(Color.WHITE);
                 this.state.setText(this.save_cancel);
-                this.editstate = StickyPoint.EditState.NOT_SAVED;
+                appState.setEditState(core.state.AppState.EditState.NOT_SAVED);
             }
         }
 
@@ -663,9 +655,9 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         }
 
         if (this.imageFrame.action.isEmpty()) {
-            this.editstate = StickyPoint.EditState.SAVED;
+            appState.setEditState(core.state.AppState.EditState.SAVED);
         } else {
-            this.editstate = StickyPoint.EditState.MODIFIED;
+            appState.setEditState(core.state.AppState.EditState.MODIFIED);
         }
 
         if (e.getSource() == this.export || e.getSource() == this.exportButton) {
@@ -685,15 +677,15 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         }
 
         if (e.getSource() == this.viItem) {
-            this.viLang = true;
+            appState.setViLang(true);
             this.imageFrame.viLang = true;
-            this.setLanguage(this.viLang);
+            this.setLanguage(appState.isViLang());
         }
 
         if (e.getSource() == this.enItem) {
-            this.viLang = false;
+            appState.setViLang(false);
             this.imageFrame.viLang = false;
-            this.setLanguage(this.viLang);
+            this.setLanguage(appState.isViLang());
         }
 
         if (e.getSource() == this.rotateCW || e.getSource() == this.imageFrame.CW90) {
@@ -703,10 +695,10 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.action.push(p);
             this.imageFrame.reaction.popAll();
             if (this.imageFrame.w < this.editPanel.getWidth() || this.imageFrame.h < this.editPanel.getHeight()) {
-                this.floating = true;
+                appState.setFloating(true);
             }
 
-            if (this.floating) {
+            if (appState.isFloating()) {
                 this.floattingScrPanel();
             }
 
@@ -723,10 +715,10 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.action.push(p);
             this.imageFrame.reaction.popAll();
             if (this.imageFrame.w < this.editPanel.getWidth() || this.imageFrame.h < this.editPanel.getHeight()) {
-                this.floating = true;
+                appState.setFloating(true);
             }
 
-            if (this.floating) {
+            if (appState.isFloating()) {
                 this.floattingScrPanel();
             }
 
@@ -777,7 +769,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             Runtime run = Runtime.getRuntime();
 
             try {
-                run.exec("mspaint.exe " + this.filePath);
+                run.exec("mspaint.exe " + appState.getFilePath());
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
@@ -792,7 +784,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                 this.openZoomBox();
                 this.Shf = Key.NONE_PRESSED;
             } else {
-                if (this.mouseMode != MouseMode.ZOOM) {
+                if (appState.getMouseMode() != MouseMode.ZOOM) {
                     this.imageFrame.changeZoomMode(true);
                 } else if (this.imageFrame.zoom) {
                     this.imageFrame.changeZoomMode(false);
@@ -801,7 +793,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                 }
 
                 this.dragMode = false;
-                this.mouseMode = MouseMode.ZOOM;
+                appState.setMouseMode(MouseMode.ZOOM);
                 this.buttonStateTracking();
             }
         }
@@ -810,28 +802,28 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.changeDragMode();
             this.buttonStateTracking();
             this.dragMode = true;
-            this.mouseMode = MouseMode.DRAG;
+            appState.setMouseMode(MouseMode.DRAG);
         }
 
         if (e.getSource() == this.stickButton) {
             this.imageFrame.changeStickMode();
             this.buttonStateTracking();
             this.dragMode = false;
-            this.mouseMode = MouseMode.STICK;
+            appState.setMouseMode(MouseMode.STICK);
         }
 
         if (e.getSource() == this.gridButton) {
             this.imageFrame.changeGridMode();
             this.buttonStateTracking();
             this.dragMode = false;
-            this.mouseMode = MouseMode.GRID;
+            appState.setMouseMode(MouseMode.GRID);
         }
 
         if (e.getSource() == this.pointButton) {
             this.imageFrame.changeP2PMode();
             this.buttonStateTracking();
             this.dragMode = false;
-            this.mouseMode = MouseMode.P2P;
+            appState.setMouseMode(MouseMode.P2P);
             this.printScale(this.imageFrame.scale);
             Noitifier.printConsole("P 2 P pressed");
         }
@@ -851,7 +843,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
 
         layoutUpdater.start(); // reuse, không tạo mới
 
-        this.floating = true;
+        appState.setFloating(true);
         System.out.println("Update layout called");
     }
 
@@ -867,7 +859,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.action.push(p);
             this.imageFrame.reaction.popAll();
             this.imageFrame.tranformReAction.clear();
-            this.editstate = StickyPoint.EditState.MODIFIED;
+            appState.setEditState(core.state.AppState.EditState.MODIFIED);
             this.buttonStateTracking();
             this.state.setBackground(WHITE);
             this.state.setText("Resize Image !!");
@@ -882,7 +874,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     }
 
     private void openKeyAss() {
-        KeyAssistBox keyAssBox = new KeyAssistBox(this, "Key Assist", false, this.viLang);
+        KeyAssistBox keyAssBox = new KeyAssistBox(this, "Key Assist", false, appState.isViLang());
         keyAssBox.box.setVisible(true);
     }
 
@@ -904,7 +896,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.action.push(act);
             this.imageFrame.setFiltered(i);
             this.imageFrame.reaction.popAll();
-            this.editstate = StickyPoint.EditState.MODIFIED;
+            appState.setEditState(core.state.AppState.EditState.MODIFIED);
             this.buttonStateTracking();
             this.state.setBackground(WHITE);
             this.state.setText(fp.toString());
@@ -1035,14 +1027,14 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         File f = new File(file_path);
         if (f.exists()) {
             Noitifier.printConsole("---------->Flie is okey:" + f.getName());
-            this.filePath = file_path;
+            appState.setFilePath(file_path);
             this.zoomButton.setEnabled(true);
             this.gridButton.setEnabled(true);
             this.pointButton.setEnabled(true);
             this.filterButton.setEnabled(true);
             this.menuImage.setEnabled(true);
             this.imageFrame.menuImage.setEnabled(true);
-            this.createImg(this.filePath);
+            this.createImg(appState.getFilePath());
             this.myTracker.addImage(this.img, 0);
 
             try {
@@ -1053,25 +1045,25 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             }
 
             this.imageFrame.updateImg(this.img);
-            this.imageFrame.setPath(this.filePath);
+            this.imageFrame.setPath(appState.getFilePath());
             this.imageFrame.resetAll();
-            this.currentZoom = 1.0F;
+            appState.setCurrentZoom(1.0F);
             this.currentZoomState.setText("100%");
             this.stackAvailableSpaceNoitifier();
             if (this.imageFrame.w >= this.getWidth() && this.imageFrame.h >= this.getHeight()) {
                 this.fixed();
             } else {
-                this.floating = true;
+                appState.setFloating(true);
             }
 
-            if (this.floating) {
+            if (appState.isFloating()) {
                 this.imgScrollPane.layoutContent(new Point(0, 0));
             }
 
             this.imgScrollPane.doLayout();
             this.doLayout();
             this.state.setBackground(LIGHT_GREEN);
-            this.state.setText(this.file_opened + this.filePath);
+            this.state.setText(this.file_opened + appState.getFilePath());
             if (this.myTracker.statusID(0, true) == 8) {
                 this.imgScrollPane.repaint();
                 this.imageFrame.updateBuffer();
@@ -1079,13 +1071,13 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                 this.imgScrollPane.setScrollPosition(0, 0);
                 Noitifier.printConsole("imageFrame Size:" + this.imageFrame.getSize());
                 Noitifier.printConsole("img size:" + this.img.getWidth(this.getParent()) + "," + this.img.getHeight(this.getParent()));
-                Noitifier.printConsole("Openfile - floating:" + this.floating);
+                Noitifier.printConsole("Openfile - floating:" + appState.isFloating());
                 this.openButton.setFocusable(false);
                 this.imageFrame.setFocusable(true);
             }
 
             this.updateWindowTitle();
-            Noitifier.printConsole("Path:" + this.filePath);
+            Noitifier.printConsole("Path:" + appState.getFilePath());
         } else {
             Noitifier.printConsole("File not exist");
             this.state.setBackground(LIGHT_RED);
@@ -1095,7 +1087,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     }
 
     public void updateWindowTitle() {
-        this.setTitle("Portrait Tool 1.05 - " + this.filePath + "  -  " + this.imageFrame.getBufferedImage().getWidth() + "x" + this.imageFrame.getBufferedImage().getHeight());
+        this.setTitle("Portrait Tool 1.05 - " + appState.getFilePath() + "  -  " + this.imageFrame.getBufferedImage().getWidth() + "x" + this.imageFrame.getBufferedImage().getHeight());
     }
 
     public void buttonStateTracking() {
@@ -1206,7 +1198,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.menuImage.setEnabled(false);
         }
 
-        if (this.filePath == "Untitled-00.jpg") {
+        if (appState.getFilePath() == "Untitled-00.jpg") {
             this.menuImage.setEnabled(false);
             this.imageFrame.menuImage.setEnabled(false);
         }
@@ -1215,11 +1207,11 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
 
     public void openZoomBox() {
         if (this.imageFrame.zoomdialog != null) {
-            this.scale = this.imageFrame.zoomdialog.iz.scale;
+            appState.setScale(this.imageFrame.zoomdialog.iz.scale);
             this.ab_ck = this.imageFrame.zoomdialog.absoluteUnit_check;
             this.cm_ck = this.imageFrame.zoomdialog.cmIndicate_check;
-            this.imageFrame.scale = this.scale;
-            Noitifier.printConsole("scale:" + this.scale);
+            this.imageFrame.scale = appState.getScale();
+            Noitifier.printConsole("scale:" + appState.getScale());
         }
 
         if (!this.imageFrame.zoomBoxOpened) {
@@ -1232,7 +1224,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
 
     public void openSetting() {
         SettingDialog set = new SettingDialog(this, this.setting_dialog_title, true, this.imageFrame.getBrushColor(), this.imageFrame.stSize, this.imageFrame.gridAmount, this.imageFrame.scale);
-        set.initialFeilds(this.viLang, this.cmUnit, this.cmMeaUnit, this.round, this.autoLoad, this.zW, this.zH);
+        set.initialFeilds(appState.isViLang(), appState.isCmUnit(), this.cmMeaUnit, appState.isRound(), this.autoLoad, this.zW, this.zH);
         set.setVisible(true);
         if (set.action == "OK") {
             this.imageFrame.setBrushColor(set.getColor());
@@ -1244,12 +1236,12 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.gridAmount = set.getGridSize();
             set.getGridSize();
             this.imageFrame.scale = set.getScale();
-            this.scale = set.getScale();
-            this.viLang = set.getLanguage();
-            this.setLanguage(this.viLang);
-            this.cmUnit = set.getcmUnit();
+            appState.setScale(set.getScale());
+            appState.setViLang(set.getLanguage());
+            this.setLanguage(appState.isViLang());
+            appState.setCmUnit(set.getcmUnit());
             this.cmMeaUnit = set.getCmMeasureUnit();
-            this.round = set.getRound();
+            appState.setRound(set.getRound());
             this.autoLoad = set.getAutoLoad();
             if (this.zW >= 200 && this.zH >= 200 && this.zH <= 700 && this.zW <= 1200) {
                 this.zW = set.zW;
@@ -1259,22 +1251,22 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                 this.zH = 500;
             }
 
-            this.imageFrame.round = this.round;
+            this.imageFrame.round = appState.isRound();
             this.imageFrame.cmIndicate = this.cmMeaUnit;
-            this.imageFrame.viLang = this.viLang;
+            this.imageFrame.viLang = appState.isViLang();
             this.saveSetting();
             this.state.setBackground(Color.WHITE);
-            if (this.cmUnit) {
-                float f = (float)this.imageFrame.gridAmount * this.scale;
+            if (appState.isCmUnit()) {
+                float f = (float)this.imageFrame.gridAmount * appState.getScale();
                 f = Math2.round(f);
                 this.state.setText(this.stack_size + this.imageFrame.stSize + "\t " + this.grid_size + f + " cm");
             }
 
-            if (!this.cmUnit) {
+            if (!appState.isCmUnit()) {
                 this.state.setText(this.stack_size + this.imageFrame.stSize + "\t " + this.grid_size + this.imageFrame.gridAmount);
             }
 
-            Noitifier.printConsole("setted: Vietnamese:" + this.viLang + "; grid Unit centimet:" + this.cmUnit + "; mes in Cm:" + this.cmMeaUnit + "; round:" + this.round + "; autoload:" + this.autoLoad + "; zW:" + this.zW + "; zH:" + this.zH);
+            Noitifier.printConsole("setted: Vietnamese:" + appState.isViLang() + "; grid Unit centimet:" + appState.isCmUnit() + "; mes in Cm:" + this.cmMeaUnit + "; round:" + appState.isRound() + "; autoload:" + this.autoLoad + "; zW:" + this.zW + "; zH:" + this.zH);
         } else {
             Noitifier.printConsole("StickyPoint - setting cancel ");
         }
@@ -1290,13 +1282,13 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         log.delete();
         final StickyPoint stp = new StickyPoint();
         stp.setBounds(560, 70, 800, 600);
-        stp.setTitle("Portrait Tool 1.05 - " + stp.filePath);
+        stp.setTitle("Portrait Tool 1.05 - " + stp.appState.getFilePath());
         stp.loadSetting();
         stp.menuItemStateTracking();
         stp.imageFrame.requestFocus();
         stp.imgScrollPane.doLayout();
-        if (stp.filePath != "Untitled-00.jpg") {
-            stp.curF = new File(stp.filePath);
+        if (stp.appState.getFilePath() != "Untitled-00.jpg") {
+            stp.curF = new File(stp.appState.getFilePath());
         }
 
         if (args.length > 0) {
@@ -1334,7 +1326,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                 Noitifier.printConsole("State change:" + e);
                 if (e.getNewState() == 6) {
                     stp.floattingScrPanel();
-                    stp.floating = true;
+                    stp.appState.setFloating(true);
                 }
 
                 if (e.getOldState() == 6 && e.getNewState() == 0) {
@@ -1592,10 +1584,10 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             B = rf.readInt();
             A = rf.readInt();
             String color = rf.readUTF();
-            this.viLang = rf.readBoolean();
-            this.cmUnit = rf.readBoolean();
+            appState.setViLang(rf.readBoolean());
+            appState.setCmUnit(rf.readBoolean());
             this.cmMeaUnit = rf.readBoolean();
-            this.round = rf.readBoolean();
+            appState.setRound(rf.readBoolean());
             this.autoLoad = rf.readBoolean();
             this.zW = rf.readInt();
             this.zH = rf.readInt();
@@ -1606,10 +1598,10 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.s.setSize(stsize);
             this.imageFrame.gridAmount = gridsize;
             this.imageFrame.scale = scale;
-            this.scale = scale;
-            this.imageFrame.round = this.round;
+            appState.setScale(scale);
+            this.imageFrame.round = appState.isRound();
             this.imageFrame.cmIndicate = this.cmMeaUnit;
-            this.imageFrame.viLang = this.viLang;
+            this.imageFrame.viLang = appState.isViLang();
 
             try {
                 this.imageFrame.setBrushColor(new Color(R, G, B, A));
@@ -1620,8 +1612,8 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             }
 
             this.stackAvailableSpaceNoitifier();
-            if (this.viLang) {
-                this.setLanguage(this.viLang);
+            if (appState.isViLang()) {
+                this.setLanguage(appState.isViLang());
             }
 
             if (this.autoLoad) {
@@ -1634,10 +1626,10 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             Noitifier.printConsole("loadSetting - Scale:" + scale);
             Noitifier.printConsole("loadSetting - Color:" + color);
             Noitifier.printConsole("loadSetting - RGB.A: " + R + ";" + G + ";" + B + ";" + A);
-            Noitifier.printConsole("loadSetting - cmUnit:" + this.cmUnit);
+            Noitifier.printConsole("loadSetting - cmUnit:" + appState.isCmUnit());
             Noitifier.printConsole("loadSetting - cmMeaUnit:" + this.cmMeaUnit);
-            Noitifier.printConsole("loadSetting - viLang:" + this.viLang);
-            Noitifier.printConsole("loadSetting - round:" + this.round);
+            Noitifier.printConsole("loadSetting - viLang:" + appState.isViLang());
+            Noitifier.printConsole("loadSetting - round:" + appState.isRound());
             Noitifier.printConsole("loadSetting - autoLoad:" + this.autoLoad);
             Noitifier.printConsole("loadSetting - zW:" + this.zW);
             Noitifier.printConsole("loadSetting - zH:" + this.zH);
@@ -1656,19 +1648,19 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     protected void saveSetting() {
         try {
             RandomAccessFile rf = new RandomAccessFile("config.ini", "rw");
-            rf.writeUTF(this.filePath);
+            rf.writeUTF(appState.getFilePath());
             rf.writeInt(this.imageFrame.stSize);
             rf.writeInt(this.imageFrame.gridAmount);
-            rf.writeFloat(this.scale);
+            rf.writeFloat(appState.getScale());
             rf.writeInt(this.imageFrame.getBrushColor().getRed());
             rf.writeInt(this.imageFrame.getBrushColor().getGreen());
             rf.writeInt(this.imageFrame.getBrushColor().getBlue());
             rf.writeInt(this.imageFrame.getBrushColor().getAlpha());
             rf.writeUTF(this.imageFrame.getBrushColor().toString());
-            rf.writeBoolean(this.viLang);
-            rf.writeBoolean(this.cmUnit);
+            rf.writeBoolean(appState.isViLang());
+            rf.writeBoolean(appState.isCmUnit());
             rf.writeBoolean(this.cmMeaUnit);
-            rf.writeBoolean(this.round);
+            rf.writeBoolean(appState.isRound());
             rf.writeBoolean(this.autoLoad);
             rf.writeInt(this.zW);
             rf.writeInt(this.zH);
@@ -1685,13 +1677,13 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     }
 
     protected void closeApp() {
-        if (this.editstate != StickyPoint.EditState.MODIFIED && this.editstate != StickyPoint.EditState.NOT_SAVED) {
+        if (appState.getEditState() != core.state.AppState.EditState.MODIFIED && appState.getEditState() != core.state.AppState.EditState.NOT_SAVED) {
             this.shutdownAndDispose();
         } else {
-            this.curF = new File(this.filePath);
+            this.curF = new File(appState.getFilePath());
             String fname = this.curF.getName();
             String mgs = this.confirm_save_prefix + fname + this.confirm_save_subfix;
-            ConfirmBox con = new ConfirmBox(this, mgs, true, this.viLang);
+            ConfirmBox con = new ConfirmBox(this, mgs, true, appState.isViLang());
             con.setVisible(true);
             boolean conFirmSave = true;
 
@@ -1716,7 +1708,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                         conFirmSave = false;
                         if (this.imageFrame.noity != this.unknow_file_format_img_save) {
                             this.shutdownAndDispose();
-                        } else if (!this.viLang) {
+                        } else if (!appState.isViLang()) {
                             this.state.setBackground(LIGHT_RED);
                             this.state.setText("Unknow file format. File not been saved!");
                         } else {
@@ -1804,14 +1796,14 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
 
         this.buttonStateTracking();
         if (this.imageFrame.getBufImageState() == BufImageState.MODIFIED) {
-            this.editstate = StickyPoint.EditState.MODIFIED;
+            appState.setEditState(core.state.AppState.EditState.MODIFIED);
         }
 
         this.stackAvailableSpaceNoitifier();
     }
 
     private void openSelectColor() {
-        ColorSelectDialog cls = new ColorSelectDialog(this, this.select_color_title, true, this.imageFrame.getBrushColor(), this.viLang);
+        ColorSelectDialog cls = new ColorSelectDialog(this, this.select_color_title, true, this.imageFrame.getBrushColor(), appState.isViLang());
         cls.show();
         Color c = cls.getColor();
         this.imageFrame.setBrushColor(c);
@@ -1825,7 +1817,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.state.setBackground(LIGHT_RED);
         }
 
-        if (this.cmUnit) {
+        if (appState.isCmUnit()) {
             float f = (float)this.imageFrame.gridAmount * this.imageFrame.scale;
             f = Math2.round(f);
             this.state.setText("   s: " + Integer.toString(a) + "\t   | \t  g: " + f + " cm");
@@ -1854,36 +1846,36 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         int zoomAction = -1;
         if (this.imageFrame.zoom) {
             zoomAction = this.imageFrame.zoom(true);
-            this.currentZoom = this.imageFrame.currentzoom;
+            appState.setCurrentZoom(this.imageFrame.currentzoom);
         }
 
         if (!this.imageFrame.zoom) {
             zoomAction = this.imageFrame.zoom(false);
-            this.currentZoom = this.imageFrame.currentzoom;
+            appState.setCurrentZoom(this.imageFrame.currentzoom);
         }
 
         if (this.imageFrame.w > this.editPanel.getWidth() || this.imageFrame.h > this.editPanel.getHeight()) {
             this.fixed();
         }
 
-        this.currentZoomState.setText(Float.toString(Math2.round(this.currentZoom * 100.0F)) + "%");
+        this.currentZoomState.setText(Float.toString(Math2.round(appState.getCurrentZoom() * 100.0F)) + "%");
         Noitifier.printConsole("Zoom Click aft:" + zClk.x + ";" + zClk.y);
         Noitifier.printConsole("Zoom in:" + this.imageFrame.zoom);
-        Noitifier.printConsole("current Zoom:" + this.currentZoom);
+        Noitifier.printConsole("current Zoom:" + appState.getCurrentZoom());
         this.imgScrollPane.doLayout();
         if (this.imageFrame.w > this.editPanel.getWidth() || this.imageFrame.h > this.editPanel.getHeight()) {
             this.setZoomPosition(zClk, zoomAction);
         }
 
         if (this.imageFrame.w < this.editPanel.getWidth() || this.imageFrame.h < this.editPanel.getHeight()) {
-            this.floating = true;
+            appState.setFloating(true);
         }
 
-        if (this.floating) {
+        if (appState.isFloating()) {
             this.floattingScrPanel();
         }
 
-        Noitifier.printConsole("------------->floating:" + this.floating);
+        Noitifier.printConsole("------------->floating:" + appState.isFloating());
     }
 
     public void floattingScrPanel() {
@@ -1903,12 +1895,12 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     public void mouseReleased(MouseEvent e) {
         if (this.imageFrame.mouseMode == MouseMode.GRID && e.getSource() == this.imageFrame) {
             this.imageFrame.changeDragMode();
-            this.mouseMode = MouseMode.DRAG;
+            appState.setMouseMode(MouseMode.DRAG);
             this.dragButton.setEnabled(false);
             this.gridButton.setEnabled(true);
         }
 
-        if (this.mouseMode == MouseMode.ZOOM) {
+        if (appState.getMouseMode() == MouseMode.ZOOM) {
             this.imgScrollPane.doLayout();
         }
 
@@ -1927,10 +1919,10 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         int w12 = 0;
         int h12 = 0;
         if (zoomAction == 1) {
-            int imgclkPosX = Math.round((float)zClk.x * 1.5F / this.currentZoom);
-            int imgclkPosY = Math.round((float)zClk.y * 1.5F / this.currentZoom);
-            X = Math.round((float)imgclkPosX * this.currentZoom);
-            Y = Math.round((float)imgclkPosY * this.currentZoom);
+            int imgclkPosX = Math.round((float)zClk.x * 1.5F / appState.getCurrentZoom());
+            int imgclkPosY = Math.round((float)zClk.y * 1.5F / appState.getCurrentZoom());
+            X = Math.round((float)imgclkPosX * appState.getCurrentZoom());
+            Y = Math.round((float)imgclkPosY * appState.getCurrentZoom());
             w12 = Math.round((float)this.imgScrollPane.getViewportSize().width / 2.0F);
             h12 = Math.round((float)this.imgScrollPane.getViewportSize().height / 2.0F);
             pos.x = X - w12;
@@ -1939,10 +1931,10 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         }
 
         if (zoomAction == 0) {
-            int imgclkPosX = Math.round((float)zClk.x / (this.currentZoom * 1.5F));
-            int imgclkPosY = Math.round((float)zClk.y / (this.currentZoom * 1.5F));
-            X = Math.round((float)imgclkPosX * this.currentZoom);
-            Y = Math.round((float)imgclkPosY * this.currentZoom);
+            int imgclkPosX = Math.round((float)zClk.x / (appState.getCurrentZoom() * 1.5F));
+            int imgclkPosY = Math.round((float)zClk.y / (appState.getCurrentZoom() * 1.5F));
+            X = Math.round((float)imgclkPosX * appState.getCurrentZoom());
+            Y = Math.round((float)imgclkPosY * appState.getCurrentZoom());
             w12 = Math.round((float)this.imgScrollPane.getViewportSize().width / 2.0F);
             h12 = Math.round((float)this.imgScrollPane.getViewportSize().height / 2.0F);
             pos.x = X - w12;
@@ -1955,7 +1947,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         Noitifier.printConsole("pos:" + pos.x + ";" + pos.y);
         Noitifier.printConsole("X2:" + X + "; Y2:" + Y);
         Noitifier.printConsole("w12:" + w12 + "; h12:" + h12);
-        Noitifier.printConsole("floating:" + this.floating);
+        Noitifier.printConsole("floating:" + appState.isFloating());
         Noitifier.printConsole("zoomAction:" + zoomAction + "<---------- (0)zoom Out, (1) zoom in");
         if (zoomAction == -1) {
             Noitifier.printConsole("Khong zoom dc");
@@ -1970,7 +1962,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             int amountX = this._start.x - e.getPoint().x;
             int aX = e.getPoint().x - this._start.x;
             int aY = e.getPoint().y - this._start.y;
-            if (this.imageFrame.h < this.getHeight() || this.imageFrame.w < this.getWidth() && this.floating) {
+            if (this.imageFrame.h < this.getHeight() || this.imageFrame.w < this.getWidth() && appState.isFloating()) {
                 Point cur = this.imageFrame.getLocation();
                 Point cur2 = this.imgScrollPane.getLocation();
                 cur.translate(aX, aY);
@@ -2025,10 +2017,10 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     }
 
     public void mouseMoved(MouseEvent e) {
-        if (this.filePath != "Untitled-00.jpg" && this.imageFrame.zoomdialog != null && this.imageFrame.zoomdialog.iz.move) {
+        if (appState.getFilePath() != "Untitled-00.jpg" && this.imageFrame.zoomdialog != null && this.imageFrame.zoomdialog.iz.move) {
             Point p = e.getPoint();
-            p.x = Math.round((float)p.x / this.currentZoom);
-            p.y = Math.round((float)p.y / this.currentZoom);
+            p.x = Math.round((float)p.x / appState.getCurrentZoom());
+            p.y = Math.round((float)p.y / appState.getCurrentZoom());
             this.imageFrame.zoomdialog.imgMove(p.x, p.y);
             this.imageFrame.zoomdialog.texf.setText("X:" + p.x + "; Y:" + p.y);
         }
@@ -2069,7 +2061,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.Shf = Key.PRESSED;
         }
 
-        if (e.getKeyCode() == 16 && this.Shf == Key.PRESSED && this.mouseMode == MouseMode.ZOOM) {
+        if (e.getKeyCode() == 16 && this.Shf == Key.PRESSED && appState.getMouseMode() == MouseMode.ZOOM) {
             this.imageFrame.changeZoomMode(false);
         }
 
@@ -2108,7 +2100,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         if (e.getKeyCode() == 39 && this.imageFrame.zoomdialog == null && this.imageFrame.mouseMode == MouseMode.GRID) {
             ImgFrame var10000 = this.imageFrame;
             var10000.gridAmount += 2;
-            if (!this.cmUnit) {
+            if (!appState.isCmUnit()) {
                 this.state.setText(this.grid_size + this.imageFrame.gridAmount);
             } else {
                 float f = (float)this.imageFrame.gridAmount * this.imageFrame.scale;
@@ -2123,7 +2115,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         if (e.getKeyCode() == 37 && this.imageFrame.zoomdialog == null && this.imageFrame.mouseMode == MouseMode.GRID) {
             ImgFrame var8 = this.imageFrame;
             var8.gridAmount -= 2;
-            if (!this.cmUnit) {
+            if (!appState.isCmUnit()) {
                 this.state.setText(this.grid_size + this.imageFrame.gridAmount);
             } else {
                 float f = (float)this.imageFrame.gridAmount * this.imageFrame.scale;
@@ -2156,7 +2148,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
 
     public void keyReleased(KeyEvent e) {
         if (e.getKeyCode() == 32 && !this.dragMode) {
-            if (this.mouseMode == MouseMode.STICK) {
+            if (appState.getMouseMode() == MouseMode.STICK) {
                 this.imageFrame.changeStickMode();
                 this.stickButton.setEnabled(false);
                 this.dragButton.setEnabled(true);
@@ -2164,7 +2156,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                 this.pointButton.setEnabled(true);
             }
 
-            if (this.mouseMode == MouseMode.GRID) {
+            if (appState.getMouseMode() == MouseMode.GRID) {
                 this.imageFrame.changeGridMode();
                 this.gridButton.setEnabled(false);
                 this.dragButton.setEnabled(true);
@@ -2172,7 +2164,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                 this.pointButton.setEnabled(true);
             }
 
-            if (this.mouseMode == MouseMode.P2P) {
+            if (appState.getMouseMode() == MouseMode.P2P) {
                 this.imageFrame.changeP2PMode(true);
                 this.gridButton.setEnabled(true);
                 this.stickButton.setEnabled(true);
@@ -2180,14 +2172,14 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
                 this.pointButton.setEnabled(false);
             }
 
-            if (this.mouseMode == MouseMode.ZOOM) {
+            if (appState.getMouseMode() == MouseMode.ZOOM) {
                 this.imageFrame.changeZoomMode(this.imageFrame.zoom);
                 this.dragButton.setEnabled(true);
             }
         }
 
         if (e.getKeyChar() == 'f') {
-            this.floating = true;
+            appState.setFloating(true);
         }
 
         if (e.getKeyCode() == 48) {
@@ -2204,21 +2196,21 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.changeStickMode();
             this.buttonStateTracking();
             this.dragMode = false;
-            this.mouseMode = MouseMode.STICK;
+            appState.setMouseMode(MouseMode.STICK);
         }
 
         if (e.getKeyChar() == 'v' || e.getKeyChar() == 'g') {
             this.imageFrame.changeGridMode();
             this.buttonStateTracking();
             this.dragMode = false;
-            this.mouseMode = MouseMode.GRID;
+            appState.setMouseMode(MouseMode.GRID);
         }
 
         if (e.getKeyChar() == 'b' || e.getKeyChar() == 'p') {
             this.imageFrame.changeP2PMode();
             this.buttonStateTracking();
             this.dragMode = false;
-            this.mouseMode = MouseMode.P2P;
+            appState.setMouseMode(MouseMode.P2P);
             this.printScale(this.imageFrame.scale);
         }
 
@@ -2230,7 +2222,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         if (e.getKeyCode() == 90 && this.Ctrl == Key.NONE_PRESSED && this.Alt == Key.NONE_PRESSED && this.Shf == Key.NONE_PRESSED) {
             this.imageFrame.changeZoomMode(true);
             this.dragMode = false;
-            this.mouseMode = MouseMode.ZOOM;
+            appState.setMouseMode(MouseMode.ZOOM);
             this.buttonStateTracking();
         }
 
@@ -2256,7 +2248,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imgScrollPane.doLayout();
         }
 
-        if (e.getKeyCode() == 16 && this.Shf == Key.NONE_PRESSED && this.mouseMode == MouseMode.ZOOM) {
+        if (e.getKeyCode() == 16 && this.Shf == Key.NONE_PRESSED && appState.getMouseMode() == MouseMode.ZOOM) {
             this.imageFrame.changeZoomMode(true);
             this.imageFrame.requestFocus();
         }
@@ -2433,7 +2425,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
     }
 
     public void fixed() {
-        this.floating = false;
+        appState.setFloating(false);
         this.imgScrollPane.setLocation(0, 0);
         if (this.editPanel.getWidth() == 0) {
             this.imgScrollPane.setSize(784, 469);
@@ -2446,7 +2438,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         Noitifier.printConsole("fixed called - editPanelLocation:" + this.editPanel.getLocation());
         Noitifier.printConsole("fixed called - imgScrollPaneSize:" + this.imgScrollPane.getSize());
         Noitifier.printConsole("fixed called - imgScrollPane Location:" + this.imgScrollPane.getLocation());
-        Noitifier.printConsole("fixed called - floating:" + this.floating);
+        Noitifier.printConsole("fixed called - floating:" + appState.isFloating());
     }
 
     public void keyTyped(KeyEvent e) {
@@ -2459,7 +2451,7 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
             this.imageFrame.changeDragMode();
             this.buttonStateTracking();
             this.dragMode = true;
-            this.mouseMode = MouseMode.DRAG;
+            appState.setMouseMode(MouseMode.DRAG);
         }
 
     }
@@ -2474,9 +2466,5 @@ public class StickyPoint extends Frame implements ActionListener, MouseListener,
         Noitifier.printConsole("e.getWheelRotation():" + e.getWheelRotation());
     }
 
-    public static enum EditState {
-        MODIFIED,
-        SAVED,
-        NOT_SAVED;
-    }
+    
 }
