@@ -30,7 +30,6 @@ public class ImageCanvas extends JPanel {
     private static final int CHECKER_SIZE = 20;
     private boolean drawLabels = true;
     private boolean isShiftDown = false;
-    private final java.beans.PropertyChangeSupport pcs = new java.beans.PropertyChangeSupport(this);
 
     public ImageCanvas(AppState appState) {
         this.appState = appState;
@@ -133,15 +132,7 @@ public class ImageCanvas extends JPanel {
         Tool oldTool = this.activeTool;
         this.activeTool = newTool;
         updateCursor();
-        pcs.firePropertyChange("activeTool", oldTool, newTool);
-    }
-    
-    public void addPropertyChangeListener(java.beans.PropertyChangeListener listener) {
-        pcs.addPropertyChangeListener(listener);
-    }
-    
-    public void removePropertyChangeListener(java.beans.PropertyChangeListener listener) {
-        pcs.removePropertyChangeListener(listener);
+        firePropertyChange("activeTool", oldTool, newTool);
     }
     
     public void updateCursor() {
