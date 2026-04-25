@@ -30,9 +30,13 @@ public class ImageCanvas extends JPanel {
     private static final int CHECKER_SIZE = 20;
     private boolean drawLabels = true;
     private boolean isShiftDown = false;
+    private final java.beans.PropertyChangeSupport pcs = new java.beans.PropertyChangeSupport(this);
 
     public ImageCanvas(AppState appState) {
         this.appState = appState;
+        setBackground(Color.LIGHT_GRAY);
+        setFocusable(true);
+        setAutoscrolls(true); // Enables auto-scrolling for drag events
         
         // Mouse Listeners that delegate to the active tool
         this.addMouseListener(new MouseAdapter() {
@@ -125,9 +129,19 @@ public class ImageCanvas extends JPanel {
         }
     }
 
-    public void setActiveTool(Tool tool) {
-        this.activeTool = tool;
+    public void setActiveTool(Tool newTool) {
+        Tool oldTool = this.activeTool;
+        this.activeTool = newTool;
         updateCursor();
+        pcs.firePropertyChange("activeTool", oldTool, newTool);
+    }
+    
+    public void addPropertyChangeListener(java.beans.PropertyChangeListener listener) {
+        pcs.addPropertyChangeListener(listener);
+    }
+    
+    public void removePropertyChangeListener(java.beans.PropertyChangeListener listener) {
+        pcs.removePropertyChangeListener(listener);
     }
     
     public void updateCursor() {
@@ -168,10 +182,11 @@ public class ImageCanvas extends JPanel {
             Container parent = SwingUtilities.getUnwrappedParent(this);
             if (parent instanceof JViewport) {
                 JViewport viewport = (JViewport) parent;
-                return new Dimension(
-                    Math.max(imgWidth, viewport.getWidth()),
-                    Math.max(imgHeight, viewport.getHeight())
-                );
+                if (imgWidth > viewport.getWidth() && imgHeight > viewport.getHeight()) {
+                    return new Dimension(imgWidth, imgHeight);
+                } else {
+                    return new Dimension(viewport.getWidth(), viewport.getHeight());
+                }
             }
             return new Dimension(imgWidth, imgHeight);
         }
@@ -265,6 +280,9 @@ public class ImageCanvas extends JPanel {
         }
         
         // 4. Draw Grids
+        java.awt.Stroke oldStroke = g2d.getStroke();
+        g2d.setStroke(new java.awt.BasicStroke(1, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_BEVEL, 0, new float[]{2f, 4f}, 0));
+        
         for (SPoint grid : appState.getCanvasState().getGrids()) {
             g2d.setColor(grid.c);
             int gridSize = grid.id;
@@ -287,6 +305,7 @@ public class ImageCanvas extends JPanel {
                 g2d.drawLine(0, y, width, y);
             }
         }
+        g2d.setStroke(oldStroke);
         
         g2d.dispose();
     }

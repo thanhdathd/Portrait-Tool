@@ -57,6 +57,7 @@ public class P2PTool implements Tool {
     public void onMouseDragged(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (startPoint != null) {
             endPoint = getAdjustedPoint(e.getPoint(), appState);
+            canvas.scrollRectToVisible(new java.awt.Rectangle(e.getX(), e.getY(), 1, 1));
             canvas.repaint();
         }
     }

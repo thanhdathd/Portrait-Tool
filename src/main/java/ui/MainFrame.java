@@ -329,6 +329,16 @@ public class MainFrame extends JFrame {
             }
         });
         
+        // Initial state
+        undoBtn.setEnabled(appState.getHistoryManager().canUndo());
+        redoBtn.setEnabled(appState.getHistoryManager().canRedo());
+        
+        // Listen to history changes
+        appState.getHistoryManager().addListener((canUndo, canRedo) -> {
+            undoBtn.setEnabled(canUndo);
+            redoBtn.setEnabled(canRedo);
+        });
+        
         toolBar.add(undoBtn);
         toolBar.add(redoBtn);
         toolBar.addSeparator();
@@ -350,8 +360,21 @@ public class MainFrame extends JFrame {
         zoomBtn.addActionListener(e -> {
             if (canvas.getActiveTool() instanceof tools.ZoomCanvasTool) {
                 ((tools.ZoomCanvasTool) canvas.getActiveTool()).toggleMode();
+                canvas.updateCursor();
             } else {
                 canvas.setActiveTool(new tools.ZoomCanvasTool());
+            }
+        });
+        
+        // Listen to active tool changes
+        canvas.addPropertyChangeListener(evt -> {
+            if ("activeTool".equals(evt.getPropertyName())) {
+                tools.Tool activeTool = canvas.getActiveTool();
+                handBtn.setEnabled(!(activeTool instanceof tools.HandTool));
+                stickBtn.setEnabled(!(activeTool instanceof tools.StickTool));
+                p2pBtn.setEnabled(!(activeTool instanceof tools.P2PTool));
+                gridBtn.setEnabled(!(activeTool instanceof tools.GridTool));
+                // Zoom is toggleable, so always enabled
             }
         });
 
