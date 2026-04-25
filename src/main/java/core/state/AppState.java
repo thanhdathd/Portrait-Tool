@@ -22,6 +22,7 @@ public class AppState {
     private EditState editState = EditState.SAVED;
     private Color brushColor = Color.CYAN;
     private boolean floating = false;
+    private int gridSize = 40; // Default from legacy code
     private final HistoryManager historyManager;
     private final CanvasState canvasState;
 
@@ -116,5 +117,13 @@ public class AppState {
 
     public void setBrushColor(Color brushColor) {
         this.brushColor = brushColor;
+    }
+
+    public int getGridSize() {
+        return gridSize;
+    }
+
+    public void setGridSize(int gridSize) {
+        this.gridSize = gridSize;
     }
 }

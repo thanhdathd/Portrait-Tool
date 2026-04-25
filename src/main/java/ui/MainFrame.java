@@ -75,6 +75,18 @@ public class MainFrame extends JFrame {
         JMenu helpMenu = new JMenu("Help");
         helpMenu.setMnemonic(KeyEvent.VK_H);
         JMenuItem aboutItem = new JMenuItem("About");
+        aboutItem.addActionListener(e -> JOptionPane.showMessageDialog(this, 
+            "Portrai-Tool Modernized\nA Swing-based Image Processing Tool", "About", JOptionPane.INFORMATION_MESSAGE));
+            
+        JMenuItem keyAssistItem = new JMenuItem("Key Assist");
+        keyAssistItem.addActionListener(e -> JOptionPane.showMessageDialog(this, 
+            "Key Assist:\n" +
+            "Ctrl+Z: Undo\n" +
+            "Ctrl+Y: Redo\n" +
+            "Up/Down/Left/Right: Move measurement calipers in Zoom Mode\n", 
+            "Keyboard Shortcuts", JOptionPane.INFORMATION_MESSAGE));
+            
+        helpMenu.add(keyAssistItem);
         helpMenu.add(aboutItem);
 
         menuBar.add(fileMenu);
@@ -101,6 +113,21 @@ public class MainFrame extends JFrame {
         toolBar.add(stickToolBtn);
         toolBar.add(gridToolBtn);
         toolBar.add(p2pToolBtn);
+        
+        toolBar.addSeparator();
+        
+        JButton colorBtn = new JButton(" Color ");
+        colorBtn.setBackground(appState.getBrushColor());
+        colorBtn.setOpaque(true);
+        colorBtn.setBorderPainted(false);
+        colorBtn.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Select Brush Color", appState.getBrushColor());
+            if (newColor != null) {
+                appState.setBrushColor(newColor);
+                colorBtn.setBackground(newColor);
+            }
+        });
+        toolBar.add(colorBtn);
         
         add(toolBar, BorderLayout.WEST);
     }
