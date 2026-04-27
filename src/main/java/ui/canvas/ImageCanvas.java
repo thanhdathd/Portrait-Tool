@@ -27,12 +27,19 @@ public class ImageCanvas extends JPanel {
     private final HandTool globalHandTool = new HandTool();
     private BufferedImage backgroundImage;
     private ZoomWindow zoomWindow;
-    private static final int CHECKER_SIZE = 20;
+    private static final int CHECKER_SIZE = 40;
     private boolean drawLabels = true;
+    private boolean drawGrids = true;
     private boolean isShiftDown = false;
+    private static final int CANVAS_PADDING = 80;
 
     public ImageCanvas(AppState appState) {
         this.appState = appState;
+        this.appState.getCanvasState().setImageOffsetX(CANVAS_PADDING);
+        this.appState.getCanvasState().setImageOffsetY(CANVAS_PADDING);
+        this.appState.addPropertyChangeListener("currentZoom", evt -> {
+            SwingUtilities.invokeLater(this::enforceScrollModeOffset);
+        });
         setBackground(Color.LIGHT_GRAY);
         setFocusable(true);
         setAutoscrolls(true); // Enables auto-scrolling for drag events
@@ -163,6 +170,34 @@ public class ImageCanvas extends JPanel {
         return activeTool;
     }
 
+    private void clampOffsets() {
+        if (backgroundImage != null) {
+            float zoom = appState.getCurrentZoom();
+            int imgWidth = (int) (backgroundImage.getWidth() * zoom);
+            int imgHeight = (int) (backgroundImage.getHeight() * zoom);
+            
+            Container parent = SwingUtilities.getUnwrappedParent(this);
+            if (parent instanceof JViewport) {
+                JViewport viewport = (JViewport) parent;
+                core.state.CanvasState cs = appState.getCanvasState();
+                
+                if (imgWidth >= viewport.getWidth()) {
+                    cs.setImageOffsetX(0);
+                } else {
+                    int maxX = viewport.getWidth() - imgWidth;
+                    cs.setImageOffsetX(Math.max(0, Math.min(cs.getImageOffsetX(), maxX)));
+                }
+                
+                if (imgHeight >= viewport.getHeight()) {
+                    cs.setImageOffsetY(0);
+                } else {
+                    int maxY = viewport.getHeight() - imgHeight;
+                    cs.setImageOffsetY(Math.max(0, Math.min(cs.getImageOffsetY(), maxY)));
+                }
+            }
+        }
+    }
+
     @Override
     public Dimension getPreferredSize() {
         if (backgroundImage != null) {
@@ -174,8 +209,11 @@ public class ImageCanvas extends JPanel {
             if (parent instanceof JViewport) {
                 JViewport viewport = (JViewport) parent;
                 if (imgWidth > viewport.getWidth() && imgHeight > viewport.getHeight()) {
-                    return new Dimension(imgWidth, imgHeight);
+                    appState.setFloating(false);
+                    return new Dimension(imgWidth + 2 * CANVAS_PADDING,
+                            imgHeight + 2 * CANVAS_PADDING);
                 } else {
+                    appState.setFloating(true);
                     return new Dimension(viewport.getWidth(), viewport.getHeight());
                 }
             }
@@ -184,12 +222,49 @@ public class ImageCanvas extends JPanel {
         return super.getPreferredSize();
     }
 
+    private void enforceScrollModeOffset() {
+        if (backgroundImage == null) return;
+        Container parent = SwingUtilities.getUnwrappedParent(this);
+        if (!(parent instanceof JViewport)) return;
+        JViewport viewport = (JViewport) parent;
+
+        System.out.println("Enforcing scroll mode");
+        float zoom = appState.getCurrentZoom();
+        int imgWidth = (int) (backgroundImage.getWidth() * zoom);
+        int imgHeight = (int) (backgroundImage.getHeight() * zoom);
+        int viewWidth = viewport.getWidth();
+        int viewHeight = viewport.getHeight();
+
+        // Chỉ reset khi ảnh lớn hơn viewport ở CẢ hai chiều
+        if (imgWidth > viewWidth && imgHeight > viewHeight) {
+            core.state.CanvasState cs = appState.getCanvasState();
+            if (cs.getImageOffsetX() != CANVAS_PADDING || cs.getImageOffsetY() != CANVAS_PADDING) {
+                cs.setImageOffsetX(CANVAS_PADDING);
+                cs.setImageOffsetY(CANVAS_PADDING);
+                repaint(); // vẽ lại với offset mới
+            }
+        }
+    }
+
     public void setDrawLabels(boolean drawLabels) {
         this.drawLabels = drawLabels;
     }
 
+    public boolean isDrawLabels() {
+        return drawLabels;
+    }
+
+    public void setDrawGrids(boolean drawGrids) {
+        this.drawGrids = drawGrids;
+    }
+
+    public boolean isDrawGrids() {
+        return drawGrids;
+    }
+
     public void setBackgroundImage(BufferedImage image) {
         this.backgroundImage = image;
+        enforceScrollModeOffset();
         if (image != null) {
             this.revalidate();
         }
@@ -224,6 +299,8 @@ public class ImageCanvas extends JPanel {
                 }
             }
         }
+        
+//        clampOffsets();
         
         // Apply Image Offset (screen coordinates)
         int offsetX = appState.getCanvasState().getImageOffsetX();
@@ -272,7 +349,9 @@ public class ImageCanvas extends JPanel {
         
         // 4. Draw Grids
         java.awt.Stroke oldStroke = g2d.getStroke();
-        g2d.setStroke(new java.awt.BasicStroke(1, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_BEVEL, 0, new float[]{2f, 4f}, 0));
+        float strokeWidth = 1.0f / zoom;
+        float[] dash = new float[]{2.0f / zoom, 4.0f / zoom};
+        g2d.setStroke(new java.awt.BasicStroke(strokeWidth, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_BEVEL, 0, dash, 0));
         
         for (SPoint grid : appState.getCanvasState().getGrids()) {
             g2d.setColor(grid.c);
@@ -299,5 +378,9 @@ public class ImageCanvas extends JPanel {
         g2d.setStroke(oldStroke);
         
         g2d.dispose();
+    }
+
+    public AppState getAppState() {
+        return appState;
     }
 }

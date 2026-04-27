@@ -1,10 +1,24 @@
 package core.state;
 
+import tools.PropertyChangeListener;
 import user.Enum.MouseMode;
 import core.history.HistoryManager;
 import java.awt.Color;
+import java.beans.PropertyChangeEvent;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class AppState {
+
+    public String getLastOpenedDir() {
+        return lastOpenedDir;
+    }
+
+    public void setLastOpenedDir(String lastOpenedDir) {
+        this.lastOpenedDir = lastOpenedDir;
+    }
 
     public enum EditState {
         SAVED,
@@ -18,18 +32,30 @@ public class AppState {
     private boolean cmUnit = false;
     private boolean viLang = false;
     private boolean round = false;
+    private int windowX, windowY, windowWidth, windowHeight;
     private String filePath = "Untitled-00.jpg";
+    private String lastOpenedDir = "~/";
     private EditState editState = EditState.SAVED;
     private Color brushColor = Color.CYAN;
     private boolean floating = false;
     private int gridSize = 40; // Default from legacy code
     private final HistoryManager historyManager;
     private final CanvasState canvasState;
+    private final Map<String, List<PropertyChangeListener>> watchedKeys = new HashMap<>();
 
     public AppState() {
         this.historyManager = new HistoryManager(115);
         this.canvasState = new CanvasState();
     }
+
+
+
+
+    public void addPropertyChangeListener(String propertyName, PropertyChangeListener listener) {
+        watchedKeys.putIfAbsent(propertyName, new ArrayList<>());
+        watchedKeys.get(propertyName).add(listener);
+    }
+
 
     public HistoryManager getHistoryManager() {
         return historyManager;
@@ -45,6 +71,12 @@ public class AppState {
 
     public void setFloating(boolean floating) {
         this.floating = floating;
+        if(watchedKeys.containsKey("floating")){
+            PropertyChangeEvent evt = new PropertyChangeEvent(this, "floating", floating, floating);
+            watchedKeys.get("floating")
+                    .forEach( listener ->
+                            listener.propertyChange(evt));
+        }
     }
 
     public float getCurrentZoom() {
@@ -53,6 +85,11 @@ public class AppState {
 
     public void setCurrentZoom(float currentZoom) {
         this.currentZoom = currentZoom;
+        if(watchedKeys.containsKey("currentZoom")){
+            watchedKeys.get("currentZoom")
+                    .forEach( listener ->
+                    listener.propertyChange(null));
+        }
     }
 
     public float getScale() {
@@ -61,6 +98,11 @@ public class AppState {
 
     public void setScale(float scale) {
         this.scale = scale;
+        if(watchedKeys.containsKey("scale")){
+            watchedKeys.get("scale")
+                    .forEach( listener ->
+                            listener.propertyChange(null));
+        }
     }
 
     public MouseMode getMouseMode() {
@@ -107,7 +149,12 @@ public class AppState {
         return editState;
     }
 
+//    public void setEditState(EditState editState) {
+//        this.editState = editState;
+//    }
+
     public void setEditState(EditState editState) {
+        System.out.println("setEditState: "+editState);
         this.editState = editState;
     }
 
@@ -125,5 +172,37 @@ public class AppState {
 
     public void setGridSize(int gridSize) {
         this.gridSize = gridSize;
+    }
+
+    public int getWindowX() {
+        return windowX;
+    }
+
+    public void setWindowX(int windowX) {
+        this.windowX = windowX;
+    }
+
+    public int getWindowY() {
+        return windowY;
+    }
+
+    public void setWindowY(int windowY) {
+        this.windowY = windowY;
+    }
+
+    public int getWindowWidth() {
+        return windowWidth;
+    }
+
+    public void setWindowWidth(int windowWidth) {
+        this.windowWidth = windowWidth;
+    }
+
+    public int getWindowHeight() {
+        return windowHeight;
+    }
+
+    public void setWindowHeight(int windowHeight) {
+        this.windowHeight = windowHeight;
     }
 }

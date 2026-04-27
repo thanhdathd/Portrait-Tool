@@ -1,25 +1,51 @@
 package ui;
 
+import config.ConfigManager;
+import core.fileio.GridOptionInjector;
+import core.fileio.ThumbnailFileView;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
+import ui.dialogs.ImagePreviewPanel;
+import workers.ImageLoadWorker;
+
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
 
 public class MainFrame extends JFrame {
 
     private final AppState appState;
     private final ImageCanvas canvas;
+    private final ConfigManager configManager;
 
     public MainFrame() {
         this.appState = new AppState();
         this.canvas = new ImageCanvas(appState);
+        configManager = new ConfigManager();
+
+        configManager.load(appState);
         
         setTitle("Portrait Tool Modernized");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 600);
-        setLocationRelativeTo(null); // Center on screen
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+//        setSize(1000, 750);
+//        setLocationRelativeTo(null); // Center on screen
+        applyWindowSettings();
+
+        // Handle window closing for unsaved changes
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                attemptClose();
+            }
+        });
+        
+        // Listen to history to mark as dirty
+        appState.getHistoryManager().addListener((canUndo, canRedo, isModified) -> {
+            if(isModified)appState.setEditState(AppState.EditState.MODIFIED);
+        });
         
         setLayout(new BorderLayout());
         
@@ -37,19 +63,79 @@ public class MainFrame extends JFrame {
         
         // Default tool
         canvas.setActiveTool(new tools.StickTool());
+        autoOpenFile();
+    }
+
+    private void applyWindowSettings() {
+        setLocation(appState.getWindowX(), appState.getWindowY());
+        setSize(appState.getWindowWidth(), appState.getWindowHeight());
+    }
+
+    private void autoOpenFile() {
+        File file = new File(appState.getFilePath());
+        if(!file.exists()) {
+            System.out.println("Can not open file");
+            return;
+        }
+        setTitle("Loading...");
+        System.out.println("Loading... "+file.getAbsolutePath());
+        new ImageLoadWorker(file, image -> {
+            canvas.setBackgroundImage(image);
+            setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
+            appState.getHistoryManager().markAsSaved();
+        }, ex -> {
+            JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            setTitle("Portrait Tool Modernized");
+        }).execute();
+    }
+
+    private void attemptClose() {
+        updateUIState(appState);
+        configManager.save(appState);
+        if (appState.getEditState() == AppState.EditState.MODIFIED) {
+            int result = JOptionPane.showOptionDialog(this,
+                    "You have unsaved changes. Do you want to save before exiting?",
+                    "Unsaved Changes",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    new String[]{"Save", "Don't Save", "Cancel"},
+                    "Save");
+            
+            if (result == JOptionPane.YES_OPTION) {
+                performSaveFile();
+                if (appState.getEditState() != AppState.EditState.MODIFIED) {
+                    System.exit(0);
+                }
+            } else if (result == JOptionPane.NO_OPTION) {
+                System.exit(0);
+            }
+            // Cancel does nothing
+        } else {
+            System.exit(0);
+        }
+    }
+
+    private void updateUIState(AppState appState) {
+        appState.setWindowX(this.getX());
+        appState.setWindowY(this.getY());
+        appState.setWindowWidth(this.getWidth());
+        appState.setWindowHeight(this.getHeight());
     }
 
     // --- Action Methods to share between Menu and Toolbar ---
-
     private void performOpenFile() {
-        JFileChooser chooser = new JFileChooser();
+        JFileChooser chooser = prepareChooserDialog();
+
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
             setTitle("Portrait Tool Modernized - Loading...");
             new workers.ImageLoadWorker(file, image -> {
                 canvas.setBackgroundImage(image);
                 appState.setFilePath(file.getAbsolutePath());
-                setTitle("Portrait Tool Modernized - " + file.getName());
+                appState.setLastOpenedDir(file.getParent());
+                setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
+                appState.getHistoryManager().markAsSaved();
             }, ex -> {
                 JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 setTitle("Portrait Tool Modernized");
@@ -57,33 +143,115 @@ public class MainFrame extends JFrame {
         }
     }
 
+    /**
+     * Xác định thư mục khởi tạo cho FileChooser
+     * @return Thư mục chứa file ảnh hiện tại (nếu có), hoặc thư mục Documents
+     */
+    private File getInitialDirectory() {
+        String lastOpenedDir = appState.getLastOpenedDir();
+        if (lastOpenedDir != null && !lastOpenedDir.isEmpty()) {
+            File dir = new File(lastOpenedDir);
+            if (dir.exists() && dir.isDirectory()) {
+                return dir;
+            }
+        }
+
+        String currentFilePath = appState.getFilePath();
+        // Kiểm tra xem đã có file ảnh hợp lệ chưa
+        if (currentFilePath != null && !currentFilePath.isEmpty()) {
+            File currentFile = new File(currentFilePath);
+            if (currentFile.exists() && currentFile.isFile()) {
+                // Trả về thư mục cha của file hiện tại
+                return currentFile.getParentFile();
+            }
+        }
+
+        // Nếu chưa có file nào, mở ra thư mục Documents mặc định
+        return getDefaultDocumentsDirectory();
+    }
+
+    /**
+     * Lấy thư mục Documents mặc định của hệ thống (hoạt động trên cả Windows, macOS, Linux)
+     */
+    private File getDefaultDocumentsDirectory() {
+        String os = System.getProperty("os.name").toLowerCase();
+        String userHome = System.getProperty("user.home");
+
+        if (os.contains("win")) {
+            // Windows: C:\Users\<username>\Documents
+            return new File(userHome, "Documents");
+        } else if (os.contains("mac")) {
+            // macOS: /Users/<username>/Documents
+            return new File(userHome, "Documents");
+        } else {
+            // Linux: /home/<username>/Documents hoặc ~/Documents
+            File documents = new File(userHome, "Documents");
+            if (documents.exists()) {
+                return documents;
+            }
+            // Nếu không có thư mục Documents, trả về thư mục home
+            return new File(userHome);
+        }
+    }
+
     private void performSaveFile() {
-        JFileChooser chooser = new JFileChooser();
+        JFileChooser chooser = prepareChooserDialog();
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
             if (!file.getName().endsWith(".png")) {
                 file = new java.io.File(file.getAbsolutePath() + ".png");
             }
             new workers.SaveWorker(canvas, file).execute();
+            appState.setEditState(AppState.EditState.SAVED);
+            appState.getHistoryManager().markAsSaved();
         }
     }
 
-    private void performSaveTicksOnly() {
+    private JFileChooser prepareChooserDialog() {
         JFileChooser chooser = new JFileChooser();
+        chooser.setPreferredSize(new Dimension(900, 600));
+        FileNameExtensionFilter imageFilter =
+                new FileNameExtensionFilter(
+                        "Image Files (JPG, JPEG, PNG, GIF, BMP, WEBP)",
+                        "jpg", "jpeg", "png", "gif", "bmp", "webp"
+                );
+        chooser.setFileFilter(imageFilter);
+
+
+        // Thumbnail view for file list
+        chooser.setFileView(new ThumbnailFileView(chooser, 32));
+        GridOptionInjector.inject(chooser, 32);
+
+        File initialDirectory = getInitialDirectory();
+        if (initialDirectory != null && initialDirectory.exists()) {
+            chooser.setCurrentDirectory(initialDirectory);
+        }
+
+        // ========== Preview Panel cải tiến ==========
+        ImagePreviewPanel previewPanel = new ImagePreviewPanel(chooser);
+        chooser.setAccessory(previewPanel);
+
+        return chooser;
+    }
+
+    private void performSaveTicksOnly() {
+        JFileChooser chooser = prepareChooserDialog();
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
             if (!file.getName().endsWith(".png")) {
                 file = new java.io.File(file.getAbsolutePath() + ".png");
             }
             
-            // Temporarily disable labels
+            // Temporarily disable labels and grids
             canvas.setDrawLabels(false);
+            canvas.setDrawGrids(false);
             
             workers.SaveWorker worker = new workers.SaveWorker(canvas, file) {
                 @Override
                 protected void done() {
                     super.done();
                     canvas.setDrawLabels(true); // Restore labels
+                    canvas.setDrawGrids(true); // Restore grids
                     canvas.repaint();
                 }
             };
@@ -91,41 +259,6 @@ public class MainFrame extends JFrame {
         }
     }
 
-    private void performExportMatrix() {
-        if (canvas.getBackgroundImage() == null) {
-            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        JFileChooser chooser = new JFileChooser();
-        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            java.io.File file = chooser.getSelectedFile();
-            if (!file.getName().endsWith(".png")) {
-                file = new java.io.File(file.getAbsolutePath() + ".png");
-            }
-            
-            JProgressBar progress = new JProgressBar(0, 100);
-            progress.setStringPainted(true);
-            
-            JDialog progressDialog = new JDialog(this, "Exporting Matrix...", true);
-            progressDialog.setLayout(new BorderLayout(10, 10));
-            progressDialog.add(new JLabel("Processing Point Matrix..."), BorderLayout.NORTH);
-            progressDialog.add(progress, BorderLayout.CENTER);
-            progressDialog.pack();
-            progressDialog.setLocationRelativeTo(this);
-            
-            workers.ExportMatrixWorker worker = new workers.ExportMatrixWorker(
-                    canvas.getBackgroundImage(), appState.getCanvasState(), file, progress) {
-                @Override
-                protected void done() {
-                    super.done();
-                    progressDialog.dispose();
-                }
-            };
-            
-            worker.execute();
-            progressDialog.setVisible(true);
-        }
-    }
 
     private void performOpenFilter() {
         BufferedImage currentImage = canvas.getBackgroundImage();
@@ -146,16 +279,26 @@ public class MainFrame extends JFrame {
             return;
         }
         JFileChooser chooser = new JFileChooser();
+        chooser.setPreferredSize(new Dimension(900, 600));
+        FileNameExtensionFilter imageFilter =
+                new FileNameExtensionFilter(
+                        "Excel File (xls, xlsx)",
+                        "xls", "xlsx", "csv", "txt"
+                );
+        chooser.setFileFilter(imageFilter);
+        File initialDirectory = getInitialDirectory();
+        chooser.setCurrentDirectory(initialDirectory);
+        chooser.setDialogTitle("Export to Excel (.xls)");
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
-            if (!file.getName().endsWith(".csv")) {
-                file = new java.io.File(file.getAbsolutePath() + ".csv");
+            if (!file.getName().endsWith(".xls")) {
+                file = new java.io.File(file.getAbsolutePath() + ".xls");
             }
             
             try (java.io.PrintWriter pw = new java.io.PrintWriter(file)) {
-                pw.println("ID,X,Y,ColorRGB");
+                pw.println("ID\tX\tY"); // Tab separated
                 for (userpackage.SPoint p : appState.getCanvasState().getStickyPoints()) {
-                    pw.printf("%d,%d,%d,%d\n", p.id, p.X, p.Y, p.c.getRGB());
+                    pw.printf("%d\t%d\t%d\n", p.id, p.X, p.Y);
                 }
                 JOptionPane.showMessageDialog(this, "Successfully exported to " + file.getName(), "Export Complete", JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception e) {
@@ -177,15 +320,19 @@ public class MainFrame extends JFrame {
         JMenuItem saveItem = new JMenuItem("Save");
         saveItem.addActionListener(e -> performSaveFile());
         
-        JMenuItem exportMatrixItem = new JMenuItem("Export Matrix...");
-        exportMatrixItem.addActionListener(e -> performExportMatrix());
+        JMenuItem exportPointData = new JMenuItem("Export Data");
+        exportPointData.addActionListener(e -> performExportToExcel());
+
+        JMenuItem savePointOnly = new JMenuItem("Save Point Only");
+        savePointOnly.addActionListener(e -> performSaveTicksOnly());
 
         JMenuItem exitItem = new JMenuItem("Exit");
-        exitItem.addActionListener(e -> System.exit(0));
+        exitItem.addActionListener(e -> attemptClose());
 
         fileMenu.add(openItem);
         fileMenu.add(saveItem);
-        fileMenu.add(exportMatrixItem);
+        fileMenu.add(exportPointData);
+        fileMenu.add(savePointOnly);
         fileMenu.addSeparator();
         fileMenu.add(exitItem);
 
@@ -334,7 +481,7 @@ public class MainFrame extends JFrame {
         redoBtn.setEnabled(appState.getHistoryManager().canRedo());
         
         // Listen to history changes
-        appState.getHistoryManager().addListener((canUndo, canRedo) -> {
+        appState.getHistoryManager().addListener((canUndo, canRedo, isModified) -> {
             undoBtn.setEnabled(canUndo);
             redoBtn.setEnabled(canRedo);
         });
