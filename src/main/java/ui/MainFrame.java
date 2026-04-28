@@ -6,6 +6,7 @@ import core.fileio.ThumbnailFileView;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
 import ui.dialogs.ImagePreviewPanel;
+import utils.ExcelExportUtils;
 import workers.ImageLoadWorker;
 
 import javax.swing.*;
@@ -14,6 +15,7 @@ import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileOutputStream;
 
 public class MainFrame extends JFrame {
 
@@ -62,7 +64,7 @@ public class MainFrame extends JFrame {
         initToolBar();
         
         // Default tool
-        canvas.setActiveTool(new tools.StickTool());
+        canvas.setActiveTool(new tools.HandTool());
         autoOpenFile();
     }
 
@@ -291,15 +293,16 @@ public class MainFrame extends JFrame {
         chooser.setDialogTitle("Export to Excel (.xls)");
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
-            if (!file.getName().endsWith(".xls")) {
-                file = new java.io.File(file.getAbsolutePath() + ".xls");
+            if (!file.getName().endsWith(".xlsx")) {
+                file = new java.io.File(file.getAbsolutePath() + ".xlsx");
             }
             
-            try (java.io.PrintWriter pw = new java.io.PrintWriter(file)) {
-                pw.println("ID\tX\tY"); // Tab separated
-                for (userpackage.SPoint p : appState.getCanvasState().getStickyPoints()) {
-                    pw.printf("%d\t%d\t%d\n", p.id, p.X, p.Y);
-                }
+            try (FileOutputStream outputStream = new FileOutputStream(file)) {
+                ExcelExportUtils.exportToXlsx(
+                        appState.getCanvasState().getStickyPoints(),
+                        appState.getScale(),
+                        outputStream
+                );
                 JOptionPane.showMessageDialog(this, "Successfully exported to " + file.getName(), "Export Complete", JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Failed to export: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

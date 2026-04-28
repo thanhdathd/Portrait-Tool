@@ -1,15 +1,19 @@
 package ui;
 
+import com.formdev.flatlaf.extras.FlatSVGIcon;
+
 import javax.swing.*;
 import java.awt.*;
 
 public class CustomCursors {
 
-    public static final Cursor HAND_CURSOR = createCursor("icons/icon6.png", new Point(16, 16), "Hand");
+    public static final Cursor HAND_CURSOR = new Cursor(Cursor.HAND_CURSOR);//createCursor("icons/icon6.png", new Point(16, 16), "Hand");
+    public static final Cursor OPEN_HAND_CURSOR = createSVGCursor("icons/openhand.svg", new Point(14,4), "Open Hand");
+    public static final Cursor CLOSE_HAND_CURSOR = createSVGCursor("icons/closedhand.svg", new Point(14,4), "Close Hand");
     public static final Cursor STICK_CURSOR = createCursor("icons/icon16.png", new Point(3, 3), "Stick");
     public static final Cursor P2P_CURSOR = createCursor("icons/icon17.png", new Point(2, 30), "P2P");
-    public static final Cursor ZOOM_IN_CURSOR = createCursor("icons/icon18.png", new Point(10, 10), "Zoom In");
-    public static final Cursor ZOOM_OUT_CURSOR = createCursor("icons/icon19.png", new Point(10, 10), "Zoom Out");
+    public static final Cursor ZOOM_IN_CURSOR = createSVGCursor("icons/zoomin.svg", new Point(14,14), "ZoomIn");
+    public static final Cursor ZOOM_OUT_CURSOR = createSVGCursor("icons/zoomout.svg", new Point(14,14), "ZoomOut");
     public static final Cursor GRID_CURSOR = createGridCursor();
     public static final Cursor DEFAULT_CURSOR = Cursor.getDefaultCursor();
 
@@ -21,6 +25,17 @@ public class CustomCursors {
                 return Toolkit.getDefaultToolkit().createCustomCursor(image, hotSpot, name);
             }
         } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Cursor.getDefaultCursor();
+    }
+
+    private static Cursor createSVGCursor(String path, Point hotSpot, String name) {
+        try {
+            FlatSVGIcon svgIcon = new FlatSVGIcon(path, 48,48);
+            Image image = svgIcon.getImage();
+            return Toolkit.getDefaultToolkit().createCustomCursor(image, hotSpot, name);
+        }catch (Exception e){
             e.printStackTrace();
         }
         return Cursor.getDefaultCursor();

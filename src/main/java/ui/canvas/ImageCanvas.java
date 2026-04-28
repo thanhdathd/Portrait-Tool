@@ -50,6 +50,9 @@ public class ImageCanvas extends JPanel {
             public void mousePressed(MouseEvent e) {
                 if (activeTool != null) {
                     activeTool.onMousePressed(e, appState, ImageCanvas.this);
+                    if(activeTool instanceof HandTool) {
+                        setCursor(CustomCursors.CLOSE_HAND_CURSOR);
+                    }
                 }
             }
 
@@ -57,6 +60,9 @@ public class ImageCanvas extends JPanel {
             public void mouseReleased(MouseEvent e) {
                 if (activeTool != null) {
                     activeTool.onMouseReleased(e, appState, ImageCanvas.this);
+                    if(activeTool instanceof HandTool) {
+                        setCursor(CustomCursors.OPEN_HAND_CURSOR);
+                    }
                 }
             }
         });
@@ -144,7 +150,7 @@ public class ImageCanvas extends JPanel {
     
     public void updateCursor() {
         if (activeTool instanceof HandTool) {
-            setCursor(CustomCursors.HAND_CURSOR);
+            setCursor(CustomCursors.OPEN_HAND_CURSOR);
         } else if (activeTool instanceof tools.StickTool) {
             setCursor(CustomCursors.STICK_CURSOR);
         } else if (activeTool instanceof tools.P2PTool) {
@@ -276,9 +282,9 @@ public class ImageCanvas extends JPanel {
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2d = (Graphics2D) g.create();
+    protected void paintComponent(Graphics gp) {
+        super.paintComponent(gp);
+        Graphics2D g2d = (Graphics2D) gp.create();
         
         // Draw Checkerboard Background
         int viewWidth = getWidth();
@@ -322,9 +328,24 @@ public class ImageCanvas extends JPanel {
         }
         
         // 3. Draw Sticky Points
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         for (SPoint p : appState.getCanvasState().getStickyPoints()) {
             g2d.setColor(p.c);
-            g2d.fillRect(p.X - 1, p.Y - 1, 2, 2);
+//            g2d.fillRect(p.X - 1, p.Y - 1, 2, 2);
+            // Đường kính chấm (có thể tinh chỉnh ví dụ: 2.0, 2.5, 3.0)
+            double diameter = 1.5;
+            double offset = diameter / 2.0;
+
+            // Sử dụng Ellipse2D.Double để vẽ với tọa độ thập phân chuẩn xác
+            java.awt.geom.Ellipse2D.Double dot = new java.awt.geom.Ellipse2D.Double(
+                    p.X - offset,
+                    p.Y - offset,
+                    diameter,
+                    diameter
+            );
+
+            g2d.fill(dot);
+
             
             if (drawLabels) {
                 // Adjust label font size back so it doesn't scale massively with zoom
