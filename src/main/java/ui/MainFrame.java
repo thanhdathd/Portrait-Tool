@@ -1,17 +1,21 @@
 package ui;
 
 import config.ConfigManager;
+import core.actions.KeyAction;
 import core.fileio.GridOptionInjector;
 import core.fileio.ThumbnailFileView;
 import core.state.AppState;
+import tools.ToolManager;
 import ui.canvas.ImageCanvas;
 import ui.dialogs.ImagePreviewPanel;
+import ui.dialogs.ZoomWindow;
 import utils.ExcelExportUtils;
 import workers.ImageLoadWorker;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
+import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -22,13 +26,15 @@ public class MainFrame extends JFrame {
     private final AppState appState;
     private final ImageCanvas canvas;
     private final ConfigManager configManager;
+    private final ToolManager tool;
+    private ZoomWindow zoom = null;
 
     public MainFrame() {
         this.appState = new AppState();
         this.canvas = new ImageCanvas(appState);
         configManager = new ConfigManager();
-
         configManager.load(appState);
+        tool = ToolManager.initializeTools();
         
         setTitle("Portrait Tool Modernized");
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -57,15 +63,114 @@ public class MainFrame extends JFrame {
         // Improve panning speed
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         scrollPane.getHorizontalScrollBar().setUnitIncrement(16);
+        disableScrollByArrowKey(scrollPane);
         
         add(scrollPane, BorderLayout.CENTER);
         
         initMenuBar();
         initToolBar();
+        setupGlobalShortcuts();
         
         // Default tool
         canvas.setActiveTool(new tools.HandTool());
         autoOpenFile();
+    }
+
+    private void setupGlobalShortcuts() {
+        JRootPane rootPane = this.getRootPane();
+        InputMap im = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap am = rootPane.getActionMap();
+
+        // Lấy phím Modifier hệ thống (Ctrl trên Win/Linux, Cmd trên macOS)
+        int shortcutMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+
+        // 1. Phím tắt UNDO (Ctrl + Z)
+        keyBindingHelper(im,am,KeyEvent.VK_Z, shortcutMask, "UndoAction", e -> {
+            System.out.println("Thực hiện Undo!");
+            if (appState.getHistoryManager().canUndo()) {
+                appState.getHistoryManager().undo();
+                canvas.repaint();
+            }
+        });
+
+        // 2. Phím tắt REDO (Ctrl + Y)
+        keyBindingHelper(im,am,KeyEvent.VK_Y, shortcutMask, "RedoAction", e -> {
+            System.out.println("Thực hiện Redo!");
+            if(appState.getHistoryManager().canRedo()) {
+                appState.getHistoryManager().redo();
+                canvas.repaint();
+            }
+        });
+
+        // 3. Phím tắt chuyển Tool (Ví dụ: phím 'H' cho Hand Tool)
+        keyBindingHelper(im,am,KeyEvent.VK_H, 0, "HandToolAction", e -> {
+            canvas.setActiveTool(tool.handTool);
+        });
+
+        keyBindingHelper(im,am, new int[]{KeyEvent.VK_C, KeyEvent.VK_S}, 0, "StickToolAction", e -> {
+            canvas.setActiveTool(tool.stickTool);
+        });
+
+        keyBindingHelper(im,am,new int[]{KeyEvent.VK_V,KeyEvent.VK_G}, 0, "GridToolAction", e -> {
+            canvas.setActiveTool(tool.gridTool);
+        });
+
+        // Phím 'P' cho Point/Pen Tool
+        keyBindingHelper(im,am, new int[]{KeyEvent.VK_P, KeyEvent.VK_B}, 0, "PointToolActionP", e -> {
+            tool.p2pTool.clearCompletedLines();
+            canvas.setActiveTool(tool.p2pTool);
+        });
+        keyBindingHelper(im,am,KeyEvent.VK_Z, 0, "ZoomToolAction", e -> {
+            if (canvas.getActiveTool() instanceof tools.ZoomCanvasTool) {
+                ((tools.ZoomCanvasTool) canvas.getActiveTool()).toggleMode();
+                canvas.updateCursor();
+            } else {
+                canvas.setActiveTool(new tools.ZoomCanvasTool());
+            }
+        });
+        keyBindingHelper(im,am,KeyEvent.VK_M, 0, "OpenZoomWindow", e -> {
+            openZoomWindow();
+        });
+    }
+
+    private void keyBindingHelper(InputMap im, ActionMap am, int keyEvent,
+                                  int modifiers, String mapkey, KeyAction keyAction) {
+        im.put(KeyStroke.getKeyStroke(keyEvent, modifiers), mapkey);
+        am.put(mapkey, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                keyAction.perform(e);
+            }
+        });
+    }
+
+    private void keyBindingHelper(InputMap im, ActionMap am, int[] keyEvents,
+                                  int modifiers, String mapkey, KeyAction keyAction) {
+        for (int key : keyEvents) {
+            im.put(KeyStroke.getKeyStroke(key, modifiers), mapkey);
+        }
+        am.put(mapkey, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                keyAction.perform(e);
+            }
+        });
+    }
+
+    /**
+     * Disable action scroll content inside scroll pane with arrow key
+     * We use arrow key for other action
+     * @param scrollPane
+     */
+    private void disableScrollByArrowKey(JScrollPane scrollPane) {
+        // Giả sử scrollPane là đối tượng JScrollPane chứa ImageCanvas của bạn
+        InputMap scrollIm = scrollPane.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+
+        // Ghi đè hành động mặc định bằng "none" để vô hiệu hóa
+        scrollIm.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "none");
+        scrollIm.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "none");
+        scrollIm.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "none");
+        scrollIm.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "none");
     }
 
     private void applyWindowSettings() {
@@ -203,7 +308,7 @@ public class MainFrame extends JFrame {
             if (!file.getName().endsWith(".png")) {
                 file = new java.io.File(file.getAbsolutePath() + ".png");
             }
-            new workers.SaveWorker(canvas, file).execute();
+            new workers.SaveWorker(canvas, file, true, true).execute();
             appState.setEditState(AppState.EditState.SAVED);
             appState.getHistoryManager().markAsSaved();
         }
@@ -244,19 +349,7 @@ public class MainFrame extends JFrame {
                 file = new java.io.File(file.getAbsolutePath() + ".png");
             }
             
-            // Temporarily disable labels and grids
-            canvas.setDrawLabels(false);
-            canvas.setDrawGrids(false);
-            
-            workers.SaveWorker worker = new workers.SaveWorker(canvas, file) {
-                @Override
-                protected void done() {
-                    super.done();
-                    canvas.setDrawLabels(true); // Restore labels
-                    canvas.setDrawGrids(true); // Restore grids
-                    canvas.repaint();
-                }
-            };
+            workers.SaveWorker worker = new workers.SaveWorker(canvas, file, false, false);
             worker.execute();
         }
     }
@@ -378,16 +471,7 @@ public class MainFrame extends JFrame {
         JMenuItem zoomItem = new JMenuItem("Toggle Zoom/Measure Calipers");
         zoomItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         zoomItem.addActionListener(e -> {
-            if (canvas.getBackgroundImage() == null) {
-                JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            // Ideally we'd hold a single instance of ZoomWindow, but for now we create one and show it
-            ui.dialogs.ZoomWindow zoom = new ui.dialogs.ZoomWindow(this, appState);
-            canvas.setZoomWindow(zoom);
-            zoom.updateImage(canvas.getBackgroundImage(), new Point(canvas.getWidth()/2, canvas.getHeight()/2));
-            zoom.setVisible(true);
-            zoom.toggleMeasurement();
+            openZoomWindow();
         });
         viewMenu.add(zoomItem);
 
@@ -425,7 +509,25 @@ public class MainFrame extends JFrame {
 
         setJMenuBar(menuBar);
     }
-    
+
+    private void openZoomWindow() {
+        if (canvas.getBackgroundImage() == null) {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if(zoom != null && zoom.isShowing()) {
+            zoom.setVisible(false);
+            return;
+        }
+
+        if(zoom == null) {
+            zoom = new ZoomWindow(this, appState);
+        }
+        canvas.setZoomWindow(zoom);
+        zoom.updateImage(canvas.getBackgroundImage());
+        zoom.setVisible(true);
+    }
+
     private JButton createIconButton(String iconName, String tooltip) {
         JButton btn = new JButton();
         try {
@@ -495,16 +597,16 @@ public class MainFrame extends JFrame {
         
         // Mouse Modes
         JButton handBtn = createIconButton("icon6.png", "Hand");
-        handBtn.addActionListener(e -> canvas.setActiveTool(new tools.HandTool()));
+        handBtn.addActionListener(e -> canvas.setActiveTool(tool.handTool));
         
         JButton stickBtn = createIconButton("icon11.png", "Stick");
-        stickBtn.addActionListener(e -> canvas.setActiveTool(new tools.StickTool()));
+        stickBtn.addActionListener(e -> canvas.setActiveTool(tool.stickTool));
         
         JButton p2pBtn = createIconButton("icon8.png", "P2P");
-        p2pBtn.addActionListener(e -> canvas.setActiveTool(new tools.P2PTool()));
+        p2pBtn.addActionListener(e -> canvas.setActiveTool(tool.p2pTool));
         
         JButton gridBtn = createIconButton("icon4.png", "Grid");
-        gridBtn.addActionListener(e -> canvas.setActiveTool(new tools.GridTool(appState.getGridSize())));
+        gridBtn.addActionListener(e -> canvas.setActiveTool(tool.gridTool));
         
         JButton zoomBtn = createIconButton("icon1.png", "Zoom");
         zoomBtn.addActionListener(e -> {

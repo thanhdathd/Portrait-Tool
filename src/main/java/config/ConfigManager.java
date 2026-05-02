@@ -34,18 +34,26 @@ public class ConfigManager {
             // Ví dụ: load các giá trị
             String brushColor = props.getProperty("brushColor", "#00FFFF");
             appState.setBrushColor(Color.decode(brushColor));
-
             String gridSize = props.getProperty("gridSize", "40");
             appState.setGridSize(Integer.parseInt(gridSize));
+            String cmUnit = props.getProperty("cmUnit", "false");
+            appState.setCmUnit(Boolean.parseBoolean(cmUnit));
+            String scale =  props.getProperty("scale", "1.0");
+            appState.setScale(Float.parseFloat(scale));
+            String vLang =  props.getProperty("viLang", "false");
+            appState.setViLang(Boolean.parseBoolean(vLang));
+            String round =  props.getProperty("round", "false");
+            appState.setRound(Boolean.parseBoolean(round));
+            String stackSize = props.getProperty("stackSize", "15");
+            appState.setStackSize(Integer.parseInt(stackSize));
 
-//            String cmUnit = props.getProperty("cmUnit", "false");
-//            appState.getCanvasState().setImageOffsetY(Integer.parseInt(cmUnit));
 
             // Load vị trí và kích thước cửa sổ
             String windowX = props.getProperty("windowX", "100");
             String windowY = props.getProperty("windowY", "100");
             String windowWidth = props.getProperty("windowWidth", "1000");
             String windowHeight = props.getProperty("windowHeight", "750");
+            String zoomWindowBounds = props.getProperty("zoomWindowBounds", "");
 
             String lastOpenedFile =  props.getProperty("lastOpenedFile", "");
             String lastOpenedDir =  props.getProperty("lastOpenedDir", "~/");
@@ -55,6 +63,7 @@ public class ConfigManager {
             appState.setWindowY(Integer.parseInt(windowY));
             appState.setWindowWidth(Integer.parseInt(windowWidth));
             appState.setWindowHeight(Integer.parseInt(windowHeight));
+            appState.setStringZoomWindowBounds(zoomWindowBounds);
 
         } catch (IOException | NumberFormatException e) {
             e.printStackTrace();
@@ -69,9 +78,11 @@ public class ConfigManager {
         Color c = appState.getBrushColor();
         props.setProperty("brushColor", String.format("#%02X%02X%02X", c.getRed(), c.getGreen(), c.getBlue()));
         props.setProperty("gridSize", String.valueOf(appState.getGridSize()));
+        props.setProperty("scale", String.valueOf(appState.getScale()));
         props.setProperty("cmUnit", String.valueOf(appState.isCmUnit()));
         props.setProperty("viLang", String.valueOf(appState.isViLang()));
         props.setProperty("round", String.valueOf(appState.isRound()));
+        props.setProperty("stackSize", String.valueOf(appState.getStackSize()));
 
         // Có thể thêm: vị trí cửa sổ, kích thước, lần mở file gần nhất, tool đang dùng...
         props.setProperty("lastOpenedFile", appState.getFilePath());
@@ -80,6 +91,7 @@ public class ConfigManager {
         props.setProperty("windowY", String.valueOf(appState.getWindowY()));
         props.setProperty("windowWidth", String.valueOf(appState.getWindowWidth()));
         props.setProperty("windowHeight", String.valueOf(appState.getWindowHeight()));
+        props.setProperty("zoomWindowBounds", appState.getStringZoomWindowBounds());
 
         try (FileOutputStream fos = new FileOutputStream(configFile)) {
             props.store(fos, "MyApp Configuration");

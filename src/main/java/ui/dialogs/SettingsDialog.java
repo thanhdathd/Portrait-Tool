@@ -19,6 +19,7 @@ public class SettingsDialog extends JDialog {
     private JRadioButton cmRadio;
     private JComboBox<String> languageCombo;
     private JCheckBox roundCheck;
+    private String[] comboItems = new String[]{"15", "30", "50", "100", "200", "300"};
 
     public SettingsDialog(Frame owner, AppState appState) {
         super(owner, "Settings", true);
@@ -38,7 +39,7 @@ public class SettingsDialog extends JDialog {
         
         // Form Fields
         formPanel.add(new JLabel("History Stack Size:"));
-        historySizeCombo = new JComboBox<>(new String[]{"15", "30", "50", "100", "200", "300"});
+        historySizeCombo = new JComboBox<>(comboItems);
         formPanel.add(historySizeCombo);
         
         formPanel.add(new JLabel("Grid Size:"));
@@ -47,7 +48,20 @@ public class SettingsDialog extends JDialog {
         
         formPanel.add(new JLabel("Scale Ratio (cm/px):"));
         scaleField = new JTextField(5);
-        formPanel.add(scaleField);
+        formPanel.add(scaleField, "split 2, pushx, growx");
+
+        JButton calcBtn = new JButton("...");
+        calcBtn.setToolTipText("Mở bộ tính tỷ lệ tự động");
+        calcBtn.setFocusable(false);
+        formPanel.add(calcBtn, "w 30!");
+        calcBtn.addActionListener(e -> {
+            // Mở sub-dialog và truyền scaleField vào để nó tự điền kết quả
+            ScaleCalculatorDialog calcDialog = new ScaleCalculatorDialog(
+                    (JDialog) SwingUtilities.getWindowAncestor(formPanel),
+                    scaleField
+            );
+            calcDialog.setVisible(true);
+        });
         
         formPanel.add(new JLabel("Distance Unit:"));
         JPanel radioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
@@ -84,8 +98,14 @@ public class SettingsDialog extends JDialog {
     }
 
     private void loadState() {
-        // AppState only has some of these variables currently. 
-        // For history size, we could theoretically resize the deque but for now it's static in AppState init
+        // AppState only has some of these variables currently.
+        int stackSize = appState.getStackSize();
+        for (int i = 0; i < comboItems.length; i++) {
+            if(String.valueOf(stackSize).equals(comboItems[i])) {
+                historySizeCombo.setSelectedIndex(i);
+                break;
+            }
+        }
         gridSizeField.setText(String.valueOf(appState.getGridSize()));
         scaleField.setText(String.valueOf(appState.getScale()));
         
@@ -103,6 +123,7 @@ public class SettingsDialog extends JDialog {
         try {
             int newGridSize = Integer.parseInt(gridSizeField.getText());
             appState.setGridSize(newGridSize);
+            appState.resizeHistoryStack(Integer.parseInt((String) historySizeCombo.getSelectedItem()));
             
             float newScale = Float.parseFloat(scaleField.getText());
             appState.setScale(newScale);

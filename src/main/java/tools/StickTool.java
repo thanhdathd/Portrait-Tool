@@ -35,7 +35,12 @@ public class StickTool implements Tool {
             }
 
             // Create point and push to history
-            SPoint point = new SPoint(nextId, x, y, appState.getBrushColor()); // numLocation is EAST by default
+            SPoint point = new SPoint(nextId, x, y, appState.getBrushColor(), appState.getLabelDirection());
+            if(appState.isCustomLabelMode()) {
+                point.customAngle = appState.getCustomAngle();
+                point.customGap = appState.getCustomGap();
+                point.isCustomPlacement = true;
+            }
             StickCommand command = new StickCommand(appState.getCanvasState(), null, point); // ImgFrame is null because we decouple it
             appState.getHistoryManager().push(command);
             canvas.repaint();

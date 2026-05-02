@@ -9,6 +9,9 @@ public class SPoint {
     public int Y;
     public Direction dr;
     public Color c;
+    public boolean isCustomPlacement = false;
+    public int customGap = 0;
+    public int customAngle = 0;
 
     public SPoint() {
         this.id = 0;

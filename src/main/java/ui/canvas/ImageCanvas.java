@@ -1,6 +1,7 @@
 package ui.canvas;
 
 import core.state.AppState;
+import tools.P2PTool;
 import tools.Tool;
 import javax.swing.JPanel;
 import java.awt.Graphics;
@@ -16,6 +17,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
+import java.util.List;
+
 import userpackage.SPoint;
 import user.Enum.Direction;
 
@@ -29,7 +32,6 @@ public class ImageCanvas extends JPanel {
     private ZoomWindow zoomWindow;
     private static final int CHECKER_SIZE = 40;
     private boolean drawLabels = true;
-    private boolean drawGrids = true;
     private boolean isShiftDown = false;
     private static final int CANVAS_PADDING = 80;
 
@@ -43,6 +45,8 @@ public class ImageCanvas extends JPanel {
         setBackground(Color.LIGHT_GRAY);
         setFocusable(true);
         setAutoscrolls(true); // Enables auto-scrolling for drag events
+        setFocusTraversalKeysEnabled(false);
+        enableInputMethods(false);
         
         // Mouse Listeners that delegate to the active tool
         this.addMouseListener(new MouseAdapter() {
@@ -63,6 +67,9 @@ public class ImageCanvas extends JPanel {
                     if(activeTool instanceof HandTool) {
                         setCursor(CustomCursors.OPEN_HAND_CURSOR);
                     }
+                    if(zoomWindow != null && zoomWindow.isVisible()) {
+                        zoomWindow.repaint();
+                    }
                 }
             }
         });
@@ -79,6 +86,28 @@ public class ImageCanvas extends JPanel {
             @Override
             public void mouseMoved(MouseEvent e) {
                 updateZoomWindow(e.getPoint());
+            }
+        });
+
+        this.addMouseWheelListener(e -> {
+            if (zoomWindow != null && zoomWindow.isVisible() && backgroundImage != null) {
+                int rotation = e.getWheelRotation();
+                // rotation < 0 nghĩa là cuộn lên (Zoom In)
+                if (appState.isCustomLabelMode()) {
+                    int currentGap = appState.getCustomGap();
+                    if (rotation < 0) { // Cuộn lên -> Phóng to vòng tròn
+                        appState.setCustomGap(currentGap + 2);
+                    } else {            // Cuộn xuống -> Thu nhỏ vòng tròn
+                        appState.setCustomGap(currentGap - 2);
+                    }
+                    zoomWindow.repaint();
+                } else {
+                    if (rotation < 0) {
+                        zoomWindow.zoomIn();
+                    } else {
+                        zoomWindow.zoomOut();
+                    }
+                }
             }
         });
         
@@ -107,6 +136,95 @@ public class ImageCanvas extends JPanel {
                 }
             }
         });
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "pressUP");
+        am.put("pressUP", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                appState.setLabelDirection(Direction.NORTH);
+                if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "pressDown");
+        am.put("pressDown", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                appState.setLabelDirection(Direction.SOUTH);
+                if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "pressLeft");
+        am.put("pressLeft", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                appState.setLabelDirection(Direction.WEST);
+                if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "pressRight");
+        am.put("pressRight", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                appState.setLabelDirection(Direction.EAST);
+                if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+            }
+        });
+
+        // Nút A: Bật/Tắt chế độ
+        im.put(KeyStroke.getKeyStroke('a'), "toggleCustomMode");
+        im.put(KeyStroke.getKeyStroke('A'), "toggleCustomMode");
+        im.put(KeyStroke.getKeyStroke('â'), "toggleCustomMode");
+        im.put(KeyStroke.getKeyStroke('Â'), "toggleCustomMode");
+        am.put("toggleCustomMode", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) {
+                System.out.println("-> press A");
+                if(zoomWindow != null && zoomWindow.isVisible()) {
+                    appState.toggleCustomLabelMode();
+                    zoomWindow.repaint(); // Ép ZoomWindow vẽ lại ngay
+                }
+            }
+        });
+
+// Nút [ và ]: Giảm/Tăng Gap
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_OPEN_BRACKET, 0), "decreaseGap");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, 0), "decreaseGap");
+        am.put("decreaseGap", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) {
+                appState.setCustomGap(appState.getCustomGap() - 2);
+                zoomWindow.repaint();
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_CLOSE_BRACKET, 0), "increaseGap");
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_EQUALS, 0), "increaseGap");
+        am.put("increaseGap", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) {
+                appState.setCustomGap(appState.getCustomGap() + 2);
+                zoomWindow.repaint();
+            }
+        });
+
+// Nút , (<) và . (>): Xoay góc (10 độ mỗi lần bấm để xoay nhanh)
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_COMMA, 0), "rotateCW");
+        am.put("rotateCW", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) {
+                // Phím < xoay cùng chiều kim đồng hồ (giảm góc)
+                appState.setCustomAngle(appState.getCustomAngle() - 2);
+                zoomWindow.repaint();
+            }
+        });
+
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_PERIOD, 0), "rotateCCW");
+        am.put("rotateCCW", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) {
+                // Phím > xoay ngược chiều kim đồng hồ (tăng góc) theo đúng yêu cầu
+                appState.setCustomAngle(appState.getCustomAngle() + 2);
+                zoomWindow.repaint();
+            }
+        });
         
         // Listen for SHIFT to update Zoom cursor
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
@@ -127,6 +245,7 @@ public class ImageCanvas extends JPanel {
         this.zoomWindow = zoomWindow;
     }
 
+    private Point lastPoint = new Point(-1,-1);
     private void updateZoomWindow(java.awt.Point p) {
         if (zoomWindow != null && zoomWindow.isVisible() && backgroundImage != null) {
             // zoomWindow expects coordinates relative to the unscaled image
@@ -137,7 +256,10 @@ public class ImageCanvas extends JPanel {
                     Math.round((p.x - offsetX) / appState.getCurrentZoom()),
                     Math.round((p.y - offsetY) / appState.getCurrentZoom())
             );
-            zoomWindow.updateImage(backgroundImage, unscaledP);
+            if (!unscaledP.equals(lastPoint)) {
+                zoomWindow.updateMousePosition(unscaledP);
+                lastPoint = unscaledP;
+            }
         }
     }
 
@@ -252,22 +374,6 @@ public class ImageCanvas extends JPanel {
         }
     }
 
-    public void setDrawLabels(boolean drawLabels) {
-        this.drawLabels = drawLabels;
-    }
-
-    public boolean isDrawLabels() {
-        return drawLabels;
-    }
-
-    public void setDrawGrids(boolean drawGrids) {
-        this.drawGrids = drawGrids;
-    }
-
-    public boolean isDrawGrids() {
-        return drawGrids;
-    }
-
     public void setBackgroundImage(BufferedImage image) {
         this.backgroundImage = image;
         enforceScrollModeOffset();
@@ -285,6 +391,7 @@ public class ImageCanvas extends JPanel {
     protected void paintComponent(Graphics gp) {
         super.paintComponent(gp);
         Graphics2D g2d = (Graphics2D) gp.create();
+        List<SPoint> sPoints = appState.getCanvasState().getStickyPoints();
         
         // Draw Checkerboard Background
         int viewWidth = getWidth();
@@ -325,81 +432,26 @@ public class ImageCanvas extends JPanel {
         // 2. Allow active tool to draw preview
         if (activeTool != null) {
             activeTool.onPaint(g2d, appState, this);
+            if(previousTool instanceof P2PTool) {
+                P2PTool p2pTool = (P2PTool) previousTool;
+                if(!p2pTool.getCompletedLines().isEmpty()){
+                    p2pTool.onPaint(g2d, appState, this);
+                }
+            }
         }
         
         // 3. Draw Sticky Points
-        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        for (SPoint p : appState.getCanvasState().getStickyPoints()) {
-            g2d.setColor(p.c);
-//            g2d.fillRect(p.X - 1, p.Y - 1, 2, 2);
-            // Đường kính chấm (có thể tinh chỉnh ví dụ: 2.0, 2.5, 3.0)
-            double diameter = 1.5;
-            double offset = diameter / 2.0;
-
-            // Sử dụng Ellipse2D.Double để vẽ với tọa độ thập phân chuẩn xác
-            java.awt.geom.Ellipse2D.Double dot = new java.awt.geom.Ellipse2D.Double(
-                    p.X - offset,
-                    p.Y - offset,
-                    diameter,
-                    diameter
-            );
-
-            g2d.fill(dot);
-
-            
-            if (drawLabels) {
-                // Adjust label font size back so it doesn't scale massively with zoom
-                // Keep font size constant on screen
-                Font originalFont = g2d.getFont();
-                g2d.setFont(originalFont.deriveFont(originalFont.getSize() / zoom));
-                
-                // Label rendering
-                if (p.dr == Direction.EAST) {
-                    g2d.drawString(String.valueOf(p.id), p.X + 12, p.Y + 12);
-                } else if (p.dr == Direction.WEST) {
-                    g2d.drawString(String.valueOf(p.id), p.X - 30, p.Y + 15);
-                } else if (p.dr == Direction.SOUTH) {
-                    g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y + 25);
-                } else {
-                    g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y - 12);
-                }
-                
-                g2d.setFont(originalFont);
-            }
-        }
+        RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels);
         
         // 4. Draw Grids
-        java.awt.Stroke oldStroke = g2d.getStroke();
-        float strokeWidth = 1.0f / zoom;
-        float[] dash = new float[]{2.0f / zoom, 4.0f / zoom};
-        g2d.setStroke(new java.awt.BasicStroke(strokeWidth, java.awt.BasicStroke.CAP_BUTT, java.awt.BasicStroke.JOIN_BEVEL, 0, dash, 0));
-        
-        for (SPoint grid : appState.getCanvasState().getGrids()) {
-            g2d.setColor(grid.c);
-            int gridSize = grid.id;
-            int xR = grid.X;
-            int yR = grid.Y;
-            
-            int width = backgroundImage != null ? backgroundImage.getWidth() : (this.getWidth() > 0 ? this.getWidth() : 800);
-            int height = backgroundImage != null ? backgroundImage.getHeight() : (this.getHeight() > 0 ? this.getHeight() : 600);
-            
-            for (int x = xR; x < width; x += gridSize) {
-                g2d.drawLine(x, 0, x, height);
-            }
-            for (int x = xR; x > 0; x -= gridSize) {
-                g2d.drawLine(x, 0, x, height);
-            }
-            for (int y = yR; y < height; y += gridSize) {
-                g2d.drawLine(0, y, width, y);
-            }
-            for (int y = yR; y > 0; y -= gridSize) {
-                g2d.drawLine(0, y, width, y);
-            }
-        }
-        g2d.setStroke(oldStroke);
-        
+        int width = backgroundImage != null ? backgroundImage.getWidth() : (this.getWidth() > 0 ? this.getWidth() : 800);
+        int height = backgroundImage != null ? backgroundImage.getHeight() : (this.getHeight() > 0 ? this.getHeight() : 600);
+        RenderUtils.drawGrids(g2d, zoom, appState, width, height);
+
         g2d.dispose();
     }
+
+
 
     public AppState getAppState() {
         return appState;

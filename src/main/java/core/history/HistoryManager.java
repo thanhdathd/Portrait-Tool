@@ -4,12 +4,16 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 public class HistoryManager {
-    
+
+    public void setLength(int newSize) {
+        this.capacity = newSize;
+    }
+
     public interface HistoryListener {
         void onHistoryChanged(boolean canUndo, boolean canRedo, boolean isModified);
     }
     
-    private final int capacity;
+    private int capacity;
     private final Deque<Command> undoStack;
     private final Deque<Command> redoStack;
     private final java.util.List<HistoryListener> listeners = new java.util.ArrayList<>();

@@ -2,6 +2,7 @@ package workers;
 
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
+import ui.canvas.RenderUtils;
 import user.Enum.Direction;
 import userpackage.SPoint;
 
@@ -20,10 +21,14 @@ public class SaveWorker extends SwingWorker<Void, Void> {
     private final BufferedImage image;
     private final ImageCanvas canvas;
     private final File outputFile;
+    private boolean drawLabels;
+    private boolean drawGrids;
 
 
-    public SaveWorker(ImageCanvas canvas, File outputFile) {
+    public SaveWorker(ImageCanvas canvas, File outputFile, boolean drawLabels, boolean drawGrids) {
         this.canvas = canvas;
+        this.drawLabels = drawLabels;
+        this.drawGrids = drawGrids;
         BufferedImage originalImage = canvas.getBackgroundImage();
         this.image = new  BufferedImage(originalImage.getWidth(), originalImage.getHeight(), BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = image.createGraphics();
@@ -36,29 +41,12 @@ public class SaveWorker extends SwingWorker<Void, Void> {
     protected Void doInBackground() throws Exception {
         AppState appState = canvas.getAppState();
         Graphics2D g2d = image.createGraphics();
-        for(SPoint p: appState.getCanvasState().getStickyPoints()) {
-            g2d.setColor(p.c);
-            g2d.fillRect(p.X - 1, p.Y - 1, 2, 2);
-            if(canvas.isDrawLabels()) {
-                // Adjust label font size back so it doesn't scale massively with zoom
-
-                // Label rendering
-                if (p.dr == Direction.EAST) {
-                    g2d.drawString(String.valueOf(p.id), p.X + 12, p.Y + 12);
-                } else if (p.dr == Direction.WEST) {
-                    g2d.drawString(String.valueOf(p.id), p.X - 30, p.Y + 15);
-                } else if (p.dr == Direction.SOUTH) {
-                    g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y + 25);
-                } else {
-                    g2d.drawString(String.valueOf(p.id), p.X - 5, p.Y - 12);
-                }
-
-            }
-        }
+        List<SPoint> sPoints = appState.getCanvasState().getStickyPoints();
+        RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels);
 
         // 4. Draw Grids
         List<SPoint> grids = appState.getCanvasState().getGrids();
-        if (!grids.isEmpty() && canvas.isDrawGrids()) {
+        if (!grids.isEmpty() && drawGrids) {
             Stroke oldStroke = g2d.getStroke();
             float strokeWidth = 1.0f;
             float[] dash = new float[]{2.0f, 4.0f};

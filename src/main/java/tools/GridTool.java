@@ -10,15 +10,6 @@ import java.awt.event.MouseEvent;
 
 public class GridTool implements Tool {
 
-    private int gridSize;
-
-    public GridTool(int gridSize) {
-        this.gridSize = gridSize;
-    }
-
-    public void setGridSize(int gridSize) {
-        this.gridSize = gridSize;
-    }
 
     @Override
     public void onMousePressed(MouseEvent e, AppState appState, ImageCanvas canvas) {
@@ -39,7 +30,7 @@ public class GridTool implements Tool {
 
             // Create grid data point and push to history
             // We use the ID to store gridSize to match legacy drawing logic temporarily
-            SPoint gridData = new SPoint(gridSize, x, y, appState.getBrushColor()); 
+            SPoint gridData = new SPoint(appState.getGridSize(), x, y, appState.getBrushColor());
             GridCommand command = new GridCommand(appState.getCanvasState(), canvas, gridData);
             appState.getHistoryManager().push(command);
             canvas.repaint();

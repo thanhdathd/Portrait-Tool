@@ -1,9 +1,11 @@
 package core.state;
 
 import tools.PropertyChangeListener;
+import user.Enum.Direction;
 import user.Enum.MouseMode;
 import core.history.HistoryManager;
-import java.awt.Color;
+
+import java.awt.*;
 import java.beans.PropertyChangeEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,12 +22,19 @@ public class AppState {
         this.lastOpenedDir = lastOpenedDir;
     }
 
+    public void resizeHistoryStack(int newSize) {
+        historyManager.setLength(newSize);
+        stackSize = newSize;
+    }
+
+
     public enum EditState {
         SAVED,
         MODIFIED,
         NOT_SAVED
     }
 
+    private int stackSize = 15;
     private float currentZoom = 1.0f;
     private float scale = 1.0f;
     private MouseMode mouseMode = MouseMode.DRAG;
@@ -37,11 +46,16 @@ public class AppState {
     private String lastOpenedDir = "~/";
     private EditState editState = EditState.SAVED;
     private Color brushColor = Color.CYAN;
+    private Direction labelDirection = Direction.EAST;
     private boolean floating = false;
     private int gridSize = 40; // Default from legacy code
     private final HistoryManager historyManager;
     private final CanvasState canvasState;
     private final Map<String, List<PropertyChangeListener>> watchedKeys = new HashMap<>();
+    private Rectangle zoomWindowBounds = null;
+    private boolean customLabelMode = false;
+    private int customGap = 20;   // Giới hạn 8 - 50
+    private int customAngle = 40; // Độ (0 - 359), tăng theo chiều CCW (ngược chiều kim đồng hồ)
 
     public AppState() {
         this.historyManager = new HistoryManager(115);
@@ -166,6 +180,14 @@ public class AppState {
         this.brushColor = brushColor;
     }
 
+    public int getStackSize() {
+        return stackSize;
+    }
+
+    public void setStackSize(int stackSize) {
+        this.stackSize = stackSize;
+    }
+
     public int getGridSize() {
         return gridSize;
     }
@@ -204,5 +226,53 @@ public class AppState {
 
     public void setWindowHeight(int windowHeight) {
         this.windowHeight = windowHeight;
+    }
+
+    public Rectangle getZoomWindowBounds() {
+        return zoomWindowBounds;
+    }
+
+    public String getStringZoomWindowBounds() {
+        return zoomWindowBounds.x+";"+zoomWindowBounds.y+";"+zoomWindowBounds.width+";"+zoomWindowBounds.height;
+    }
+
+    public void setZoomWindowBounds(Rectangle bounds) {
+        this.zoomWindowBounds = bounds;
+    }
+
+    public void setStringZoomWindowBounds(String bounds) {
+        String[] parts = bounds.split(";");
+        if(parts.length!=4){
+            System.out.println("Invalid zoom window bounds: "+bounds);
+            return;
+        }
+        this.zoomWindowBounds = new Rectangle(
+                Integer.parseInt(parts[0]),
+                Integer.parseInt(parts[1]),
+                Integer.parseInt(parts[2]),
+                Integer.parseInt(parts[3])
+        );
+    }
+
+    public void setLabelDirection(Direction d) {
+        this.labelDirection = d;
+    }
+
+    public Direction getLabelDirection() {
+        return labelDirection;
+    }
+
+    public boolean isCustomLabelMode() { return customLabelMode; }
+    public void toggleCustomLabelMode() { this.customLabelMode = !this.customLabelMode; }
+
+    public int getCustomGap() { return customGap; }
+    public void setCustomGap(int gap) {
+        this.customGap = Math.max(8, Math.min(50, gap));
+    }
+
+    public int getCustomAngle() { return customAngle; }
+    public void setCustomAngle(int angle) {
+        // Đảm bảo góc luôn nằm trong [0, 359]
+        this.customAngle = (angle % 360 + 360) % 360;
     }
 }
