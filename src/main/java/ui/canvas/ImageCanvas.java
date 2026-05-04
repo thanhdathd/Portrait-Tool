@@ -1,6 +1,7 @@
 package ui.canvas;
 
 import core.state.AppState;
+import filter.FilterProperties;
 import tools.P2PTool;
 import tools.Tool;
 import javax.swing.JPanel;
@@ -21,6 +22,7 @@ import java.util.List;
 
 import userpackage.SPoint;
 import user.Enum.Direction;
+import workers.FilterWorker;
 
 public class ImageCanvas extends JPanel {
 
@@ -30,10 +32,14 @@ public class ImageCanvas extends JPanel {
     private final HandTool globalHandTool = new HandTool();
     private BufferedImage backgroundImage;
     private ZoomWindow zoomWindow;
+    private BufferedImage tempPreviewImage = null;
+    private Rectangle tempPreviewBounds = null;
     private static final int CHECKER_SIZE = 40;
     private boolean drawLabels = true;
     private boolean isShiftDown = false;
-    private static final int CANVAS_PADDING = 80;
+
+    private boolean isLivePreviewFilterActive = false;
+    public static final int CANVAS_PADDING = 80;
 
     public ImageCanvas(AppState appState) {
         this.appState = appState;
@@ -81,6 +87,9 @@ public class ImageCanvas extends JPanel {
                     activeTool.onMouseDragged(e, appState, ImageCanvas.this);
                 }
                 updateZoomWindow(e.getPoint());
+                if(isLivePreviewFilterActive) {
+                    applyLivePreviewToMainCanvas(null);
+                }
             }
 
             @Override
@@ -428,6 +437,16 @@ public class ImageCanvas extends JPanel {
         if (backgroundImage != null) {
             g2d.drawImage(backgroundImage, 0, 0, this);
         }
+
+        if (tempPreviewImage != null && tempPreviewBounds != null) {
+            // Dù lúc getVisiblePreviewData ta có scale nhỏ ảnh xuống (ở chế độ zoom out),
+            // thì khi vẽ drawImage với width, height của bounds, Java2D sẽ tự động
+            // scale up (kéo giãn) nó ra khớp khít 100% với khung hình.
+            g2d.drawImage(tempPreviewImage,
+                    tempPreviewBounds.x, tempPreviewBounds.y,
+                    tempPreviewBounds.width, tempPreviewBounds.height,
+                    null);
+        }
         
         // 2. Allow active tool to draw preview
         if (activeTool != null) {
@@ -455,5 +474,92 @@ public class ImageCanvas extends JPanel {
 
     public AppState getAppState() {
         return appState;
+    }
+
+    private FilterWorker canvasPreviewWorker;
+    FilterProperties filterProps;
+    public void applyLivePreviewToMainCanvas(FilterProperties props) {
+        if (props != null) {
+            this.filterProps = props;
+        }
+        if (canvasPreviewWorker != null && !canvasPreviewWorker.isDone()) {
+            canvasPreviewWorker.cancel(true);
+        }
+
+        PreviewRequest req = getVisiblePreviewData();
+        if (req == null)return;
+        canvasPreviewWorker = new FilterWorker(req.imageToProcess, filterProps, resultIamge -> {
+            setTempPreview(resultIamge, req.originalBounds);
+        });
+        canvasPreviewWorker.execute();
+    }
+
+    public void clearTempPreview() {
+        this.tempPreviewImage = null;
+        this.tempPreviewBounds = null;
+        repaint();
+    }
+
+    public void setTempPreview(BufferedImage img, Rectangle bounds) {
+        this.tempPreviewImage = img;
+        this.tempPreviewBounds = bounds;
+        repaint();
+    }
+
+    public PreviewRequest getVisiblePreviewData() {
+        if (backgroundImage == null) return null;
+        int panX = appState.getCanvasState().getImageOffsetX();
+        int panY = appState.getCanvasState().getImageOffsetY();
+        float zoomFactor = appState.getCurrentZoom();
+
+        // BƯỚC 1: Tính toán vùng ảnh gốc đang hiển thị trên màn hình
+        // Công thức: (Tọa độ màn hình - Tọa độ Pan) / Zoom
+        int startX = (int) (-panX / zoomFactor);
+        int startY = (int) (-panY / zoomFactor);
+        int endX = (int) ((getWidth() - panX) / zoomFactor);
+        int endY = (int) ((getHeight() - panY) / zoomFactor);
+
+        // Giới hạn (Clamp) tọa độ không được lọt ra ngoài ảnh gốc
+        startX = Math.max(0, startX);
+        startY = Math.max(0, startY);
+        endX = Math.min(backgroundImage.getWidth(), endX);
+        endY = Math.min(backgroundImage.getHeight(), endY);
+
+        int cropW = endX - startX;
+        int cropH = endY - startY;
+
+        if (cropW <= 0 || cropH <= 0) return null; // Ảnh nằm ngoài khung hình
+
+        Rectangle bounds = new Rectangle(startX, startY, cropW, cropH);
+
+        // BƯỚC 2: Tối ưu hóa (LOD) theo ý tưởng của bạn
+        BufferedImage imageToProcess;
+
+        if (zoomFactor < 1.0) {
+            // NẾU ZOOM OUT: Ảnh nhìn thấy rất nhỏ, nhưng bounds lại rất to (vd 4K).
+            // Ta scale ảnh xuống bằng đúng độ phân giải màn hình trước khi xử lý để chống lag.
+            int renderW = (int) (cropW * zoomFactor);
+            int renderH = (int) (cropH * zoomFactor);
+
+            // Cắt ảnh bằng getSubimage (rất nhanh, O(1))
+            BufferedImage cropped = backgroundImage.getSubimage(startX, startY, cropW, cropH);
+
+            // Tạo ảnh thu nhỏ để xử lý
+            imageToProcess = new BufferedImage(renderW, renderH, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2d = imageToProcess.createGraphics();
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2d.drawImage(cropped, 0, 0, renderW, renderH, null);
+            g2d.dispose();
+        } else {
+            // NẾU ZOOM IN / BÌNH THƯỜNG: Vùng nhìn thấy đã nhỏ sẵn, ta cắt trực tiếp.
+            // getSubimage tạo ra một ảnh mới nhưng dùng chung bộ nhớ (shared raster) với ảnh gốc nên không tốn RAM.
+            imageToProcess = backgroundImage.getSubimage(startX, startY, cropW, cropH);
+        }
+
+        return new PreviewRequest(imageToProcess, bounds);
+    }
+
+    public void setLivePreviewFilterActive(boolean livePreviewFilterActive) {
+        isLivePreviewFilterActive = livePreviewFilterActive;
     }
 }

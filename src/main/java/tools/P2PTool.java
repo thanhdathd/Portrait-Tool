@@ -47,10 +47,32 @@ public class P2PTool implements Tool {
         return new Point(x, y);
     }
 
+    /**
+     * Helper method để khóa điểm kết thúc tạo thành đường thẳng ngang hoặc dọc
+     */
+    private Point applyOrthogonalSnap(Point start, Point current) {
+        int dx = Math.abs(current.x - start.x);
+        int dy = Math.abs(current.y - start.y);
+
+        // Nếu rê chuột theo chiều ngang nhiều hơn, khóa trục Y (đường ngang)
+        // Ngược lại, khóa trục X (đường dọc)
+        if (dx > dy) {
+            return new Point(current.x, start.y);
+        } else {
+            return new Point(start.x, current.y);
+        }
+    }
+
     @Override
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (e.getButton() == MouseEvent.BUTTON1 && startPoint != null) {
             endPoint = getAdjustedPoint(e.getPoint(), appState);
+
+            // Xử lý snap khi user nhả chuột mà vẫn đang giữ Shift
+            if (e.isShiftDown()) {
+                endPoint = applyOrthogonalSnap(startPoint, endPoint);
+            }
+
             completedLines.add(new Line(startPoint, endPoint));
             canvas.repaint();
             startPoint = null;
@@ -62,6 +84,12 @@ public class P2PTool implements Tool {
     public void onMouseDragged(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (startPoint != null) {
             endPoint = getAdjustedPoint(e.getPoint(), appState);
+
+            // Xử lý snap trong quá trình drag để UI phản hồi real-time
+            if (e.isShiftDown()) {
+                endPoint = applyOrthogonalSnap(startPoint, endPoint);
+            }
+
             canvas.scrollRectToVisible(new java.awt.Rectangle(e.getX(), e.getY(), 1, 1));
             canvas.repaint();
         }
@@ -86,7 +114,8 @@ public class P2PTool implements Tool {
         g2d.drawLine(p1.x, p1.y, p2.x, p2.y);
         int dx = p2.x - p1.x;
         int dy = p2.y - p1.y;
-            float distance = (float) Math.sqrt(dx * dx + dy * dy);
+        float distance = (float) Math.sqrt(dx * dx + dy * dy);
+
         if (appState.isCmUnit()) {
             distance = distance * appState.getScale();
             if(appState.isRound()) {

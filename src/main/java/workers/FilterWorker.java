@@ -25,11 +25,15 @@ public class FilterWorker extends SwingWorker<BufferedImage, Void> {
     @Override
     protected BufferedImage doInBackground() throws Exception {
         // Execute the heavy filtering process on the background thread
-        return ImageProcessor.applyFilter(sourceImage, properties);
+        return ImageProcessor.applyFilter(sourceImage, properties, this::isCancelled);
     }
 
     @Override
     protected void done() {
+        if (isCancelled()) {
+            return;
+        }
+
         try {
             BufferedImage result = get(); // Blocks until doInBackground is finished, but since we are in done(), it's immediate
             if (onComplete != null && result != null) {

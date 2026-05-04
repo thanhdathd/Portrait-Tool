@@ -1,12 +1,16 @@
 package ui;
 
+import com.formdev.flatlaf.extras.FlatSVGIcon;
 import config.ConfigManager;
 import core.actions.KeyAction;
 import core.fileio.GridOptionInjector;
 import core.fileio.ThumbnailFileView;
+import core.history.Command;
+import core.history.FilterCommand;
 import core.state.AppState;
 import tools.ToolManager;
 import ui.canvas.ImageCanvas;
+import ui.dialogs.FilterDialog;
 import ui.dialogs.ImagePreviewPanel;
 import ui.dialogs.ZoomWindow;
 import utils.ExcelExportUtils;
@@ -28,6 +32,7 @@ public class MainFrame extends JFrame {
     private final ConfigManager configManager;
     private final ToolManager tool;
     private ZoomWindow zoom = null;
+    private JScrollPane scrollPane;
 
     public MainFrame() {
         this.appState = new AppState();
@@ -58,7 +63,7 @@ public class MainFrame extends JFrame {
         setLayout(new BorderLayout());
         
         // Wrap canvas in JScrollPane
-        JScrollPane scrollPane = new JScrollPane(canvas);
+        scrollPane = new JScrollPane(canvas);
         scrollPane.setBorder(null); // Clean look
         // Improve panning speed
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
@@ -358,10 +363,18 @@ public class MainFrame extends JFrame {
     private void performOpenFilter() {
         BufferedImage currentImage = canvas.getBackgroundImage();
         if (currentImage != null) {
-            new ui.dialogs.FilterDialog(this, currentImage, (newImage) -> {
-                core.history.Command filterCmd = new core.history.FilterCommand(canvas, currentImage, newImage);
+            new FilterDialog(this, currentImage, (newImage) -> {
+                Command filterCmd = new FilterCommand(canvas, currentImage, newImage);
                 appState.getHistoryManager().push(filterCmd);
                 canvas.repaint();
+            }, (filterProps) -> {
+                if(filterProps == null) {
+                    canvas.setLivePreviewFilterActive(false);
+                    canvas.clearTempPreview();
+                } else {
+                    canvas.setLivePreviewFilterActive(true);
+                    canvas.applyLivePreviewToMainCanvas(filterProps);
+                }
             }).setVisible(true);
         } else {
             JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
@@ -545,6 +558,24 @@ public class MainFrame extends JFrame {
         return btn;
     }
 
+    private JButton createSVGIconButton(String iconName, String tooltip) {
+        JButton btn = new JButton();
+        try {
+            FlatSVGIcon svgIcon = new FlatSVGIcon("icons/"+iconName, 20,16);
+            Image image = svgIcon.getImage();
+            if (image != null) {
+                btn.setIcon(new ImageIcon(image));
+            } else {
+                btn.setText(tooltip);
+            }
+        }catch (Exception e) {
+            btn.setText(tooltip);
+        }
+        btn.setToolTipText(tooltip);
+        btn.setFocusPainted(false);
+        return btn;
+    }
+
     private void initToolBar() {
         JToolBar toolBar = new JToolBar();
         toolBar.setOrientation(JToolBar.HORIZONTAL);
@@ -603,7 +634,10 @@ public class MainFrame extends JFrame {
         stickBtn.addActionListener(e -> canvas.setActiveTool(tool.stickTool));
         
         JButton p2pBtn = createIconButton("icon8.png", "P2P");
-        p2pBtn.addActionListener(e -> canvas.setActiveTool(tool.p2pTool));
+        p2pBtn.addActionListener(e -> {
+            tool.p2pTool.clearCompletedLines();
+            canvas.setActiveTool(tool.p2pTool);
+        });
         
         JButton gridBtn = createIconButton("icon4.png", "Grid");
         gridBtn.addActionListener(e -> canvas.setActiveTool(tool.gridTool));
@@ -616,6 +650,15 @@ public class MainFrame extends JFrame {
             } else {
                 canvas.setActiveTool(new tools.ZoomCanvasTool());
             }
+        });
+
+        JButton zoomActualSize = createSVGIconButton("actual_size.svg", "ActualSize");
+        zoomActualSize.addActionListener(e -> {
+            appState.setCurrentZoom(1.0f);
+            appState.getCanvasState().setImageOffsetX(ImageCanvas.CANVAS_PADDING);
+            appState.getCanvasState().setImageOffsetY(5);
+            scrollPane.getViewport().setViewPosition(new Point(0, 0));
+            canvas.repaint();
         });
         
         // Listen to active tool changes
@@ -635,6 +678,7 @@ public class MainFrame extends JFrame {
         toolBar.add(p2pBtn);
         toolBar.add(gridBtn);
         toolBar.add(zoomBtn);
+        toolBar.add(zoomActualSize);
         
         toolBar.addSeparator();
         
@@ -650,8 +694,9 @@ public class MainFrame extends JFrame {
         toolBar.addSeparator();
         
         // Color
-        JButton colorBtn = new JButton("   ");
+        JButton colorBtn = new JButton("         ");
         colorBtn.setBackground(appState.getBrushColor());
+        colorBtn.setPreferredSize(new Dimension(150, 30));
         colorBtn.setOpaque(true);
         colorBtn.setBorderPainted(false);
         colorBtn.setToolTipText("Select Brush Color");
@@ -663,7 +708,27 @@ public class MainFrame extends JFrame {
             }
         });
         toolBar.add(colorBtn);
+        toolBar.addSeparator();
+        initColorPlate(toolBar, colorBtn);
         
         add(toolBar, BorderLayout.NORTH);
+    }
+
+    private void initColorPlate(JToolBar toolBar, JButton colorBtn) {
+        Color[] colors = new  Color[] {Color.RED,Color.BLUE,
+                Color.GREEN, Color.BLACK,Color.WHITE,Color.YELLOW,
+                Color.GRAY, Color.DARK_GRAY, Color.CYAN, Color.MAGENTA
+        };
+        for (Color color : colors) {
+            JButton button = new JButton("      ");
+            button.setBackground(color);
+            button.setOpaque(true);
+            button.setBorderPainted(true);
+            button.addActionListener(e -> {
+                appState.setBrushColor(color);
+                colorBtn.setBackground(color);
+            });
+            toolBar.add(button);
+        }
     }
 }

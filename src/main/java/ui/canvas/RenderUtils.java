@@ -83,7 +83,7 @@ public class RenderUtils {
                     Point stop = calculateStopPoint(anchorX,anchorY, 1, 1, offset);
 
                     // put data into array to draw later with better rendering hint
-                    leaderLines[index] = new int[]{p.X, p.Y, anchorX, anchorY, stop.x, stop.y};
+                    leaderLines[index] = new int[]{p.c.getRGB(),p.X, p.Y, anchorX, anchorY, stop.x, stop.y};
                     index++;
                 } else {
                     if (p.dr == Direction.EAST) {
@@ -116,10 +116,11 @@ public class RenderUtils {
             g2d.setStroke(new BasicStroke(0.5f));
             for (int[] line : leaderLines) {
                 if(line == null || line.length == 0) continue;
+                g2d.setColor(new Color(line[0]));
                 AffineTransform dotAt = g2d.getTransform();
-                g2d.translate(line[0], line[1]);
+                g2d.translate(line[1], line[2]);
 //                    g2d.drawLine(anchorX, anchorY, stop.x, stop.y);
-                g2d.draw(new Line2D.Double(line[2], line[3], line[4], line[5]));
+                g2d.draw(new Line2D.Double(line[3], line[4], line[5], line[6]));
                 g2d.setTransform(dotAt);
             }
             g2d.setStroke(oldStroke);

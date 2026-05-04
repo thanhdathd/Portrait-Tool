@@ -9,6 +9,8 @@ public class FilterProperties {
     public int alp;
     public int gra;
 
+    private String presetName = "Custom";
+
     public FilterProperties(int red, int gre, int blu, int alp, int gra, int mode) {
         this.red = red;
         this.gre = gre;
@@ -17,6 +19,14 @@ public class FilterProperties {
         this.gra = gra;
         this.mode = mode;
         this.rgb = (alp << 24) + (red << 16) + (gre << 8) + blu;
+    }
+
+    public void setPresetName(String presetName) {
+        this.presetName = presetName;
+    }
+
+    public String getPresetName() {
+        return presetName;
     }
 
     public int getProperties() {
