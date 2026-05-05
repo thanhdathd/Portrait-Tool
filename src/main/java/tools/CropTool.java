@@ -20,16 +20,16 @@ public class CropTool implements Tool {
     private int mouseX = 0;
     private int mouseY = 0;
     private int frameWidth = 400;
-    
     private boolean isLandscape = true;
+    private int spiralVariant = 0;
     
     private int profileIndex = 0;
     private final List<CropProfile> profiles = Arrays.asList(
-        new CropProfile(CropRatio.SQUARE, CropGuide.RULE_OF_THIRDS),
-        new CropProfile(CropRatio.RATIO_4_3, CropGuide.RULE_OF_THIRDS),
-        new CropProfile(CropRatio.RATIO_3_2, CropGuide.RULE_OF_THIRDS),
         new CropProfile(CropRatio.GOLDEN, CropGuide.RULE_OF_THIRDS),
         new CropProfile(CropRatio.GOLDEN, CropGuide.GOLDEN_SPIRAL),
+        new CropProfile(CropRatio.RATIO_4_3, CropGuide.RULE_OF_THIRDS),
+        new CropProfile(CropRatio.RATIO_3_2, CropGuide.RULE_OF_THIRDS),
+        new CropProfile(CropRatio.SQUARE, CropGuide.RULE_OF_THIRDS),
         new CropProfile(CropRatio.A4, CropGuide.DIAGONAL)
     );
 
@@ -111,6 +111,22 @@ public class CropTool implements Tool {
             g2d.drawLine(x, y, x + w, y + h);
             g2d.drawLine(x, y + h, x + w, y);
         } else if (guide == CropGuide.GOLDEN_SPIRAL) {
+            java.awt.geom.AffineTransform saveAT = g2d.getTransform();
+            
+            if (spiralVariant == 1) {
+                g2d.translate(x + w / 2.0, y + h / 2.0);
+                g2d.scale(-1, 1);
+                g2d.translate(-(x + w / 2.0), -(y + h / 2.0));
+            } else if (spiralVariant == 2) {
+                g2d.translate(x + w / 2.0, y + h / 2.0);
+                g2d.scale(1, -1);
+                g2d.translate(-(x + w / 2.0), -(y + h / 2.0));
+            } else if (spiralVariant == 3) {
+                g2d.translate(x + w / 2.0, y + h / 2.0);
+                g2d.scale(-1, -1);
+                g2d.translate(-(x + w / 2.0), -(y + h / 2.0));
+            }
+
             double cx = x, cy = y, cw = w, ch = h;
             int dir = (w >= h) ? 0 : 3; 
 
@@ -139,6 +155,8 @@ public class CropTool implements Tool {
                 }
                 dir++;
             }
+            
+            g2d.setTransform(saveAT);
         }
     }
     
@@ -164,8 +182,9 @@ public class CropTool implements Tool {
                 
                 String label = p.ratio.label;
                 FontMetrics fm = g2d.getFontMetrics();
+                int textAscent =  fm.getAscent();
                 int labelWidth = fm.stringWidth(label);
-                g2d.drawString(label, startX + i * (itemSize + spacing) + (itemSize - labelWidth)/2, cy + itemSize/2 + 20);
+                g2d.drawString(label, startX + i * (itemSize + spacing) + (itemSize - labelWidth)/2, cy + itemSize/2 + textAscent + 20);
             } else {
                 g2d.setColor(new Color(255, 255, 255, 100));
                 g2d.drawRect(startX + i * (itemSize + spacing), yOffset, itemSize, fh);
@@ -200,7 +219,13 @@ public class CropTool implements Tool {
             profileIndex = (profileIndex + 1) % profiles.size();
             canvas.repaint();
         } else if (e.getKeyCode() == KeyEvent.VK_R) {
-            isLandscape = !isLandscape;
+            if (e.isShiftDown()) {
+                if (profiles.get(profileIndex).guide == CropGuide.GOLDEN_SPIRAL) {
+                    spiralVariant = (spiralVariant + 1) % 4;
+                }
+            } else {
+                isLandscape = !isLandscape;
+            }
             canvas.repaint();
         } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             if (isReviewMode) {
