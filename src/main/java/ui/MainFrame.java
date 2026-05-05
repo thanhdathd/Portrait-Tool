@@ -75,11 +75,82 @@ public class MainFrame extends JFrame {
         
         initMenuBar();
         initToolBar();
+        initContextMenu();
         setupGlobalShortcuts();
         
         // Default tool
         canvas.setActiveTool(new tools.HandTool());
         autoOpenFile();
+    }
+
+    private void initContextMenu() {
+        JPopupMenu contextMenu = new JPopupMenu();
+
+        JMenuItem undoItem = new JMenuItem("Undo");
+        undoItem.setAccelerator(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Z, java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        undoItem.addActionListener(e -> {
+            if (appState.getHistoryManager().canUndo()) {
+                appState.getHistoryManager().undo();
+                canvas.repaint();
+            }
+        });
+
+        JMenuItem redoItem = new JMenuItem("Redo");
+        redoItem.setAccelerator(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Y, java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        redoItem.addActionListener(e -> {
+            if (appState.getHistoryManager().canRedo()) {
+                appState.getHistoryManager().redo();
+                canvas.repaint();
+            }
+        });
+
+        contextMenu.add(undoItem);
+        contextMenu.add(redoItem);
+        contextMenu.addSeparator();
+
+        JMenuItem resizeItem = new JMenuItem("Resize...");
+        resizeItem.addActionListener(e -> performOpenResize());
+        contextMenu.add(resizeItem);
+
+        contextMenu.addSeparator();
+
+        JMenuItem rot90cw = new JMenuItem("Rotate 90 CW");
+        rot90cw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CW));
+        contextMenu.add(rot90cw);
+
+        JMenuItem rot90ccw = new JMenuItem("Rotate 90 CCW");
+        rot90ccw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CCW));
+        contextMenu.add(rot90ccw);
+
+        JMenuItem rot180 = new JMenuItem("Rotate 180");
+        rot180.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_180));
+        contextMenu.add(rot180);
+
+        contextMenu.addSeparator();
+
+        JMenuItem flipH = new JMenuItem("Flip Horizontal");
+        flipH.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_H));
+        contextMenu.add(flipH);
+
+        JMenuItem flipV = new JMenuItem("Flip Vertical");
+        flipV.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_V));
+        contextMenu.add(flipV);
+
+        contextMenu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                undoItem.setEnabled(appState.getHistoryManager().canUndo());
+                redoItem.setEnabled(appState.getHistoryManager().canRedo());
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {}
+        });
+
+        canvas.setComponentPopupMenu(contextMenu);
     }
 
     private void setupGlobalShortcuts() {
