@@ -232,13 +232,69 @@ public class CropTool implements Tool {
     }
 
     public void onMouseWheelMoved(MouseWheelEvent e, AppState state, ImageCanvas canvas) {
+        if (isReviewMode) return;
+
         if (e.isShiftDown()) {
+            // Shift + Wheel → resize the crop frame
             int speed = e.isAltDown() ? 5 : 20;
             frameWidth += (e.getWheelRotation() < 0 ? speed : -speed);
             frameWidth = Math.max(50, frameWidth);
             canvas.repaint();
         } else {
-            // standard zoom handled by canvas
+            // Plain Wheel → zoom the canvas, anchor = image center → viewport center
+            float oldZoom = state.getCurrentZoom();
+            float step    = e.isAltDown() ? 1.05f : 1.15f; // Alt = slow precision
+            float newZoom = (e.getWheelRotation() < 0) ? oldZoom * step : oldZoom / step;
+            newZoom = Math.max(0.05f, Math.min(newZoom, 8.0f));
+            if (newZoom == oldZoom) return;
+
+            java.awt.Container parent = javax.swing.SwingUtilities.getUnwrappedParent(canvas);
+            if (parent instanceof javax.swing.JViewport) {
+                javax.swing.JViewport viewport = (javax.swing.JViewport) parent;
+                java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+
+                state.setCurrentZoom(newZoom);
+                canvas.revalidate();
+                canvas.repaint();
+
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    int viewW = viewport.getWidth();
+                    int viewH = viewport.getHeight();
+
+                    if (img != null) {
+                        // Center of the image in the new canvas coordinate space
+                        int ox = state.getCanvasState().getImageOffsetX();
+                        int oy = state.getCanvasState().getImageOffsetY();
+                        int imgCenterX = Math.round(ox + img.getWidth()  * newZoom / 2f);
+                        int imgCenterY = Math.round(oy + img.getHeight() * newZoom / 2f);
+
+                        // We want imgCenter to sit at viewport center
+                        int newScrollX = imgCenterX - viewW / 2;
+                        int newScrollY = imgCenterY - viewH / 2;
+
+                        int maxX = Math.max(0, canvas.getWidth()  - viewW);
+                        int maxY = Math.max(0, canvas.getHeight() - viewH);
+
+                        viewport.setViewPosition(new java.awt.Point(
+                            Math.max(0, Math.min(newScrollX, maxX)),
+                            Math.max(0, Math.min(newScrollY, maxY))
+                        ));
+                    } else {
+                        // No image: just center at origin
+                        int maxX = Math.max(0, canvas.getWidth()  - viewW);
+                        int maxY = Math.max(0, canvas.getHeight() - viewH);
+                        viewport.setViewPosition(new java.awt.Point(
+                            Math.max(0, Math.min(0, maxX)),
+                            Math.max(0, Math.min(0, maxY))
+                        ));
+                    }
+                });
+            } else {
+                // No viewport (rare), just update zoom
+                state.setCurrentZoom(newZoom);
+                canvas.revalidate();
+                canvas.repaint();
+            }
         }
     }
 

@@ -21,6 +21,10 @@ public class ZoomCanvasTool implements Tool {
 
     @Override
     public void onMousePressed(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        if(e.getButton() == MouseEvent.BUTTON3) {
+            System.out.println("right clicked");
+            return;
+        }
         float zoom = appState.getCurrentZoom();
         float oldZoom = zoom;
         
