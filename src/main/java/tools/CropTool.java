@@ -233,6 +233,7 @@ public class CropTool implements Tool {
                 canvas.repaint();
             } else {
                 canvas.setActiveTool(new HandTool());
+                canvas.repaint();
             }
         } else if (e.getKeyCode() == KeyEvent.VK_ENTER && isReviewMode) {
             applyCrop(state, canvas);
