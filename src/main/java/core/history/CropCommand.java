@@ -37,6 +37,9 @@ public class CropCommand implements Command {
         this.newImage = new BufferedImage(cropBounds.width, cropBounds.height, type);
         java.awt.Graphics2D g2 = this.newImage.createGraphics();
         
+        g2.setColor(java.awt.Color.BLACK);
+        g2.fillRect(0, 0, cropBounds.width, cropBounds.height);
+        
         // If crop is outside oldImage, this simply translates oldImage so the correct part falls into newImage
         g2.drawImage(oldImage, -cropBounds.x, -cropBounds.y, null);
         g2.dispose();

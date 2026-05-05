@@ -23,6 +23,9 @@ public class CropTool implements Tool {
     private boolean isLandscape = true;
     private int spiralVariant = 0;
     
+    private enum SnapMode { NONE, VERTICAL, HORIZONTAL }
+    private SnapMode snapMode = SnapMode.NONE;
+    
     private int profileIndex = 0;
     private final List<CropProfile> profiles = Arrays.asList(
         new CropProfile(CropRatio.GOLDEN, CropGuide.RULE_OF_THIRDS),
@@ -62,19 +65,15 @@ public class CropTool implements Tool {
         g2d.scale(1.0 / zoom, 1.0 / zoom);
         g2d.translate(-ox, -oy);
         
-        CropProfile profile = profiles.get(profileIndex);
-        float currentRatio = profile.ratio.ratio;
-        if (!isLandscape && currentRatio != 1.0f) {
-            currentRatio = 1.0f / currentRatio;
-        }
-        int frameHeight = Math.round(frameWidth / currentRatio);
-        
-        int x = mouseX - frameWidth/2;
-        int y = mouseY - frameHeight/2;
+        Rectangle bounds = getCropBounds(state, canvas);
+        int currentFrameWidth = bounds.width;
+        int currentFrameHeight = bounds.height;
+        int x = bounds.x;
+        int y = bounds.y;
         
         // Draw Dark Overlay outside frame
         Area screenArea = new Area(new Rectangle(0, 0, canvas.getWidth()*2, canvas.getHeight()*2));
-        Area cropArea = new Area(new Rectangle(x, y, frameWidth, frameHeight));
+        Area cropArea = new Area(new Rectangle(x, y, currentFrameWidth, currentFrameHeight));
         screenArea.subtract(cropArea);
         
         g2d.setColor(new Color(0, 0, 0, 150));
@@ -83,13 +82,13 @@ public class CropTool implements Tool {
         // Draw Frame Border
         g2d.setColor(isReviewMode ? new Color(0x008083) : Color.WHITE);
         g2d.setStroke(new BasicStroke(2));
-        g2d.drawRect(x, y, frameWidth, frameHeight);
+        g2d.drawRect(x, y, currentFrameWidth, currentFrameHeight);
         
         // Draw Composition Guide
-        drawGuide(g2d, profile.guide, x, y, frameWidth, frameHeight);
+        drawGuide(g2d, profiles.get(profileIndex).guide, x, y, currentFrameWidth, currentFrameHeight);
         
         // Draw Mini-Filmstrip
-        drawFilmstrip(g2d, x, y + frameHeight + 20);
+        drawFilmstrip(g2d, x, y + currentFrameHeight + 20);
         
         // Restore transform
         g2d.setTransform(oldTransform);
@@ -245,6 +244,16 @@ public class CropTool implements Tool {
                 isLandscape = !isLandscape;
             }
             canvas.repaint();
+        } else if (e.getKeyCode() == KeyEvent.VK_V) {
+            if (!isReviewMode) {
+                snapMode = (snapMode == SnapMode.VERTICAL) ? SnapMode.NONE : SnapMode.VERTICAL;
+                canvas.repaint();
+            }
+        } else if (e.getKeyCode() == KeyEvent.VK_H) {
+            if (!isReviewMode) {
+                snapMode = (snapMode == SnapMode.HORIZONTAL) ? SnapMode.NONE : SnapMode.HORIZONTAL;
+                canvas.repaint();
+            }
         } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             if (isReviewMode) {
                 isReviewMode = false;
@@ -281,10 +290,12 @@ public class CropTool implements Tool {
         int oldVisualX = ox - scrollX;
         int oldVisualY = oy - scrollY;
         
-        int unscaledX = Math.round((mouseX - frameWidth/2f - ox) / zoom);
-        int unscaledY = Math.round((mouseY - frameHeight/2f - oy) / zoom);
-        int unscaledW = Math.round(frameWidth / zoom);
-        int unscaledH = Math.round(frameHeight / zoom);
+        Rectangle scrBounds = getCropBounds(state, canvas);
+        
+        int unscaledX = Math.round((scrBounds.x - ox) / zoom);
+        int unscaledY = Math.round((scrBounds.y - oy) / zoom);
+        int unscaledW = Math.round(scrBounds.width / zoom);
+        int unscaledH = Math.round(scrBounds.height / zoom);
         
         if (unscaledW <= 0 || unscaledH <= 0) return;
         Rectangle bounds = new Rectangle(unscaledX, unscaledY, unscaledW, unscaledH);
@@ -295,5 +306,47 @@ public class CropTool implements Tool {
         CropCommand cmd = new CropCommand(canvas, state.getCanvasState(), img, bounds, zoom, oldVisualX, oldVisualY);
         state.getHistoryManager().push(cmd);
         canvas.setActiveTool(new HandTool());
+    }
+
+    private Rectangle getCropBounds(AppState state, ImageCanvas canvas) {
+        float zoom = state.getCurrentZoom();
+        int ox = state.getCanvasState().getImageOffsetX();
+        int oy = state.getCanvasState().getImageOffsetY();
+        java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+        
+        CropProfile profile = profiles.get(profileIndex);
+        float currentRatio = profile.ratio.ratio;
+        if (!isLandscape && currentRatio != 1.0f) {
+            currentRatio = 1.0f / currentRatio;
+        }
+
+        int currentFrameWidth = frameWidth;
+        int currentFrameHeight = Math.round(currentFrameWidth / currentRatio);
+
+        if (img != null) {
+            if (snapMode == SnapMode.VERTICAL) {
+                currentFrameHeight = Math.round(img.getHeight() * zoom);
+                currentFrameWidth = Math.round(currentFrameHeight * currentRatio);
+            } else if (snapMode == SnapMode.HORIZONTAL) {
+                currentFrameWidth = Math.round(img.getWidth() * zoom);
+                currentFrameHeight = Math.round(currentFrameWidth / currentRatio);
+            }
+        }
+
+        int targetMouseX = mouseX;
+        int targetMouseY = mouseY;
+        
+        if (img != null) {
+            if (snapMode == SnapMode.VERTICAL) {
+                targetMouseY = Math.round(oy + (img.getHeight() * zoom) / 2f);
+            } else if (snapMode == SnapMode.HORIZONTAL) {
+                targetMouseX = Math.round(ox + (img.getWidth() * zoom) / 2f);
+            }
+        }
+
+        int x = targetMouseX - currentFrameWidth/2;
+        int y = targetMouseY - currentFrameHeight/2;
+        
+        return new Rectangle(x, y, currentFrameWidth, currentFrameHeight);
     }
 }
