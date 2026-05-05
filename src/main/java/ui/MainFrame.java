@@ -112,6 +112,10 @@ public class MainFrame extends JFrame {
         resizeItem.addActionListener(e -> performOpenResize());
         contextMenu.add(resizeItem);
 
+        JMenuItem cropItem = new JMenuItem("Crop...");
+        cropItem.addActionListener(e -> canvas.setActiveTool(new tools.CropTool()));
+        contextMenu.add(cropItem);
+
         contextMenu.addSeparator();
 
         JMenuItem rot90cw = new JMenuItem("Rotate 90 CW");
@@ -629,6 +633,10 @@ public class MainFrame extends JFrame {
         JMenuItem resizeItem = new JMenuItem("Resize...");
         resizeItem.addActionListener(e -> performOpenResize());
         imageMenu.add(resizeItem);
+
+        JMenuItem cropItemMenu = new JMenuItem("Crop...");
+        cropItemMenu.addActionListener(e -> canvas.setActiveTool(new tools.CropTool()));
+        imageMenu.add(cropItemMenu);
 
         imageMenu.addSeparator();
 

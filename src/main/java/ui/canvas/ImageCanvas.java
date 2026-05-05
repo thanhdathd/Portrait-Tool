@@ -94,11 +94,18 @@ public class ImageCanvas extends JPanel {
 
             @Override
             public void mouseMoved(MouseEvent e) {
+                if (activeTool instanceof tools.CropTool) {
+                    ((tools.CropTool)activeTool).onMouseMoved(e, appState, ImageCanvas.this);
+                }
                 updateZoomWindow(e.getPoint());
             }
         });
 
         this.addMouseWheelListener(e -> {
+            if (activeTool instanceof tools.CropTool) {
+                ((tools.CropTool)activeTool).onMouseWheelMoved(e, appState, ImageCanvas.this);
+                if (e.isShiftDown()) return;
+            }
             if (zoomWindow != null && zoomWindow.isVisible() && backgroundImage != null) {
                 int rotation = e.getWheelRotation();
                 // rotation < 0 nghĩa là cuộn lên (Zoom In)
@@ -235,8 +242,11 @@ public class ImageCanvas extends JPanel {
             }
         });
         
-        // Listen for SHIFT to update Zoom cursor
+        // Listen for SHIFT to update Zoom cursor and KeyEvents for Tools
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
+            if (activeTool instanceof tools.CropTool && e.getID() == KeyEvent.KEY_PRESSED) {
+                ((tools.CropTool)activeTool).onKeyPressed(e, appState, ImageCanvas.this);
+            }
             if (e.getKeyCode() == KeyEvent.VK_SHIFT) {
                 boolean shiftNow = (e.getID() == KeyEvent.KEY_PRESSED);
                 if (isShiftDown != shiftNow) {
