@@ -109,11 +109,21 @@ public class ResizeDialog extends JDialog {
             isUpdating = true;
             if (fromWidth) {
                 int w = Integer.parseInt(widthField.getText());
-                int h = (int) Math.round(w * ratio);
+                int h;
+                if (unitBox.getSelectedIndex() == 1) { // Percent
+                    h = w;
+                } else {
+                    h = (int) Math.round(w * ratio);
+                }
                 heightField.setText(String.valueOf(h));
             } else {
                 int h = Integer.parseInt(heightField.getText());
-                int w = (int) Math.round(h / ratio);
+                int w;
+                if (unitBox.getSelectedIndex() == 1) { // Percent
+                    w = h;
+                } else {
+                    w = (int) Math.round(h / ratio);
+                }
                 widthField.setText(String.valueOf(w));
             }
         } catch (NumberFormatException ignored) {}

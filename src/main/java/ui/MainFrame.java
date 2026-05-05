@@ -58,6 +58,7 @@ public class MainFrame extends JFrame {
         // Listen to history to mark as dirty
         appState.getHistoryManager().addListener((canUndo, canRedo, isModified) -> {
             if(isModified)appState.setEditState(AppState.EditState.MODIFIED);
+            updateWindowTitle();
         });
         
         setLayout(new BorderLayout());
@@ -199,6 +200,19 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             setTitle("Portrait Tool Modernized");
         }).execute();
+    }
+
+    private void updateWindowTitle() {
+        java.awt.image.BufferedImage image = canvas.getBackgroundImage();
+        if (image != null) {
+            String path = appState.getFilePath();
+            if (path == null || path.isEmpty()) {
+                path = "Untitled";
+            }
+            setTitle(path + " - " + image.getWidth() + "x" + image.getHeight());
+        } else {
+            setTitle("Portrait Tool Modernized");
+        }
     }
 
     private void attemptClose() {
