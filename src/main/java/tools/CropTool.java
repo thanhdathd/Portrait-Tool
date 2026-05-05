@@ -270,6 +270,17 @@ public class CropTool implements Tool {
         int ox = state.getCanvasState().getImageOffsetX();
         int oy = state.getCanvasState().getImageOffsetY();
         
+        java.awt.Container parent = javax.swing.SwingUtilities.getUnwrappedParent(canvas);
+        int scrollX = 0, scrollY = 0;
+        if (parent instanceof javax.swing.JViewport) {
+            java.awt.Point p = ((javax.swing.JViewport)parent).getViewPosition();
+            scrollX = p.x;
+            scrollY = p.y;
+        }
+        
+        int oldVisualX = ox - scrollX;
+        int oldVisualY = oy - scrollY;
+        
         int unscaledX = Math.round((mouseX - frameWidth/2f - ox) / zoom);
         int unscaledY = Math.round((mouseY - frameHeight/2f - oy) / zoom);
         int unscaledW = Math.round(frameWidth / zoom);
@@ -281,7 +292,7 @@ public class CropTool implements Tool {
         java.awt.image.BufferedImage img = canvas.getBackgroundImage();
         if (img == null) return;
         
-        CropCommand cmd = new CropCommand(canvas, state.getCanvasState(), img, bounds);
+        CropCommand cmd = new CropCommand(canvas, state.getCanvasState(), img, bounds, zoom, oldVisualX, oldVisualY);
         state.getHistoryManager().push(cmd);
         canvas.setActiveTool(new HandTool());
     }
