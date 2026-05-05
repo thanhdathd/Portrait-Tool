@@ -245,12 +245,12 @@ public class CropTool implements Tool {
             }
             canvas.repaint();
         } else if (e.getKeyCode() == KeyEvent.VK_V) {
-            if (!isReviewMode) {
+            if (!isReviewMode && e.isControlDown()) {
                 snapMode = (snapMode == SnapMode.VERTICAL) ? SnapMode.NONE : SnapMode.VERTICAL;
                 canvas.repaint();
             }
         } else if (e.getKeyCode() == KeyEvent.VK_H) {
-            if (!isReviewMode) {
+            if (!isReviewMode && e.isControlDown()) {
                 snapMode = (snapMode == SnapMode.HORIZONTAL) ? SnapMode.NONE : SnapMode.HORIZONTAL;
                 canvas.repaint();
             }
