@@ -21,10 +21,14 @@ public class CropTool implements Tool {
     private int mouseY = 0;
     private int frameWidth = 400;
     
+    private boolean isLandscape = true;
+    
     private int profileIndex = 0;
     private final List<CropProfile> profiles = Arrays.asList(
-        new CropProfile(CropRatio.FREEFORM, CropGuide.RULE_OF_THIRDS),
         new CropProfile(CropRatio.SQUARE, CropGuide.RULE_OF_THIRDS),
+        new CropProfile(CropRatio.RATIO_4_3, CropGuide.RULE_OF_THIRDS),
+        new CropProfile(CropRatio.RATIO_3_2, CropGuide.RULE_OF_THIRDS),
+        new CropProfile(CropRatio.GOLDEN, CropGuide.RULE_OF_THIRDS),
         new CropProfile(CropRatio.GOLDEN, CropGuide.GOLDEN_SPIRAL),
         new CropProfile(CropRatio.A4, CropGuide.DIAGONAL)
     );
@@ -47,8 +51,23 @@ public class CropTool implements Tool {
     public void onPaint(Graphics2D g2d, AppState state, ImageCanvas canvas) {
         if (canvas.getBackgroundImage() == null) return;
         
+        // Save original transform
+        java.awt.geom.AffineTransform oldTransform = g2d.getTransform();
+        
+        // Revert the canvas transformation so we draw in raw screen coordinates!
+        float zoom = state.getCurrentZoom();
+        int ox = state.getCanvasState().getImageOffsetX();
+        int oy = state.getCanvasState().getImageOffsetY();
+        
+        g2d.scale(1.0 / zoom, 1.0 / zoom);
+        g2d.translate(-ox, -oy);
+        
         CropProfile profile = profiles.get(profileIndex);
-        int frameHeight = profile.ratio.ratio == 0 ? frameWidth : (int)(frameWidth / profile.ratio.ratio);
+        float currentRatio = profile.ratio.ratio;
+        if (!isLandscape && currentRatio != 1.0f) {
+            currentRatio = 1.0f / currentRatio;
+        }
+        int frameHeight = Math.round(frameWidth / currentRatio);
         
         int x = mouseX - frameWidth/2;
         int y = mouseY - frameHeight/2;
@@ -71,6 +90,9 @@ public class CropTool implements Tool {
         
         // Draw Mini-Filmstrip
         drawFilmstrip(g2d, x, y + frameHeight + 20);
+        
+        // Restore transform
+        g2d.setTransform(oldTransform);
     }
 
     private void drawGuide(Graphics2D g2d, CropGuide guide, int x, int y, int w, int h) {
@@ -89,8 +111,34 @@ public class CropTool implements Tool {
             g2d.drawLine(x, y, x + w, y + h);
             g2d.drawLine(x, y + h, x + w, y);
         } else if (guide == CropGuide.GOLDEN_SPIRAL) {
-            // Simplified golden spiral visualization
-            g2d.drawArc(x, y, w, h, 0, 90);
+            double cx = x, cy = y, cw = w, ch = h;
+            int dir = (w >= h) ? 0 : 3; 
+
+            for (int i = 0; i < 8; i++) {
+                if (cw <= 1 || ch <= 1) break;
+                if (dir % 4 == 0) { // Square on Left
+                    double sq = ch;
+                    g2d.drawRect((int)cx, (int)cy, (int)sq, (int)sq);
+                    g2d.drawArc((int)cx, (int)cy, (int)(sq * 2), (int)(sq * 2), 90, 90);
+                    cx += sq; cw -= sq;
+                } else if (dir % 4 == 1) { // Square on Top
+                    double sq = cw;
+                    g2d.drawRect((int)cx, (int)cy, (int)sq, (int)sq);
+                    g2d.drawArc((int)(cx - sq), (int)cy, (int)(sq * 2), (int)(sq * 2), 0, 90);
+                    cy += sq; ch -= sq;
+                } else if (dir % 4 == 2) { // Square on Right
+                    double sq = ch;
+                    g2d.drawRect((int)(cx + cw - sq), (int)cy, (int)sq, (int)sq);
+                    g2d.drawArc((int)(cx + cw - sq * 2), (int)(cy - sq), (int)(sq * 2), (int)(sq * 2), 270, 90);
+                    cw -= sq;
+                } else if (dir % 4 == 3) { // Square on Bottom
+                    double sq = cw;
+                    g2d.drawRect((int)cx, (int)(cy + ch - sq), (int)sq, (int)sq);
+                    g2d.drawArc((int)cx, (int)(cy + ch - sq * 2), (int)(sq * 2), (int)(sq * 2), 180, 90);
+                    ch -= sq;
+                }
+                dir++;
+            }
         }
     }
     
@@ -103,11 +151,25 @@ public class CropTool implements Tool {
         
         for (int i = 0; i < profiles.size(); i++) {
             CropProfile p = profiles.get(i);
-            int fh = p.ratio.ratio == 0 ? itemSize : (int)(itemSize / p.ratio.ratio);
+            float r = p.ratio.ratio;
+            if (!isLandscape && r != 1.0f) {
+                r = 1.0f / r;
+            }
+            int fh = Math.round(itemSize / r);
             int yOffset = cy + (itemSize - fh)/2;
             
-            g2d.setColor(i == profileIndex ? Color.YELLOW : new Color(255, 255, 255, 100));
-            g2d.drawRect(startX + i * (itemSize + spacing), yOffset, itemSize, fh);
+            if (i == profileIndex) {
+                g2d.setColor(Color.YELLOW);
+                g2d.drawRect(startX + i * (itemSize + spacing), yOffset, itemSize, fh);
+                
+                String label = p.ratio.label;
+                FontMetrics fm = g2d.getFontMetrics();
+                int labelWidth = fm.stringWidth(label);
+                g2d.drawString(label, startX + i * (itemSize + spacing) + (itemSize - labelWidth)/2, cy + itemSize/2 + 20);
+            } else {
+                g2d.setColor(new Color(255, 255, 255, 100));
+                g2d.drawRect(startX + i * (itemSize + spacing), yOffset, itemSize, fh);
+            }
         }
     }
     
@@ -137,6 +199,9 @@ public class CropTool implements Tool {
         } else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
             profileIndex = (profileIndex + 1) % profiles.size();
             canvas.repaint();
+        } else if (e.getKeyCode() == KeyEvent.VK_R) {
+            isLandscape = !isLandscape;
+            canvas.repaint();
         } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
             if (isReviewMode) {
                 isReviewMode = false;
@@ -151,32 +216,29 @@ public class CropTool implements Tool {
     
     private void applyCrop(AppState state, ImageCanvas canvas) {
         CropProfile profile = profiles.get(profileIndex);
-        int frameHeight = profile.ratio.ratio == 0 ? frameWidth : (int)(frameWidth / profile.ratio.ratio);
+        float currentRatio = profile.ratio.ratio;
+        if (!isLandscape && currentRatio != 1.0f) {
+            currentRatio = 1.0f / currentRatio;
+        }
+        int frameHeight = Math.round(frameWidth / currentRatio);
         
         float zoom = state.getCurrentZoom();
         int ox = state.getCanvasState().getImageOffsetX();
         int oy = state.getCanvasState().getImageOffsetY();
         
-        int unscaledX = Math.round((mouseX - frameWidth/2 - ox) / zoom);
-        int unscaledY = Math.round((mouseY - frameHeight/2 - oy) / zoom);
+        int unscaledX = Math.round((mouseX - frameWidth/2f - ox) / zoom);
+        int unscaledY = Math.round((mouseY - frameHeight/2f - oy) / zoom);
         int unscaledW = Math.round(frameWidth / zoom);
         int unscaledH = Math.round(frameHeight / zoom);
         
+        if (unscaledW <= 0 || unscaledH <= 0) return;
         Rectangle bounds = new Rectangle(unscaledX, unscaledY, unscaledW, unscaledH);
         
-        // Clamp to image bounds
         java.awt.image.BufferedImage img = canvas.getBackgroundImage();
         if (img == null) return;
         
-        if (bounds.x < 0) { bounds.width += bounds.x; bounds.x = 0; }
-        if (bounds.y < 0) { bounds.height += bounds.y; bounds.y = 0; }
-        if (bounds.x + bounds.width > img.getWidth()) bounds.width = img.getWidth() - bounds.x;
-        if (bounds.y + bounds.height > img.getHeight()) bounds.height = img.getHeight() - bounds.y;
-
-        if (bounds.width > 0 && bounds.height > 0) {
-            CropCommand cmd = new CropCommand(canvas, state.getCanvasState(), img, bounds);
-            state.getHistoryManager().push(cmd);
-            canvas.setActiveTool(new HandTool());
-        }
+        CropCommand cmd = new CropCommand(canvas, state.getCanvasState(), img, bounds);
+        state.getHistoryManager().push(cmd);
+        canvas.setActiveTool(new HandTool());
     }
 }
