@@ -81,7 +81,7 @@ public class CropTool implements Tool {
         g2d.fill(screenArea);
         
         // Draw Frame Border
-        g2d.setColor(Color.WHITE);
+        g2d.setColor(isReviewMode ? new Color(0x008083) : Color.WHITE);
         g2d.setStroke(new BasicStroke(2));
         g2d.drawRect(x, y, frameWidth, frameHeight);
         
@@ -213,11 +213,29 @@ public class CropTool implements Tool {
 
     public void onKeyPressed(KeyEvent e, AppState state, ImageCanvas canvas) {
         if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-            profileIndex = (profileIndex - 1 + profiles.size()) % profiles.size();
+            if (isReviewMode) {
+                mouseX -= 1;
+            } else {
+                profileIndex = (profileIndex - 1 + profiles.size()) % profiles.size();
+            }
             canvas.repaint();
         } else if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-            profileIndex = (profileIndex + 1) % profiles.size();
+            if (isReviewMode) {
+                mouseX += 1;
+            } else {
+                profileIndex = (profileIndex + 1) % profiles.size();
+            }
             canvas.repaint();
+        } else if (e.getKeyCode() == KeyEvent.VK_UP) {
+            if (isReviewMode) {
+                mouseY -= 1;
+                canvas.repaint();
+            }
+        } else if (e.getKeyCode() == KeyEvent.VK_DOWN) {
+            if (isReviewMode) {
+                mouseY += 1;
+                canvas.repaint();
+            }
         } else if (e.getKeyCode() == KeyEvent.VK_R) {
             if (e.isShiftDown()) {
                 if (profiles.get(profileIndex).guide == CropGuide.GOLDEN_SPIRAL) {
