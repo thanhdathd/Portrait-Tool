@@ -10,6 +10,11 @@ public class ConfigManager {
     private static final String CONFIG_DIR_NAME = ".myapp";
     private static final String CONFIG_FILE_NAME = "config.properties";
     private final File configFile;
+    private final CustomCropProfileManager customCropProfileManager = new CustomCropProfileManager();
+
+    public CustomCropProfileManager getCustomCropProfileManager() {
+        return customCropProfileManager;
+    }
 
     public ConfigManager() {
         String userHome = System.getProperty("user.home");
@@ -65,6 +70,8 @@ public class ConfigManager {
             appState.setWindowHeight(Integer.parseInt(windowHeight));
             appState.setStringZoomWindowBounds(zoomWindowBounds);
 
+            customCropProfileManager.load(props);
+
         } catch (IOException | NumberFormatException e) {
             e.printStackTrace();
             setDefaults(appState);
@@ -93,6 +100,8 @@ public class ConfigManager {
         props.setProperty("windowHeight", String.valueOf(appState.getWindowHeight()));
         props.setProperty("zoomWindowBounds", appState.getStringZoomWindowBounds());
 
+        customCropProfileManager.save(props);
+
         try (FileOutputStream fos = new FileOutputStream(configFile)) {
             props.store(fos, "MyApp Configuration");
         } catch (IOException e) {
@@ -105,5 +114,27 @@ public class ConfigManager {
         appState.setBrushColor(Color.RED);
         appState.setGridSize(40);
         // Các giá trị mặc định khác
+    }
+
+    /**
+     * Persist ONLY the custom crop profiles without requiring a full AppState.
+     * Reads the existing config file, patches the crop entries, and writes back.
+     */
+    public void saveCropProfiles() {
+        Properties props = new Properties();
+        // Load current content to avoid wiping other settings
+        if (configFile.exists()) {
+            try (FileInputStream fis = new FileInputStream(configFile)) {
+                props.load(fis);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        customCropProfileManager.save(props);
+        try (FileOutputStream fos = new FileOutputStream(configFile)) {
+            props.store(fos, "MyApp Configuration");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

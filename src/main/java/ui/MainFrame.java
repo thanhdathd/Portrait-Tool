@@ -113,8 +113,12 @@ public class MainFrame extends JFrame {
         contextMenu.add(resizeItem);
 
         JMenuItem cropItem = new JMenuItem("Crop...");
-        cropItem.addActionListener(e -> canvas.setActiveTool(new tools.CropTool()));
+        cropItem.addActionListener(e -> canvas.setActiveTool(new tools.CropTool(configManager)));
         contextMenu.add(cropItem);
+
+        JMenuItem manageProfilesItem = new JMenuItem("Manage Crop Profiles...");
+        manageProfilesItem.addActionListener(e -> new ui.dialogs.ManageProfilesDialog(this, configManager).setVisible(true));
+        contextMenu.add(manageProfilesItem);
 
         contextMenu.addSeparator();
 
@@ -635,8 +639,12 @@ public class MainFrame extends JFrame {
         imageMenu.add(resizeItem);
 
         JMenuItem cropItemMenu = new JMenuItem("Crop...");
-        cropItemMenu.addActionListener(e -> canvas.setActiveTool(new tools.CropTool()));
+        cropItemMenu.addActionListener(e -> canvas.setActiveTool(new tools.CropTool(configManager)));
         imageMenu.add(cropItemMenu);
+
+        JMenuItem manageProfilesMenu = new JMenuItem("Manage Crop Profiles...");
+        manageProfilesMenu.addActionListener(e -> new ui.dialogs.ManageProfilesDialog(this, configManager).setVisible(true));
+        imageMenu.add(manageProfilesMenu);
 
         imageMenu.addSeparator();
 

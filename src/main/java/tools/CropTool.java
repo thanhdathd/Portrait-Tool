@@ -1,8 +1,10 @@
 package tools;
 
+import config.ConfigManager;
 import core.image.crop.CropGuide;
 import core.image.crop.CropProfile;
 import core.image.crop.CropRatio;
+import core.image.crop.CustomCropProfile;
 import core.state.AppState;
 import core.history.CropCommand;
 import ui.canvas.ImageCanvas;
@@ -12,29 +14,59 @@ import java.awt.geom.Area;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class CropTool implements Tool {
+
+    /** Unified crop profile: works for both built-in and custom entries. */
+    private static class ActiveProfile {
+        final String label;
+        final float  ratio;
+        final CropGuide guide;
+
+        ActiveProfile(String label, float ratio, CropGuide guide) {
+            this.label = label;
+            this.ratio = ratio;
+            this.guide = guide;
+        }
+    }
+
     private boolean isReviewMode = false;
     private int mouseX = 0;
     private int mouseY = 0;
     private int frameWidth = 400;
     private boolean isLandscape = true;
     private int spiralVariant = 0;
-    
+
     private enum SnapMode { NONE, VERTICAL, HORIZONTAL }
     private SnapMode snapMode = SnapMode.NONE;
-    
+
     private int profileIndex = 0;
-    private final List<CropProfile> profiles = Arrays.asList(
-        new CropProfile(CropRatio.GOLDEN, CropGuide.RULE_OF_THIRDS),
-        new CropProfile(CropRatio.GOLDEN, CropGuide.GOLDEN_SPIRAL),
-        new CropProfile(CropRatio.RATIO_4_3, CropGuide.RULE_OF_THIRDS),
-        new CropProfile(CropRatio.RATIO_3_2, CropGuide.RULE_OF_THIRDS),
-        new CropProfile(CropRatio.SQUARE, CropGuide.RULE_OF_THIRDS),
-        new CropProfile(CropRatio.A4, CropGuide.DIAGONAL)
-    );
+    private final List<ActiveProfile> profiles = new ArrayList<>();
+
+    public CropTool(ConfigManager configManager) {
+        // Built-in profiles
+        profiles.add(new ActiveProfile(CropRatio.GOLDEN.label, CropRatio.GOLDEN.ratio, CropGuide.RULE_OF_THIRDS));
+        profiles.add(new ActiveProfile(CropRatio.GOLDEN.label + " ☯", CropRatio.GOLDEN.ratio, CropGuide.GOLDEN_SPIRAL));
+        profiles.add(new ActiveProfile(CropRatio.RATIO_4_3.label, CropRatio.RATIO_4_3.ratio, CropGuide.RULE_OF_THIRDS));
+        profiles.add(new ActiveProfile(CropRatio.RATIO_3_2.label, CropRatio.RATIO_3_2.ratio, CropGuide.RULE_OF_THIRDS));
+        profiles.add(new ActiveProfile(CropRatio.SQUARE.label, CropRatio.SQUARE.ratio, CropGuide.RULE_OF_THIRDS));
+        profiles.add(new ActiveProfile(CropRatio.A4.label, CropRatio.A4.ratio, CropGuide.DIAGONAL));
+
+        // Append user-defined custom profiles
+        if (configManager != null) {
+            for (CustomCropProfile cp : configManager.getCustomCropProfileManager().getProfiles()) {
+                profiles.add(new ActiveProfile(cp.name, cp.ratio, cp.guide));
+            }
+        }
+    }
+
+    /** No-arg constructor for convenience (no custom profiles). */
+    public CropTool() {
+        this(null);
+    }
 
     @Override
     public void onMousePressed(MouseEvent e, AppState state, ImageCanvas canvas) {
@@ -167,8 +199,8 @@ public class CropTool implements Tool {
         int startX = cx + (frameWidth / 2) - (totalWidth / 2);
         
         for (int i = 0; i < profiles.size(); i++) {
-            CropProfile p = profiles.get(i);
-            float r = p.ratio.ratio;
+            ActiveProfile p = profiles.get(i);
+            float r = p.ratio;
             if (!isLandscape && r != 1.0f) {
                 r = 1.0f / r;
             }
@@ -179,9 +211,9 @@ public class CropTool implements Tool {
                 g2d.setColor(Color.YELLOW);
                 g2d.drawRect(startX + i * (itemSize + spacing), yOffset, itemSize, fh);
                 
-                String label = p.ratio.label;
+                String label = p.label;
                 FontMetrics fm = g2d.getFontMetrics();
-                int textAscent =  fm.getAscent();
+                int textAscent  = fm.getAscent();
                 int labelWidth = fm.stringWidth(label);
                 g2d.drawString(label, startX + i * (itemSize + spacing) + (itemSize - labelWidth)/2, cy + itemSize/2 + textAscent + 20);
             } else {
@@ -268,8 +300,8 @@ public class CropTool implements Tool {
     }
     
     private void applyCrop(AppState state, ImageCanvas canvas) {
-        CropProfile profile = profiles.get(profileIndex);
-        float currentRatio = profile.ratio.ratio;
+        ActiveProfile profile = profiles.get(profileIndex);
+        float currentRatio = profile.ratio;
         if (!isLandscape && currentRatio != 1.0f) {
             currentRatio = 1.0f / currentRatio;
         }
@@ -314,8 +346,8 @@ public class CropTool implements Tool {
         int oy = state.getCanvasState().getImageOffsetY();
         java.awt.image.BufferedImage img = canvas.getBackgroundImage();
         
-        CropProfile profile = profiles.get(profileIndex);
-        float currentRatio = profile.ratio.ratio;
+        ActiveProfile profile = profiles.get(profileIndex);
+        float currentRatio = profile.ratio;
         if (!isLandscape && currentRatio != 1.0f) {
             currentRatio = 1.0f / currentRatio;
         }
