@@ -409,6 +409,19 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void performTransform(core.image.ImageTransformUtils.TransformType type) {
+        BufferedImage currentImage = canvas.getBackgroundImage();
+        if (currentImage != null) {
+            BufferedImage newImage = core.image.ImageTransformUtils.transform(currentImage, type);
+            core.history.Command transformCmd = new core.history.TransformCommand(
+                    canvas, appState.getCanvasState(), currentImage, newImage, type);
+            appState.getHistoryManager().push(transformCmd);
+            canvas.repaint();
+        } else {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
     private void performExportToExcel() {
         if (canvas.getBackgroundImage() == null) {
             JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
@@ -545,6 +558,30 @@ public class MainFrame extends JFrame {
         JMenuItem resizeItem = new JMenuItem("Resize...");
         resizeItem.addActionListener(e -> performOpenResize());
         imageMenu.add(resizeItem);
+
+        imageMenu.addSeparator();
+
+        JMenuItem rot90cw = new JMenuItem("Rotate 90 CW");
+        rot90cw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CW));
+        imageMenu.add(rot90cw);
+
+        JMenuItem rot90ccw = new JMenuItem("Rotate 90 CCW");
+        rot90ccw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CCW));
+        imageMenu.add(rot90ccw);
+
+        JMenuItem rot180 = new JMenuItem("Rotate 180");
+        rot180.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_180));
+        imageMenu.add(rot180);
+
+        imageMenu.addSeparator();
+
+        JMenuItem flipH = new JMenuItem("Flip Horizontal");
+        flipH.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_H));
+        imageMenu.add(flipH);
+
+        JMenuItem flipV = new JMenuItem("Flip Vertical");
+        flipV.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_V));
+        imageMenu.add(flipV);
 
         menuBar.add(fileMenu);
         menuBar.add(editMenu);
