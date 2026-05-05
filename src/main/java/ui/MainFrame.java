@@ -381,6 +381,20 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void performOpenResize() {
+        BufferedImage currentImage = canvas.getBackgroundImage();
+        if (currentImage != null) {
+            new ui.dialogs.ResizeDialog(this, currentImage, (newImage) -> {
+                core.history.Command resizeCmd = new core.history.ResizeCommand(
+                        canvas, appState.getCanvasState(), currentImage, newImage);
+                appState.getHistoryManager().push(resizeCmd);
+                canvas.repaint();
+            }).setVisible(true);
+        } else {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
     private void performExportToExcel() {
         if (canvas.getBackgroundImage() == null) {
             JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
@@ -513,6 +527,10 @@ public class MainFrame extends JFrame {
         JMenuItem filterItem = new JMenuItem("Filters...");
         filterItem.addActionListener(e -> performOpenFilter());
         imageMenu.add(filterItem);
+
+        JMenuItem resizeItem = new JMenuItem("Resize...");
+        resizeItem.addActionListener(e -> performOpenResize());
+        imageMenu.add(resizeItem);
 
         menuBar.add(fileMenu);
         menuBar.add(editMenu);
