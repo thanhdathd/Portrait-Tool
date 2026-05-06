@@ -10,8 +10,7 @@ import java.awt.*;
 import java.util.List;
 
 /**
- * Dialog for viewing and deleting custom crop profiles.
- * User can also open the AddCustomProfileDialog from here.
+ * Dialog for viewing, adding, editing, and deleting custom crop profiles.
  */
 public class ManageProfilesDialog extends JDialog {
 
@@ -43,16 +42,19 @@ public class ManageProfilesDialog extends JDialog {
         content.add(scroll, BorderLayout.CENTER);
 
         // Buttons column on the right
-        JPanel btnCol = new JPanel(new GridLayout(3, 1, 0, 6));
+        JPanel btnCol = new JPanel(new GridLayout(4, 1, 0, 6));
         JButton addBtn    = new JButton("Add…");
+        JButton editBtn   = new JButton("Edit…");
         JButton deleteBtn = new JButton("Delete");
         JButton closeBtn  = new JButton("Close");
 
         addBtn.addActionListener(e -> onAdd());
+        editBtn.addActionListener(e -> onEdit());
         deleteBtn.addActionListener(e -> onDelete());
         closeBtn.addActionListener(e -> dispose());
 
         btnCol.add(addBtn);
+        btnCol.add(editBtn);
         btnCol.add(deleteBtn);
         btnCol.add(closeBtn);
         content.add(btnCol, BorderLayout.EAST);
@@ -72,14 +74,32 @@ public class ManageProfilesDialog extends JDialog {
 
     private void onAdd() {
         AddCustomProfileDialog dlg = new AddCustomProfileDialog(
-                (Frame) SwingUtilities.getWindowAncestor(this));
+                (Frame) SwingUtilities.getWindowAncestor(this), null);
         dlg.setVisible(true);
         CustomCropProfile newProfile = dlg.getResult();
         if (newProfile != null) {
             manager.add(newProfile);
-            // Persist immediately
             saveConfig();
             refreshList();
+        }
+    }
+
+    private void onEdit() {
+        int idx = profileList.getSelectedIndex();
+        if (idx < 0) {
+            JOptionPane.showMessageDialog(this, "Please select a profile to edit.");
+            return;
+        }
+        CustomCropProfile existing = manager.getProfiles().get(idx);
+        AddCustomProfileDialog dlg = new AddCustomProfileDialog(
+                (Frame) SwingUtilities.getWindowAncestor(this), existing);
+        dlg.setVisible(true);
+        CustomCropProfile updated = dlg.getResult();
+        if (updated != null) {
+            manager.update(idx, updated);
+            saveConfig();
+            refreshList();
+            profileList.setSelectedIndex(idx);
         }
     }
 

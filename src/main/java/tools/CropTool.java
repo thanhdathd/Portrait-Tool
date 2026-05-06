@@ -27,6 +27,7 @@ public class CropTool implements Tool {
         final String label;
         final float  ratio;
         final CropGuide guide;
+        public String description = null;
 
         ActiveProfile(String label, float ratio, CropGuide guide) {
             this.label = label;
@@ -60,7 +61,9 @@ public class CropTool implements Tool {
         // Append user-defined custom profiles
         if (configManager != null) {
             for (CustomCropProfile cp : configManager.getCustomCropProfileManager().getProfiles()) {
-                profiles.add(0, new ActiveProfile(cp.name, cp.ratio, cp.guide));
+                ActiveProfile profile = new ActiveProfile(cp.name, cp.ratio, cp.guide);
+                profile.description = cp.description;
+                profiles.add(0, profile);
             }
         }
     }
@@ -117,6 +120,16 @@ public class CropTool implements Tool {
         g2d.setColor(isReviewMode ? new Color(0x008083) : Color.WHITE);
         g2d.setStroke(new BasicStroke(2));
         g2d.drawRect(x, y, currentFrameWidth, currentFrameHeight);
+        String profileDescription = profiles.get(profileIndex).description;
+        if (profileDescription != null) {
+            Color oldColor = g2d.getColor();
+            g2d.setColor(Color.YELLOW);
+            g2d.drawString(profileDescription, x, y - 10);
+            g2d.setColor(oldColor);
+        }
+        if(state.isShowCropHelp()) {
+            drawCropHelp(g2d, x, y, currentFrameWidth);
+        }
         
         // Draw Composition Guide
         drawGuide(g2d, profiles.get(profileIndex).guide, x, y, currentFrameWidth, currentFrameHeight);
@@ -126,6 +139,33 @@ public class CropTool implements Tool {
         
         // Restore transform
         g2d.setTransform(oldTransform);
+    }
+
+    private void drawCropHelp(Graphics2D g2d, int x, int y, int currentFrameWidth) {
+        Color oldColor = g2d.getColor();
+        Font oldFont = g2d.getFont();
+        int lineStartX = x + currentFrameWidth + 10;
+        y = y + 20;
+        int lineStartY;
+        int lineHeight = 20;
+        g2d.setColor(Color.YELLOW);
+        g2d.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        String[] lines = {
+                "Hold Shift and use mouse wheel to change size",
+                "Press R to rotate",
+                "Shift R to switch golden spiral",
+                "Ctrl V / Ctrl H to snap into edge vertical or horizontal",
+                "ESC to exit snap mode (back to free mode)",
+                "ESC again (in free mode) to exit crop tool",
+                "Turn off this help in Setting"
+        };
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            lineStartY = y + lineHeight * i;
+            g2d.drawString(line, lineStartX, lineStartY);
+        }
+        g2d.setColor(oldColor);
+        g2d.setFont(oldFont);
     }
 
     private void drawGuide(Graphics2D g2d, CropGuide guide, int x, int y, int w, int h) {
@@ -199,10 +239,12 @@ public class CropTool implements Tool {
         int totalWidth = profiles.size() * itemSize + (profiles.size() - 1) * spacing;
         
         int startX = cx + (frameWidth / 2) - (totalWidth / 2);
+        Font centerLabelFont = new Font("SansSerif", Font.BOLD, 14);
         
         for (int i = 0; i < profiles.size(); i++) {
             ActiveProfile p = profiles.get(i);
             float r = p.ratio;
+            String centerLabel = getCenterLabel(p);
             if (!isLandscape && r != 1.0f) {
                 r = 1.0f / r;
             }
@@ -217,14 +259,49 @@ public class CropTool implements Tool {
                 FontMetrics fm = g2d.getFontMetrics();
                 int textAscent  = fm.getAscent();
                 int labelWidth = fm.stringWidth(label);
-                g2d.drawString(label, startX + i * (itemSize + spacing) + (itemSize - labelWidth)/2, cy + itemSize/2 + textAscent + 20);
+                int gap = 20;
+                if(!isLandscape) gap = 40;
+                g2d.drawString(label, startX + i * (itemSize + spacing) + (itemSize - labelWidth)/2, cy + itemSize/2 + textAscent + gap);
             } else {
                 g2d.setColor(new Color(255, 255, 255, 100));
-                g2d.drawRect(startX + i * (itemSize + spacing), yOffset, itemSize, fh);
+                Font oldFont = g2d.getFont();
+                g2d.setFont(centerLabelFont);
+                FontMetrics fm = g2d.getFontMetrics();
+                int textAscent  = fm.getAscent();
+                int textDescent = fm.getDescent();
+                int textW = fm.stringWidth(centerLabel);
+                int recX = startX + i * (itemSize + spacing);
+                int textX = recX + (itemSize - textW)/2;
+                int textY = yOffset + (fh - (textAscent + textDescent))/2 + textAscent;
+
+                g2d.drawRect(recX, yOffset, itemSize, fh);
+                g2d.drawString(centerLabel,textX, textY);
+                g2d.setFont(oldFont);
             }
         }
     }
-    
+
+    private String getCenterLabel(ActiveProfile p) {
+        String label = p.label;
+        switch (label) {
+            case "1:1":
+            case "4:3":
+            case "9:6":
+                return label;
+            case "A4 Print":
+                return "A4";
+            default:
+                if(label.contains("Golden")) {
+                    return "G";
+                }else {
+                    if(label.length() >= 3) {
+                        return label.substring(0, 3).trim();
+                    }
+                    return label;
+                }
+        }
+    }
+
     public void onMouseMoved(MouseEvent e, AppState state, ImageCanvas canvas) {
         if (!isReviewMode) {
             mouseX = e.getX();
@@ -362,10 +439,16 @@ public class CropTool implements Tool {
                 canvas.repaint();
             }
         } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-            if (isReviewMode) {
+            if (snapMode != SnapMode.NONE) {
+                // Priority 1: exit snap mode → back to free (fly) mode
+                snapMode = SnapMode.NONE;
+                canvas.repaint();
+            } else if (isReviewMode) {
+                // Priority 2: exit review/lock mode → back to fly mode
                 isReviewMode = false;
                 canvas.repaint();
             } else {
+                // Priority 3: already in free fly mode → exit CropTool entirely
                 canvas.setActiveTool(new HandTool());
                 onDeactivate(state);
                 canvas.repaint();

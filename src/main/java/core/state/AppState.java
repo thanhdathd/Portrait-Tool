@@ -48,6 +48,7 @@ public class AppState {
     private Color brushColor = Color.CYAN;
     private Direction labelDirection = Direction.EAST;
     private boolean floating = false;
+    private boolean showCropHelp = true;
     private int gridSize = 40; // Default from legacy code
     private final HistoryManager historyManager;
     private final CanvasState canvasState;
@@ -274,5 +275,14 @@ public class AppState {
     public void setCustomAngle(int angle) {
         // Đảm bảo góc luôn nằm trong [0, 359]
         this.customAngle = (angle % 360 + 360) % 360;
+    }
+
+
+    public boolean isShowCropHelp() {
+        return showCropHelp;
+    }
+
+    public void setShowCropHelp(boolean showCropHelp) {
+        this.showCropHelp = showCropHelp;
     }
 }

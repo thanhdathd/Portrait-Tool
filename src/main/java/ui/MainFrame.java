@@ -506,6 +506,10 @@ public class MainFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        if(appState.getCanvasState().getStickyPoints().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Don't have any point to export", "No Data", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         JFileChooser chooser = new JFileChooser();
         chooser.setPreferredSize(new Dimension(900, 600));
         FileNameExtensionFilter imageFilter =

@@ -19,6 +19,7 @@ public class SettingsDialog extends JDialog {
     private JRadioButton cmRadio;
     private JComboBox<String> languageCombo;
     private JCheckBox roundCheck;
+    private JCheckBox showHelpCheck;
     private String[] comboItems = new String[]{"15", "30", "50", "100", "200", "300"};
 
     public SettingsDialog(Frame owner, AppState appState) {
@@ -76,7 +77,12 @@ public class SettingsDialog extends JDialog {
         
         formPanel.add(new JLabel("Rounding:"));
         roundCheck = new JCheckBox("Round Results");
+        roundCheck.setToolTipText("Round p2p measure result when convert from px to cm");
         formPanel.add(roundCheck);
+
+        formPanel.add(new JLabel("Show help:"));
+        showHelpCheck = new JCheckBox("Show help in crop tool");
+        formPanel.add(showHelpCheck);
         
         formPanel.add(new JLabel("Language:"));
         languageCombo = new JComboBox<>(new String[]{"English", "Vietnamese"});
@@ -116,6 +122,7 @@ public class SettingsDialog extends JDialog {
         }
         
         roundCheck.setSelected(appState.isRound());
+        showHelpCheck.setSelected(appState.isShowCropHelp());
         languageCombo.setSelectedIndex(appState.isViLang() ? 1 : 0);
     }
 
@@ -130,6 +137,7 @@ public class SettingsDialog extends JDialog {
             
             appState.setCmUnit(cmRadio.isSelected());
             appState.setRound(roundCheck.isSelected());
+            appState.setShowCropHelp(showHelpCheck.isSelected());
             appState.setViLang(languageCombo.getSelectedIndex() == 1);
             
             // Optionally tell the parent to repaint or rebuild UI languages

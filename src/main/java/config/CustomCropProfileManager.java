@@ -9,13 +9,14 @@ import java.util.Properties;
 
 /**
  * Reads and writes custom crop profiles to/from a Properties object.
- * Profiles are stored as:
- *   customCrop.N.name  = My Profile
- *   customCrop.N.ratio = 1.333
- *   customCrop.N.guide = RULE_OF_THIRDS
- *
- * This class is intentionally decoupled from ConfigManager so that the
- * ConfigManager can delegate to it without growing further.
+ * New format (v2):
+ *   customCrop.N.name        = My Profile
+ *   customCrop.N.width       = 21.0
+ *   customCrop.N.height      = 29.7
+ *   customCrop.N.unit        = CM
+ *   customCrop.N.guide       = RULE_OF_THIRDS
+ *   customCrop.N.description = (optional)
+ * Legacy format (v1) only stored 'ratio'; those are loaded with width=ratio, height=1, unit=CM.
  */
 public class CustomCropProfileManager {
 
@@ -38,12 +39,34 @@ public class CustomCropProfileManager {
 
         for (int i = 0; i < count; i++) {
             try {
-                String name  = props.getProperty(PREFIX + i + ".name", "");
-                float ratio  = Float.parseFloat(props.getProperty(PREFIX + i + ".ratio", "1.0"));
+                String name     = props.getProperty(PREFIX + i + ".name", "");
                 String guideStr = props.getProperty(PREFIX + i + ".guide", "RULE_OF_THIRDS");
                 CropGuide guide = CropGuide.valueOf(guideStr);
-                if (!name.isEmpty() && ratio > 0) {
-                    profiles.add(new CustomCropProfile(name, ratio, guide));
+                String desc     = props.getProperty(PREFIX + i + ".description", "");
+
+                float width, height;
+                CustomCropProfile.Unit unit;
+
+                // v2 format stores width/height/unit explicitly
+                String widthStr  = props.getProperty(PREFIX + i + ".width");
+                String heightStr = props.getProperty(PREFIX + i + ".height");
+                String unitStr   = props.getProperty(PREFIX + i + ".unit");
+
+                if (widthStr != null && heightStr != null) {
+                    width  = Float.parseFloat(widthStr);
+                    height = Float.parseFloat(heightStr);
+                    unit   = unitStr != null ? CustomCropProfile.Unit.valueOf(unitStr)
+                                            : CustomCropProfile.Unit.CM;
+                } else {
+                    // v1 fallback: only ratio was stored
+                    float ratio = Float.parseFloat(props.getProperty(PREFIX + i + ".ratio", "1.0"));
+                    width  = ratio;
+                    height = 1.0f;
+                    unit   = CustomCropProfile.Unit.CM;
+                }
+
+                if (!name.isEmpty() && width > 0 && height > 0) {
+                    profiles.add(CustomCropProfile.create(name, width, height, unit, guide, desc));
                 }
             } catch (Exception ignored) {}
         }
@@ -54,14 +77,23 @@ public class CustomCropProfileManager {
         props.setProperty(KEY_COUNT, String.valueOf(profiles.size()));
         for (int i = 0; i < profiles.size(); i++) {
             CustomCropProfile p = profiles.get(i);
-            props.setProperty(PREFIX + i + ".name",  p.name);
-            props.setProperty(PREFIX + i + ".ratio", String.valueOf(p.ratio));
-            props.setProperty(PREFIX + i + ".guide", p.guide.name());
+            props.setProperty(PREFIX + i + ".name",        p.name);
+            props.setProperty(PREFIX + i + ".width",       String.valueOf(p.width));
+            props.setProperty(PREFIX + i + ".height",      String.valueOf(p.height));
+            props.setProperty(PREFIX + i + ".unit",        p.unit.name());
+            props.setProperty(PREFIX + i + ".guide",       p.guide.name());
+            props.setProperty(PREFIX + i + ".description", p.description);
         }
     }
 
     public void add(CustomCropProfile profile) {
         profiles.add(profile);
+    }
+
+    public void update(int index, CustomCropProfile profile) {
+        if (index >= 0 && index < profiles.size()) {
+            profiles.set(index, profile);
+        }
     }
 
     public void remove(int index) {

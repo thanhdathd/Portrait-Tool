@@ -49,6 +49,8 @@ public class ConfigManager {
             appState.setViLang(Boolean.parseBoolean(vLang));
             String round =  props.getProperty("round", "false");
             appState.setRound(Boolean.parseBoolean(round));
+            String showHelp =  props.getProperty("showHelp", "false");
+            appState.setShowCropHelp(Boolean.parseBoolean(showHelp));
             String stackSize = props.getProperty("stackSize", "15");
             appState.setStackSize(Integer.parseInt(stackSize));
 
@@ -89,6 +91,7 @@ public class ConfigManager {
         props.setProperty("cmUnit", String.valueOf(appState.isCmUnit()));
         props.setProperty("viLang", String.valueOf(appState.isViLang()));
         props.setProperty("round", String.valueOf(appState.isRound()));
+        props.setProperty("showHelp", String.valueOf(appState.isShowCropHelp()));
         props.setProperty("stackSize", String.valueOf(appState.getStackSize()));
 
         // Có thể thêm: vị trí cửa sổ, kích thước, lần mở file gần nhất, tool đang dùng...
