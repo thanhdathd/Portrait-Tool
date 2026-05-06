@@ -2,6 +2,7 @@ package ui.canvas;
 
 import core.state.AppState;
 import filter.FilterProperties;
+import tools.CropTool;
 import tools.P2PTool;
 import tools.Tool;
 import javax.swing.JPanel;
@@ -287,6 +288,9 @@ public class ImageCanvas extends JPanel {
         this.activeTool = newTool;
         updateCursor();
         firePropertyChange("activeTool", oldTool, newTool);
+        if(oldTool instanceof CropTool cropTool) {
+            cropTool.onDeactivate(appState);
+        }
     }
     
     public void updateCursor() {
@@ -381,9 +385,9 @@ public class ImageCanvas extends JPanel {
         int imgHeight = (int) (backgroundImage.getHeight() * zoom);
         int viewWidth = viewport.getWidth();
         int viewHeight = viewport.getHeight();
-
+        boolean isCropTool = activeTool instanceof tools.CropTool;
         // Chỉ reset khi ảnh lớn hơn viewport ở CẢ hai chiều
-        if (imgWidth > viewWidth && imgHeight > viewHeight) {
+        if (imgWidth > viewWidth && imgHeight > viewHeight && !isCropTool) {
             core.state.CanvasState cs = appState.getCanvasState();
             if (cs.getImageOffsetX() != CANVAS_PADDING || cs.getImageOffsetY() != CANVAS_PADDING) {
                 cs.setImageOffsetX(CANVAS_PADDING);

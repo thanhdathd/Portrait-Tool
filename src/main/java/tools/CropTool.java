@@ -9,11 +9,13 @@ import core.state.AppState;
 import core.history.CropCommand;
 import ui.canvas.ImageCanvas;
 
+import javax.swing.*;
 import java.awt.*;
 import java.awt.geom.Area;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -58,7 +60,7 @@ public class CropTool implements Tool {
         // Append user-defined custom profiles
         if (configManager != null) {
             for (CustomCropProfile cp : configManager.getCustomCropProfileManager().getProfiles()) {
-                profiles.add(new ActiveProfile(cp.name, cp.ratio, cp.guide));
+                profiles.add(0, new ActiveProfile(cp.name, cp.ratio, cp.guide));
             }
         }
     }
@@ -231,6 +233,8 @@ public class CropTool implements Tool {
         }
     }
 
+    private JViewport cavasViewport = null;
+    private int[] scrollParamsForESC = new  int[4];
     public void onMouseWheelMoved(MouseWheelEvent e, AppState state, ImageCanvas canvas) {
         if (isReviewMode) return;
 
@@ -242,66 +246,73 @@ public class CropTool implements Tool {
             canvas.repaint();
         } else {
             // Plain Wheel → zoom the canvas, anchor = image center → viewport center
-            java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+            BufferedImage img = canvas.getBackgroundImage();
             if (img == null) return;
 
             float oldZoom = state.getCurrentZoom();
-            float step    = e.isAltDown() ? 1.05f : 1.15f;
+            float step    = e.isAltDown() ? 1.02f : 1.08f;
             float rawZoom = (e.getWheelRotation() < 0) ? oldZoom * step : oldZoom / step;
             final float newZoom = Math.max(0.05f, Math.min(rawZoom, 8.0f));
             if (newZoom == oldZoom) return;
 
-            java.awt.Container parent = javax.swing.SwingUtilities.getUnwrappedParent(canvas);
-            if (!(parent instanceof javax.swing.JViewport)) {
+            Container parent = SwingUtilities.getUnwrappedParent(canvas);
+            if (!(parent instanceof JViewport)) {
                 state.setCurrentZoom(newZoom);
                 canvas.revalidate();
                 canvas.repaint();
                 return;
             }
-            javax.swing.JViewport viewport = (javax.swing.JViewport) parent;
+            JViewport viewport = (JViewport) parent;
+            this.cavasViewport = viewport;
+            // --- BƯỚC 1: Tính toán đồng bộ trên Main Thread ---
+            int viewW = viewport.getWidth();
+            int viewH = viewport.getHeight();
+            int scaledW = Math.round(img.getWidth()  * newZoom);
+            int scaledH = Math.round(img.getHeight() * newZoom);
 
-            // Apply zoom first so revalidate() computes correct preferred size
+            int newOx, newOy, newScrollX, newScrollY, padOx, padOy, padScrollX, padScrollY;
+
+            padOx = ImageCanvas.CANVAS_PADDING;
+            padOy = ImageCanvas.CANVAS_PADDING;
+            newOx = (viewW - scaledW) / 2;
+            newOy = (viewH - scaledH) / 2;
+            newScrollX = 0;
+            newScrollY = 0;
+
+            if(scaledW > viewW && scaledH > viewH) {
+                newScrollX = newOx + scaledW / 2 - viewW / 2;
+                newScrollY = newOy + scaledH / 2 - viewH / 2;
+                padScrollX = padOx + scaledW / 2 - viewW / 2;
+                padScrollY = padOy + scaledH / 2 - viewH / 2;
+                scrollParamsForESC[0] = padScrollX;
+                scrollParamsForESC[1] = padScrollY;
+            }
+
+
+            // --- BƯỚC 2: Cập nhật ĐỒNG LOẠT toàn bộ State ---
+            // Đảm bảo khi Swing gọi paintComponent, dữ liệu zoom và offset đã khớp với nhau 100%
             state.setCurrentZoom(newZoom);
+            state.getCanvasState().setImageOffsetX(newOx);
+            state.getCanvasState().setImageOffsetY(newOy);
+
+            // Báo cho hệ thống biết cấu trúc layout đã đổi và yêu cầu vẽ lại ngay lập tức
             canvas.revalidate();
+            canvas.repaint();
 
-            // Defer offset + scroll adjustment until layout is settled
+            // --- BƯỚC 3: Dịch chuyển thanh cuộn (Defer an toàn) ---
+            // Lệnh này phải đưa vào invokeLater để đợi canvas.revalidate()
+            // tính xong Width/Height thực tế
+            int finalNewScrollY = newScrollY;
+            int finalNewScrollX = newScrollX;
             javax.swing.SwingUtilities.invokeLater(() -> {
-                int viewW = viewport.getWidth();
-                int viewH = viewport.getHeight();
-                int scaledW = Math.round(img.getWidth()  * newZoom);
-                int scaledH = Math.round(img.getHeight() * newZoom);
-
-                int newOx, newOy, newScrollX, newScrollY;
-
-                if (scaledW <= viewW) {
-                    // Image fits horizontally → center it, no horizontal scroll
-                    newOx = (viewW - scaledW) / 2;
-                    newScrollX = 0;
-                } else {
-                    // Image wider than viewport → use padding offset, scroll to center
-                    newOx = ui.canvas.ImageCanvas.CANVAS_PADDING;
-                    newScrollX = newOx + scaledW / 2 - viewW / 2;
-                }
-
-                if (scaledH <= viewH) {
-                    newOy = (viewH - scaledH) / 2;
-                    newScrollY = 0;
-                } else {
-                    newOy = ui.canvas.ImageCanvas.CANVAS_PADDING;
-                    newScrollY = newOy + scaledH / 2 - viewH / 2;
-                }
-
-                // Write back the new offset so ImageCanvas renders in the right place
-                state.getCanvasState().setImageOffsetX(newOx);
-                state.getCanvasState().setImageOffsetY(newOy);
-
                 int maxX = Math.max(0, canvas.getWidth()  - viewW);
                 int maxY = Math.max(0, canvas.getHeight() - viewH);
+                scrollParamsForESC[2] = maxX;
+                scrollParamsForESC[3] = maxY;
                 viewport.setViewPosition(new java.awt.Point(
-                    Math.max(0, Math.min(newScrollX, maxX)),
-                    Math.max(0, Math.min(newScrollY, maxY))
+                    Math.max(0, Math.min(finalNewScrollX, maxX)),
+                    Math.max(0, Math.min(finalNewScrollY, maxY))
                 ));
-                canvas.repaint();
             });
         }
     }
@@ -356,13 +367,29 @@ public class CropTool implements Tool {
                 canvas.repaint();
             } else {
                 canvas.setActiveTool(new HandTool());
+                onDeactivate(state);
                 canvas.repaint();
             }
         } else if (e.getKeyCode() == KeyEvent.VK_ENTER && isReviewMode) {
             applyCrop(state, canvas);
         }
     }
-    
+
+    public void onDeactivate(AppState state) {
+        float zoom = state.getCurrentZoom();
+        state.setCurrentZoom(zoom); // to trigger property change listener to call enforceScrollModeOffset in canvas
+        if(cavasViewport != null) {
+            int centerScrollX = scrollParamsForESC[0];
+            int centerScrollY = scrollParamsForESC[1];
+            int maxX = scrollParamsForESC[2];
+            int maxY = scrollParamsForESC[3];
+            cavasViewport.setViewPosition(new Point(
+                    Math.max(0, Math.min(centerScrollX, maxX)),
+                    Math.max(0, Math.min(centerScrollY, maxY))
+            ));
+        }
+    }
+
     private void applyCrop(AppState state, ImageCanvas canvas) {
         ActiveProfile profile = profiles.get(profileIndex);
         float currentRatio = profile.ratio;

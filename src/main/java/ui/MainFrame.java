@@ -714,10 +714,18 @@ public class MainFrame extends JFrame {
         return btn;
     }
 
-    private JButton createSVGIconButton(String iconName, String tooltip) {
+    private JButton createSVGIconButton(String iconName, String tooltip, int w, int h, Color color) {
         JButton btn = new JButton();
         try {
-            FlatSVGIcon svgIcon = new FlatSVGIcon("icons/"+iconName, 20,16);
+            FlatSVGIcon svgIcon = new FlatSVGIcon("icons/"+iconName, w,h);
+            if(color != null) {
+                svgIcon.setColorFilter(new FlatSVGIcon.ColorFilter() {
+                    @Override
+                    public Color filter(Color c) {
+                        return color; // Đổi màu
+                    }
+                });
+            }
             Image image = svgIcon.getImage();
             if (image != null) {
                 btn.setIcon(new ImageIcon(image));
@@ -743,7 +751,9 @@ public class MainFrame extends JFrame {
         JButton saveBtn = createIconButton("icon2.png", "Save");
         saveBtn.addActionListener(e -> performSaveFile());
         
-        JButton saveTicksBtn = createIconButton("icon9.png", "Save Image with Ticks Only");
+        JButton saveTicksBtn = createSVGIconButton(
+                "ic_spoint.svg", "Save Image with Points Only",
+                24,24, Color.decode("#0e5299"));
         saveTicksBtn.addActionListener(e -> performSaveTicksOnly());
         
         toolBar.add(openBtn);
@@ -783,22 +793,29 @@ public class MainFrame extends JFrame {
         toolBar.addSeparator();
         
         // Mouse Modes
-        JButton handBtn = createIconButton("icon6.png", "Hand");
+        Color lineColor = Color.decode("#0242a1");
+        JButton handBtn = createSVGIconButton("ic_hand.svg", "Hand tool", 24,24, lineColor);
         handBtn.addActionListener(e -> canvas.setActiveTool(tool.handTool));
-        
-        JButton stickBtn = createIconButton("icon11.png", "Stick");
+
+        JButton stickBtn = createSVGIconButton("ic_stick.svg", "Stick point tool",20,20,lineColor);
         stickBtn.addActionListener(e -> canvas.setActiveTool(tool.stickTool));
-        
-        JButton p2pBtn = createIconButton("icon8.png", "P2P");
+
+        JButton p2pBtn = createSVGIconButton("ic_p2p.svg", "Point to Point measurement tool",20,20,null);
         p2pBtn.addActionListener(e -> {
             tool.p2pTool.clearCompletedLines();
             canvas.setActiveTool(tool.p2pTool);
         });
-        
-        JButton gridBtn = createIconButton("icon4.png", "Grid");
+        JButton gridBtn = createSVGIconButton("ic_grid.svg", "Draw Grid",24,24, lineColor);
         gridBtn.addActionListener(e -> canvas.setActiveTool(tool.gridTool));
+
+        JButton cropBtn = createSVGIconButton(
+                "ic_crop.svg",
+                "Crop Image",
+                24,24, lineColor
+                );
+        cropBtn.addActionListener(e -> canvas.setActiveTool(new tools.CropTool(configManager)));
         
-        JButton zoomBtn = createIconButton("icon1.png", "Zoom");
+        JButton zoomBtn = createSVGIconButton("ic_zoom.svg", "Zoom tool",24,24,lineColor);
         zoomBtn.addActionListener(e -> {
             if (canvas.getActiveTool() instanceof tools.ZoomCanvasTool) {
                 ((tools.ZoomCanvasTool) canvas.getActiveTool()).toggleMode();
@@ -808,7 +825,7 @@ public class MainFrame extends JFrame {
             }
         });
 
-        JButton zoomActualSize = createSVGIconButton("actual_size.svg", "ActualSize");
+        JButton zoomActualSize = createSVGIconButton("actual_size.svg", "ActualSize", 20, 16,null);
         zoomActualSize.addActionListener(e -> {
             appState.setCurrentZoom(1.0f);
             appState.getCanvasState().setImageOffsetX(ImageCanvas.CANVAS_PADDING);
@@ -833,16 +850,17 @@ public class MainFrame extends JFrame {
         toolBar.add(stickBtn);
         toolBar.add(p2pBtn);
         toolBar.add(gridBtn);
+        toolBar.add(cropBtn);
         toolBar.add(zoomBtn);
         toolBar.add(zoomActualSize);
         
         toolBar.addSeparator();
         
         // Data & Settings
-        JButton exportBtn = createIconButton("icon7.png", "Export to Excel");
+        JButton exportBtn = createSVGIconButton("ic_export.svg", "Export Stick point to Excel",20,20,lineColor);
         exportBtn.addActionListener(e -> performExportToExcel());
         
-        JButton settingsBtn = createIconButton("icon10.png", "Settings");
+        JButton settingsBtn = createSVGIconButton("ic_setting.svg", "Settings", 20,20, Color.decode("#04aeda"));
         settingsBtn.addActionListener(e -> new ui.dialogs.SettingsDialog(this, appState).setVisible(true));
         
         toolBar.add(exportBtn);
