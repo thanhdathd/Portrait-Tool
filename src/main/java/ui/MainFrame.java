@@ -846,6 +846,7 @@ public class MainFrame extends JFrame {
                 stickBtn.setEnabled(!(activeTool instanceof tools.StickTool));
                 p2pBtn.setEnabled(!(activeTool instanceof tools.P2PTool));
                 gridBtn.setEnabled(!(activeTool instanceof tools.GridTool));
+                cropBtn.setEnabled(!(activeTool instanceof tools.CropTool));
                 // Zoom is toggleable, so always enabled
             }
         });

@@ -57,6 +57,7 @@ public class AppState {
     private boolean customLabelMode = false;
     private int customGap = 20;   // Giới hạn 8 - 50
     private int customAngle = 40; // Độ (0 - 359), tăng theo chiều CCW (ngược chiều kim đồng hồ)
+    private int checkerSize = 40;
 
     public AppState() {
         this.historyManager = new HistoryManager(115);
@@ -284,5 +285,18 @@ public class AppState {
 
     public void setShowCropHelp(boolean showCropHelp) {
         this.showCropHelp = showCropHelp;
+    }
+
+    public int getCheckerSize() {
+        return checkerSize;
+    }
+
+    public void setCheckerSize(int checkerSize) {
+        this.checkerSize = checkerSize;
+        if(watchedKeys.containsKey("checkerSize")){
+            watchedKeys.get("checkerSize")
+                    .forEach( listener ->
+                            listener.propertyChange(null));
+        }
     }
 }

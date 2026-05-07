@@ -35,7 +35,6 @@ public class ImageCanvas extends JPanel {
     private ZoomWindow zoomWindow;
     private BufferedImage tempPreviewImage = null;
     private Rectangle tempPreviewBounds = null;
-    private static final int CHECKER_SIZE = 40;
     private boolean drawLabels = true;
     private boolean isShiftDown = false;
 
@@ -48,6 +47,9 @@ public class ImageCanvas extends JPanel {
         this.appState.getCanvasState().setImageOffsetY(CANVAS_PADDING);
         this.appState.addPropertyChangeListener("currentZoom", evt -> {
             SwingUtilities.invokeLater(this::enforceScrollModeOffset);
+        });
+        this.appState.addPropertyChangeListener("checkerSize", evt -> {
+            repaint();
         });
         setBackground(Color.LIGHT_GRAY);
         setFocusable(true);
@@ -415,6 +417,7 @@ public class ImageCanvas extends JPanel {
         super.paintComponent(gp);
         Graphics2D g2d = (Graphics2D) gp.create();
         List<SPoint> sPoints = appState.getCanvasState().getStickyPoints();
+        int CHECKER_SIZE = appState.getCheckerSize();
         
         // Draw Checkerboard Background
         int viewWidth = getWidth();

@@ -1,12 +1,12 @@
 package ui.dialogs;
 
+import com.formdev.flatlaf.FlatClientProperties;
 import core.state.AppState;
 import net.miginfocom.swing.MigLayout;
+import ui.button.RoundToggleButton;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class SettingsDialog extends JDialog {
 
@@ -21,6 +21,12 @@ public class SettingsDialog extends JDialog {
     private JCheckBox roundCheck;
     private JCheckBox showHelpCheck;
     private String[] comboItems = new String[]{"15", "30", "50", "100", "200", "300"};
+
+    // Segmented control for checker size
+    private static final int[] CHECKER_SIZES  = {20, 40, 80};
+    private static final String[] CHECKER_LABELS = {"Small", "Medium", "Large"};
+    private final JToggleButton[] checkerBtns = new JToggleButton[CHECKER_SIZES.length];
+    private final ButtonGroup checkerGroup = new ButtonGroup();
 
     public SettingsDialog(Frame owner, AppState appState) {
         super(owner, "Settings", true);
@@ -83,13 +89,46 @@ public class SettingsDialog extends JDialog {
         formPanel.add(new JLabel("Show help:"));
         showHelpCheck = new JCheckBox("Show help in crop tool");
         formPanel.add(showHelpCheck);
-        
+
+        formPanel.add(new JLabel("Checker size:"));
+        // Use a small vertical gap (2px) in FlowLayout to prevent top/bottom clipping
+        JPanel checkerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 2));
+        checkerPanel.setBorder(BorderFactory.createLineBorder(Color.decode("#f2f2f2")));
+        checkerPanel.getInsets().set(2,2,2,2);
+        checkerPanel.setOpaque(false);
+
+        for (int i = 0; i < CHECKER_SIZES.length; i++) {
+            final int idx = i;
+            RoundToggleButton btn = new RoundToggleButton(CHECKER_LABELS[i]);
+            btn.setFocusable(false);
+
+            int width = (i == 1) ? 80 : 60;
+            // Increased height to 26 to ensure the border isn't tight against the edge
+            btn.setPreferredSize(new Dimension(width, 20));
+
+            if (i == 0) {
+                btn.setCornerRadius(10, 0, 0, 10);
+            } else if (i == CHECKER_SIZES.length - 1) {
+                btn.setCornerRadius(0, 10, 10, 0);
+            }
+            btn.addActionListener(e -> {
+                int checkerSize = CHECKER_SIZES[idx];
+                appState.setCheckerSize(checkerSize);
+            });
+
+            checkerBtns[i] = btn;
+            checkerGroup.add(btn);
+            checkerPanel.add(btn);
+        }
+        // Add gapx 2 to prevent the leftmost edge from touching the label/edge
+        formPanel.add(checkerPanel, "gapx 2");
+
         formPanel.add(new JLabel("Language:"));
         languageCombo = new JComboBox<>(new String[]{"English", "Vietnamese"});
         formPanel.add(languageCombo);
         
         add(formPanel, BorderLayout.CENTER);
-        
+
         // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         JButton btnOk = new JButton("OK");
@@ -124,6 +163,14 @@ public class SettingsDialog extends JDialog {
         roundCheck.setSelected(appState.isRound());
         showHelpCheck.setSelected(appState.isShowCropHelp());
         languageCombo.setSelectedIndex(appState.isViLang() ? 1 : 0);
+
+        // Select the checker-size button that matches the current value
+        int currentCheckerSize = appState.getCheckerSize();
+        int matchIdx = 1; // default to Medium
+        for (int i = 0; i < CHECKER_SIZES.length; i++) {
+            if (CHECKER_SIZES[i] == currentCheckerSize) { matchIdx = i; break; }
+        }
+        checkerBtns[matchIdx].setSelected(true);
     }
 
     private void saveState() {
@@ -139,7 +186,7 @@ public class SettingsDialog extends JDialog {
             appState.setRound(roundCheck.isSelected());
             appState.setShowCropHelp(showHelpCheck.isSelected());
             appState.setViLang(languageCombo.getSelectedIndex() == 1);
-            
+
             // Optionally tell the parent to repaint or rebuild UI languages
             dispose();
         } catch (NumberFormatException ex) {

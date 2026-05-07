@@ -53,6 +53,8 @@ public class ConfigManager {
             appState.setShowCropHelp(Boolean.parseBoolean(showHelp));
             String stackSize = props.getProperty("stackSize", "15");
             appState.setStackSize(Integer.parseInt(stackSize));
+            String checkerSize = props.getProperty("checkerSize", "40");
+            appState.setCheckerSize(Integer.parseInt(checkerSize));
 
 
             // Load vị trí và kích thước cửa sổ
@@ -93,6 +95,7 @@ public class ConfigManager {
         props.setProperty("round", String.valueOf(appState.isRound()));
         props.setProperty("showHelp", String.valueOf(appState.isShowCropHelp()));
         props.setProperty("stackSize", String.valueOf(appState.getStackSize()));
+        props.setProperty("checkerSize", String.valueOf(appState.getCheckerSize()));
 
         // Có thể thêm: vị trí cửa sổ, kích thước, lần mở file gần nhất, tool đang dùng...
         props.setProperty("lastOpenedFile", appState.getFilePath());
