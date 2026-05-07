@@ -620,12 +620,7 @@ public class MainFrame extends JFrame {
             "Portrai-Tool Modernized\nA Swing-based Image Processing Tool", "About", JOptionPane.INFORMATION_MESSAGE));
             
         JMenuItem keyAssistItem = new JMenuItem("Key Assist");
-        keyAssistItem.addActionListener(e -> JOptionPane.showMessageDialog(this, 
-            "Key Assist:\n" +
-            "Ctrl+Z: Undo\n" +
-            "Ctrl+Y: Redo\n" +
-            "Up/Down/Left/Right: Move measurement calipers in Zoom Mode\n", 
-            "Keyboard Shortcuts", JOptionPane.INFORMATION_MESSAGE));
+        keyAssistItem.addActionListener(e -> new ui.dialogs.ShortcutAssistanceDialog(this).setVisible(true));
             
         helpMenu.add(keyAssistItem);
         helpMenu.add(aboutItem);

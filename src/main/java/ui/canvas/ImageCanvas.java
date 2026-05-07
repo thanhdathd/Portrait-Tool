@@ -97,17 +97,17 @@ public class ImageCanvas extends JPanel {
 
             @Override
             public void mouseMoved(MouseEvent e) {
-                if (activeTool instanceof tools.CropTool) {
-                    ((tools.CropTool)activeTool).onMouseMoved(e, appState, ImageCanvas.this);
+                if (activeTool != null) {
+                    activeTool.onMouseMoved(e, appState, ImageCanvas.this);
                 }
                 updateZoomWindow(e.getPoint());
             }
         });
 
         this.addMouseWheelListener(e -> {
-            if (activeTool instanceof tools.CropTool) {
-                ((tools.CropTool)activeTool).onMouseWheelMoved(e, appState, ImageCanvas.this);
-                if (e.isShiftDown()) return;
+            if (activeTool != null) {
+                activeTool.onMouseWheelMoved(e, appState, ImageCanvas.this);
+                if (activeTool instanceof tools.CropTool && e.isShiftDown()) return;
             }
             if (zoomWindow != null && zoomWindow.isVisible() && backgroundImage != null) {
                 int rotation = e.getWheelRotation();
@@ -249,6 +249,8 @@ public class ImageCanvas extends JPanel {
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(e -> {
             if (activeTool instanceof tools.CropTool && e.getID() == KeyEvent.KEY_PRESSED) {
                 ((tools.CropTool)activeTool).onKeyPressed(e, appState, ImageCanvas.this);
+            }else if(activeTool instanceof tools.P2PTool && e.getID() == KeyEvent.KEY_PRESSED) {
+                ((tools.P2PTool)activeTool).onKeyPressed(e, appState, ImageCanvas.this);
             }
             if (e.getKeyCode() == KeyEvent.VK_SHIFT) {
                 boolean shiftNow = (e.getID() == KeyEvent.KEY_PRESSED);
@@ -293,6 +295,7 @@ public class ImageCanvas extends JPanel {
         if(oldTool instanceof CropTool cropTool) {
             cropTool.onDeactivate(appState);
         }
+        repaint();
     }
     
     public void updateCursor() {
@@ -468,12 +471,10 @@ public class ImageCanvas extends JPanel {
         // 2. Allow active tool to draw preview
         if (activeTool != null) {
             activeTool.onPaint(g2d, appState, this);
-            if(previousTool instanceof P2PTool) {
-                P2PTool p2pTool = (P2PTool) previousTool;
-                if(!p2pTool.getCompletedLines().isEmpty()){
-                    p2pTool.onPaint(g2d, appState, this);
-                }
-            }
+        }
+        // Also draw previous tool if we are in a temporary switch mode (like spacebar pan)
+        if (previousTool != null) {
+            previousTool.onPaint(g2d, appState, this);
         }
         
         // 3. Draw Sticky Points

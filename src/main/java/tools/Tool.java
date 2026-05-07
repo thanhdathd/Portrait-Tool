@@ -26,6 +26,16 @@ public interface Tool {
     void onMouseDragged(MouseEvent e, AppState appState, ImageCanvas canvas);
     
     /**
+     * Called when the mouse is moved on the canvas.
+     */
+    default void onMouseMoved(MouseEvent e, AppState appState, ImageCanvas canvas) {}
+
+    /**
+     * Called when the mouse wheel is moved on the canvas.
+     */
+    default void onMouseWheelMoved(java.awt.event.MouseWheelEvent e, AppState appState, ImageCanvas canvas) {}
+
+    /**
      * Called when the canvas repaints to allow the tool to draw custom UI or previews.
      */
     void onPaint(Graphics2D g2d, AppState appState, ImageCanvas canvas);

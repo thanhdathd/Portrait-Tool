@@ -21,7 +21,7 @@ class GridToolTest {
     void setUp() {
         appState = new AppState();
         canvas = new ImageCanvas(appState);
-        gridTool = new GridTool(40); // 40 is the grid size
+        gridTool = new GridTool(); // 40 is the grid size
     }
 
     @Test

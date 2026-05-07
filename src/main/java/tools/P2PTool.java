@@ -5,6 +5,7 @@ import ui.canvas.ImageCanvas;
 
 import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -127,6 +128,15 @@ public class P2PTool implements Tool {
         } else {
             g2d.drawString(String.format("%.2f px", distance), p2.x + 10, p2.y);
         }
+    }
+
+    public void onKeyPressed(KeyEvent e, AppState state, ImageCanvas canvas) {
+        if(e.getKeyCode() == KeyEvent.VK_E && e.isControlDown()) {
+            clearCompletedLines();
+        } else if(e.getKeyCode() == KeyEvent.VK_E ) {
+            completedLines.remove(completedLines.size()-1);
+        }
+        canvas.repaint();
     }
 
     public void clearCompletedLines() {

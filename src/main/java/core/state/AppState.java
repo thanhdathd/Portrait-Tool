@@ -49,7 +49,8 @@ public class AppState {
     private Direction labelDirection = Direction.EAST;
     private boolean floating = false;
     private boolean showCropHelp = true;
-    private int gridSize = 40; // Default from legacy code
+    private float gridSize = 40.0f; // Default from legacy code (pixels)
+    private boolean gridInCm = false;
     private final HistoryManager historyManager;
     private final CanvasState canvasState;
     private final Map<String, List<PropertyChangeListener>> watchedKeys = new HashMap<>();
@@ -190,12 +191,20 @@ public class AppState {
         this.stackSize = stackSize;
     }
 
-    public int getGridSize() {
+    public float getGridSize() {
         return gridSize;
     }
 
-    public void setGridSize(int gridSize) {
+    public void setGridSize(float gridSize) {
         this.gridSize = gridSize;
+    }
+
+    public boolean isGridInCm() {
+        return gridInCm;
+    }
+
+    public void setGridInCm(boolean gridInCm) {
+        this.gridInCm = gridInCm;
     }
 
     public int getWindowX() {

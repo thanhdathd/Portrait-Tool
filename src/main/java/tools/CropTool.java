@@ -439,22 +439,29 @@ public class CropTool implements Tool {
                 canvas.repaint();
             }
         } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-            if (snapMode != SnapMode.NONE) {
-                // Priority 1: exit snap mode → back to free (fly) mode
+            if(snapMode != SnapMode.NONE && isReviewMode) {
+                // Priority 1: exit review mode → back to snap mode
+                isReviewMode = false;
+                canvas.repaint();
+            } else if (snapMode != SnapMode.NONE) {
+                // Priority 2: exit snap mode → back to fly mode
                 snapMode = SnapMode.NONE;
                 canvas.repaint();
             } else if (isReviewMode) {
-                // Priority 2: exit review/lock mode → back to fly mode
+                // Priority 3: exit review/lock mode → back to fly mode
                 isReviewMode = false;
                 canvas.repaint();
             } else {
-                // Priority 3: already in free fly mode → exit CropTool entirely
+                // Priority 4: already in free fly mode → exit CropTool entirely
                 canvas.setActiveTool(new HandTool());
                 onDeactivate(state);
                 canvas.repaint();
             }
         } else if (e.getKeyCode() == KeyEvent.VK_ENTER && isReviewMode) {
             applyCrop(state, canvas);
+        }else if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+            isReviewMode = true;
+            canvas.repaint();
         }
     }
 

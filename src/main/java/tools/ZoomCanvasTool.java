@@ -24,8 +24,22 @@ public class ZoomCanvasTool implements Tool {
         if(e.getButton() == MouseEvent.BUTTON3) {
             return;
         }
+
+        java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+        if (img == null) return;
+
+        int offsetX = appState.getCanvasState().getImageOffsetX();
+        int offsetY = appState.getCanvasState().getImageOffsetY();
         float zoom = appState.getCurrentZoom();
         float oldZoom = zoom;
+
+        // Check if click is inside image bounds (on the actual image, not checkerboard)
+        int imgDisplayW = Math.round(img.getWidth() * oldZoom);
+        int imgDisplayH = Math.round(img.getHeight() * oldZoom);
+        Rectangle imgRect = new Rectangle(offsetX, offsetY, imgDisplayW, imgDisplayH);
+        if (!imgRect.contains(e.getPoint())) {
+            return;
+        }
         
         boolean effectiveZoomIn = zoomInMode;
         if (e.isShiftDown()) {
@@ -51,24 +65,19 @@ public class ZoomCanvasTool implements Tool {
             Point viewPos = viewport.getViewPosition();
             
             // The point clicked relative to the unscaled image coordinates
-            float imageX = e.getX() / oldZoom;
-            float imageY = e.getY() / oldZoom;
+            float imageX = (e.getX() - offsetX) / oldZoom;
+            float imageY = (e.getY() - offsetY) / oldZoom;
             
             // Update state
             appState.setCurrentZoom(zoom);
             canvas.revalidate(); // Updates preferred size
             canvas.repaint();
 
-            // The new expected coordinate of that image pixel on the scaled canvas
-            int newCanvasX = (int) (imageX * zoom);
-            int newCanvasY = (int) (imageY * zoom);
+            // The new expected coordinate of that image pixel on the scaled canvas (including offset)
+            int newCanvasX = offsetX + (int) (imageX * zoom);
+            int newCanvasY = offsetY + (int) (imageY * zoom);
             
-            // The cursor is at e.getX() relative to the old view bounds.
-            // We want newCanvasX to be exactly where the cursor is currently on the screen.
-            // Screen cursor relative to viewport = e.getX() - viewPos.x
-            // So we want: newCanvasX - newViewPos.x = e.getX() - viewPos.x
-            // newViewPos.x = newCanvasX - (e.getX() - viewPos.x)
-            
+            // We want: newCanvasX - newViewPos.x = e.getX() - viewPos.x (cursor remains at same screen pos)
             int newViewX = newCanvasX - (e.getX() - viewPos.x);
             int newViewY = newCanvasY - (e.getY() - viewPos.y);
             

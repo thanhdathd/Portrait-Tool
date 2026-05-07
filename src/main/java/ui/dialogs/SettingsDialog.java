@@ -14,6 +14,7 @@ public class SettingsDialog extends JDialog {
     
     private JComboBox<String> historySizeCombo;
     private JTextField gridSizeField;
+    private JComboBox<String> gridUnitCombo;
     private JTextField scaleField;
     private JRadioButton pxRadio;
     private JRadioButton cmRadio;
@@ -51,7 +52,9 @@ public class SettingsDialog extends JDialog {
         
         formPanel.add(new JLabel("Grid Size:"));
         gridSizeField = new JTextField(5);
-        formPanel.add(gridSizeField);
+        gridUnitCombo = new JComboBox<>(new String[]{"px", "cm"});
+        formPanel.add(gridSizeField, "split 2, pushx, growx");
+        formPanel.add(gridUnitCombo, "w 60!");
         
         formPanel.add(new JLabel("Scale Ratio (cm/px):"));
         scaleField = new JTextField(5);
@@ -151,7 +154,9 @@ public class SettingsDialog extends JDialog {
                 break;
             }
         }
-        gridSizeField.setText(String.valueOf(appState.getGridSize()));
+        float gs = appState.getGridSize();
+        gridSizeField.setText(gs == (int) gs ? String.valueOf((int) gs) : String.valueOf(gs));
+        gridUnitCombo.setSelectedIndex(appState.isGridInCm() ? 1 : 0);
         scaleField.setText(String.valueOf(appState.getScale()));
         
         if (appState.isCmUnit()) {
@@ -175,8 +180,9 @@ public class SettingsDialog extends JDialog {
 
     private void saveState() {
         try {
-            int newGridSize = Integer.parseInt(gridSizeField.getText());
+            float newGridSize = Float.parseFloat(gridSizeField.getText());
             appState.setGridSize(newGridSize);
+            appState.setGridInCm(gridUnitCombo.getSelectedIndex() == 1);
             appState.resizeHistoryStack(Integer.parseInt((String) historySizeCombo.getSelectedItem()));
             
             float newScale = Float.parseFloat(scaleField.getText());

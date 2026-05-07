@@ -40,7 +40,9 @@ public class ConfigManager {
             String brushColor = props.getProperty("brushColor", "#00FFFF");
             appState.setBrushColor(Color.decode(brushColor));
             String gridSize = props.getProperty("gridSize", "40");
-            appState.setGridSize(Integer.parseInt(gridSize));
+            appState.setGridSize(Float.parseFloat(gridSize));
+            String gridInCm = props.getProperty("gridInCm", "false");
+            appState.setGridInCm(Boolean.parseBoolean(gridInCm));
             String cmUnit = props.getProperty("cmUnit", "false");
             appState.setCmUnit(Boolean.parseBoolean(cmUnit));
             String scale =  props.getProperty("scale", "1.0");
@@ -89,6 +91,7 @@ public class ConfigManager {
         Color c = appState.getBrushColor();
         props.setProperty("brushColor", String.format("#%02X%02X%02X", c.getRed(), c.getGreen(), c.getBlue()));
         props.setProperty("gridSize", String.valueOf(appState.getGridSize()));
+        props.setProperty("gridInCm", String.valueOf(appState.isGridInCm()));
         props.setProperty("scale", String.valueOf(appState.getScale()));
         props.setProperty("cmUnit", String.valueOf(appState.isCmUnit()));
         props.setProperty("viLang", String.valueOf(appState.isViLang()));
