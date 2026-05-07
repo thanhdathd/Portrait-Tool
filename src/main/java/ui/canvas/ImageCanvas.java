@@ -424,10 +424,10 @@ public class ImageCanvas extends JPanel {
             viewWidth = Math.max(viewWidth, parent.getWidth());
             viewHeight = Math.max(viewHeight, parent.getHeight());
         }
-        
-        g2d.setColor(Color.LIGHT_GRAY);
+
+        g2d.setColor(new Color(60, 60, 60, 255));
         g2d.fillRect(0, 0, viewWidth, viewHeight);
-        g2d.setColor(Color.WHITE);
+        g2d.setColor(new Color(90, 90, 90, 255));
         for (int y = 0; y < viewHeight; y += CHECKER_SIZE) {
             for (int x = 0; x < viewWidth; x += CHECKER_SIZE) {
                 if (((x / CHECKER_SIZE) ^ (y / CHECKER_SIZE)) % 2 == 0) {
