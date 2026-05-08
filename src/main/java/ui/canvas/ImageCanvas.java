@@ -454,7 +454,11 @@ public class ImageCanvas extends JPanel {
         g2d.scale(zoom, zoom);
         
         // 1. Draw Background Image
-        if (backgroundImage != null) {
+        if (appState.isShowPointMap()) {
+            int width = backgroundImage != null ? backgroundImage.getWidth() : getWidth();
+            int height = backgroundImage != null ? backgroundImage.getHeight() : getHeight();
+            RenderUtils.drawPointMap(g2d, appState.getCanvasState().getStickyPoints(), appState.getScale(), width, height);
+        } else if (backgroundImage != null) {
             g2d.drawImage(backgroundImage, 0, 0, this);
         }
 

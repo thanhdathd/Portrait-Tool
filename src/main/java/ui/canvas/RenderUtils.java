@@ -10,6 +10,43 @@ import java.awt.geom.Line2D;
 import java.util.List;
 
 public class RenderUtils {
+    public static void drawPointMarker(Graphics2D g2d, SPoint p, float scale) {
+        if (scale <= 0) return;
+
+        // 1 mm = 0.1 cm
+        float circleRadiusCm = 0.1f;
+        float rectWidthCm = 0.15f;
+        float rectLengthCm = rectWidthCm * 2.5f;
+
+        int circleRadiusPx = Math.max(1, Math.round(circleRadiusCm / scale));
+        int rectWidthPx = Math.max(1, Math.round(rectWidthCm / scale));
+        int rectLengthPx = Math.max(1, Math.round(rectLengthCm / scale));
+
+        g2d.setColor(Color.BLACK);
+
+        // Draw circle
+        g2d.drawOval(p.X - circleRadiusPx, p.Y - circleRadiusPx, circleRadiusPx * 2, circleRadiusPx * 2);
+
+        // Draw crosshair (4 rectangles)
+        // Top
+        g2d.fillRect(p.X - rectWidthPx / 2, p.Y - circleRadiusPx - rectLengthPx, rectWidthPx, rectLengthPx);
+        // Bottom
+        g2d.fillRect(p.X - rectWidthPx / 2, p.Y + circleRadiusPx, rectWidthPx, rectLengthPx);
+        // Left
+        g2d.fillRect(p.X - circleRadiusPx - rectLengthPx, p.Y - rectWidthPx / 2, rectLengthPx, rectWidthPx);
+        // Right
+        g2d.fillRect(p.X + circleRadiusPx, p.Y - rectWidthPx / 2, rectLengthPx, rectWidthPx);
+    }
+
+    public static void drawPointMap(Graphics2D g2d, List<SPoint> points, float scale, int width, int height) {
+        g2d.setColor(Color.WHITE);
+        g2d.fillRect(0, 0, width, height);
+
+        for (SPoint p : points) {
+            drawPointMarker(g2d, p, scale);
+        }
+    }
+
     public static void drawStickyPoints(Graphics2D g2d, List<SPoint> points, boolean drawLabels) {
         // 1. LẤY VÙNG HIỂN THỊ (VIEWPORT CLIP)
         // Rectangle này chính là khung hình chữ nhật trên ảnh gốc đang được show ra

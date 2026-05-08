@@ -33,6 +33,8 @@ public class MainFrame extends JFrame {
     private final ToolManager tool;
     private ZoomWindow zoom = null;
     private JScrollPane scrollPane;
+    private JMenuItem savePointMapItem;
+    private JCheckBoxMenuItem showPointMapItem;
 
     public MainFrame() {
         this.appState = new AppState();
@@ -54,11 +56,16 @@ public class MainFrame extends JFrame {
                 attemptClose();
             }
         });
+
         
         // Listen to history to mark as dirty
         appState.getHistoryManager().addListener((canUndo, canRedo, isModified) -> {
             if(isModified)appState.setEditState(AppState.EditState.MODIFIED);
             updateWindowTitle();
+        });
+        appState.getCanvasState().addStickyPointChangeListener(num -> {
+            savePointMapItem.setEnabled(num > 0);
+            showPointMapItem.setEnabled(num > 0);
         });
         
         setLayout(new BorderLayout());
@@ -452,6 +459,24 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void performSavePointMap() {
+        if (canvas.getBackgroundImage() == null) {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        JFileChooser chooser = prepareChooserDialog();
+        chooser.setDialogTitle("Save Point Map (Transparent PNG)");
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (!file.getName().endsWith(".png")) {
+                file = new java.io.File(file.getAbsolutePath() + ".png");
+            }
+            
+            workers.SavePointMapWorker worker = new workers.SavePointMapWorker(canvas, file);
+            worker.execute();
+        }
+    }
+
 
     private void performOpenFilter() {
         BufferedImage currentImage = canvas.getBackgroundImage();
@@ -556,8 +581,12 @@ public class MainFrame extends JFrame {
         JMenuItem exportPointData = new JMenuItem("Export Data");
         exportPointData.addActionListener(e -> performExportToExcel());
 
-        JMenuItem savePointOnly = new JMenuItem("Save Point Only");
+        JMenuItem savePointOnly = new JMenuItem("Save Image with Points Only");
         savePointOnly.addActionListener(e -> performSaveTicksOnly());
+
+        savePointMapItem = new JMenuItem("Save Point Map");
+        savePointMapItem.setEnabled(false);
+        savePointMapItem.addActionListener(e -> performSavePointMap());
 
         JMenuItem exitItem = new JMenuItem("Exit");
         exitItem.addActionListener(e -> attemptClose());
@@ -566,6 +595,7 @@ public class MainFrame extends JFrame {
         fileMenu.add(saveItem);
         fileMenu.add(exportPointData);
         fileMenu.add(savePointOnly);
+        fileMenu.add(savePointMapItem);
         fileMenu.addSeparator();
         fileMenu.add(exitItem);
 
@@ -611,6 +641,15 @@ public class MainFrame extends JFrame {
             openZoomWindow();
         });
         viewMenu.add(zoomItem);
+
+        showPointMapItem = new JCheckBoxMenuItem("Show Point Map");
+        showPointMapItem.setEnabled(false);
+        showPointMapItem.setSelected(appState.isShowPointMap());
+        showPointMapItem.addActionListener(e -> {
+            appState.setShowPointMap(showPointMapItem.isSelected());
+            canvas.repaint();
+        });
+        viewMenu.add(showPointMapItem);
 
         // Help Menu
         JMenu helpMenu = new JMenu("Help");

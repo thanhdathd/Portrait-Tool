@@ -59,6 +59,7 @@ public class AppState {
     private int customGap = 20;   // Giới hạn 8 - 50
     private int customAngle = 40; // Độ (0 - 359), tăng theo chiều CCW (ngược chiều kim đồng hồ)
     private int checkerSize = 40;
+    private boolean showPointMap = false;
 
     public AppState() {
         this.historyManager = new HistoryManager(115);
@@ -307,5 +308,13 @@ public class AppState {
                     .forEach( listener ->
                             listener.propertyChange(null));
         }
+    }
+
+    public boolean isShowPointMap() {
+        return showPointMap;
+    }
+
+    public void setShowPointMap(boolean showPointMap) {
+        this.showPointMap = showPointMap;
     }
 }

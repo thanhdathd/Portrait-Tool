@@ -34,6 +34,14 @@ public class StickTool implements Tool {
                 y = Math.round((float) y / appState.getCurrentZoom());
             }
 
+            // Boundary check: Only allow placement on the image
+            java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+            if (img != null) {
+                if (x < 0 || x >= img.getWidth() || y < 0 || y >= img.getHeight()) {
+                    return;
+                }
+            }
+
             // Create point and push to history
             SPoint point = new SPoint(nextId, x, y, appState.getBrushColor(), appState.getLabelDirection());
             if(appState.isCustomLabelMode()) {

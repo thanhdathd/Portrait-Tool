@@ -3,6 +3,7 @@ package core.state;
 import userpackage.SPoint;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * Holds the current visual state of the canvas, decoupled from the history manager.
@@ -11,6 +12,7 @@ public class CanvasState {
     
     private final List<SPoint> stickyPoints;
     private final List<SPoint> grids;
+    Consumer<Integer> pointChangeListener;
     
     // Properties to allow free-floating small images on the canvas
     private int imageOffsetX = 0;
@@ -19,6 +21,10 @@ public class CanvasState {
     public CanvasState() {
         this.stickyPoints = new ArrayList<>();
         this.grids = new ArrayList<>();
+    }
+
+    public void addStickyPointChangeListener(Consumer<Integer> listener) {
+        this.pointChangeListener = listener;
     }
 
     public int getImageOffsetX() {
@@ -43,10 +49,12 @@ public class CanvasState {
 
     public void addStickyPoint(SPoint p) {
         stickyPoints.add(p);
+        pointChangeListener.accept(stickyPoints.size());
     }
 
     public void removeStickyPoint(SPoint p) {
         stickyPoints.remove(p);
+        pointChangeListener.accept(stickyPoints.size());
     }
     
     public void removeLastStickyPoint() {
@@ -70,5 +78,6 @@ public class CanvasState {
     public void clearAll() {
         stickyPoints.clear();
         grids.clear();
+        pointChangeListener.accept(stickyPoints.size());
     }
 }
