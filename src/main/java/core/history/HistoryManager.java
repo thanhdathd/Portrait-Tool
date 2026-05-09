@@ -9,6 +9,12 @@ public class HistoryManager {
         this.capacity = newSize;
     }
 
+    public void clearAll() {
+        undoStack.clear();
+        redoStack.clear();
+        notifyListeners();
+    }
+
     public interface HistoryListener {
         void onHistoryChanged(boolean canUndo, boolean canRedo, boolean isModified);
     }

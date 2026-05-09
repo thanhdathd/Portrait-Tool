@@ -384,7 +384,6 @@ public class ImageCanvas extends JPanel {
         if (!(parent instanceof JViewport)) return;
         JViewport viewport = (JViewport) parent;
 
-        System.out.println("Enforcing scroll mode");
         float zoom = appState.getCurrentZoom();
         int imgWidth = (int) (backgroundImage.getWidth() * zoom);
         int imgHeight = (int) (backgroundImage.getHeight() * zoom);

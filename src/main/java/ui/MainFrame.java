@@ -301,6 +301,24 @@ public class MainFrame extends JFrame {
         }
     }
 
+    private void attemptOpenFile() {
+        if (appState.getEditState() == AppState.EditState.MODIFIED) {
+            int result = JOptionPane.showOptionDialog(this,
+                    "Open new file will erase all current points. Are you sure to continue?",
+                    "Unsaved Changes",
+                    JOptionPane.OK_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    new String[]{"Continue", "Cancel"},
+                    "Continue");
+            if (result == JOptionPane.YES_OPTION) {
+                performOpenFile();
+            }
+        } else {
+            performOpenFile();
+        }
+    }
+
     private void attemptClose() {
         updateUIState(appState);
         configManager.save(appState);
@@ -338,9 +356,9 @@ public class MainFrame extends JFrame {
     // --- Action Methods to share between Menu and Toolbar ---
     private void performOpenFile() {
         JFileChooser chooser = prepareChooserDialog();
-
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
+            System.out.println("user open file: " + file.getAbsolutePath());
             setTitle("Portrait Tool Modernized - Loading...");
             new workers.ImageLoadWorker(file, image -> {
                 canvas.setBackgroundImage(image);
@@ -348,6 +366,8 @@ public class MainFrame extends JFrame {
                 appState.setLastOpenedDir(file.getParent());
                 setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
                 appState.getHistoryManager().markAsSaved();
+                appState.getHistoryManager().clearAll();
+                appState.getCanvasState().clearAll();
             }, ex -> {
                 JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 setTitle("Portrait Tool Modernized");
@@ -465,16 +485,7 @@ public class MainFrame extends JFrame {
             return;
         }
         JFileChooser chooser = prepareChooserDialog();
-        chooser.setDialogTitle("Save Point Map (Transparent PNG)");
-        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            java.io.File file = chooser.getSelectedFile();
-            if (!file.getName().endsWith(".png")) {
-                file = new java.io.File(file.getAbsolutePath() + ".png");
-            }
-            
-            workers.SavePointMapWorker worker = new workers.SavePointMapWorker(canvas, file);
-            worker.execute();
-        }
+        new ui.dialogs.ExportPointMapDialog(this, canvas, appState, chooser).setVisible(true);
     }
 
 
@@ -573,7 +584,7 @@ public class MainFrame extends JFrame {
         fileMenu.setMnemonic(KeyEvent.VK_F);
         
         JMenuItem openItem = new JMenuItem("Open");
-        openItem.addActionListener(e -> performOpenFile());
+        openItem.addActionListener(e -> attemptOpenFile());
         
         JMenuItem saveItem = new JMenuItem("Save");
         saveItem.addActionListener(e -> performSaveFile());
@@ -784,7 +795,7 @@ public class MainFrame extends JFrame {
         
         // File Ops
         JButton openBtn = createIconButton("icon3.png", "Open");
-        openBtn.addActionListener(e -> performOpenFile());
+        openBtn.addActionListener(e -> attemptOpenFile());
         
         JButton saveBtn = createIconButton("icon2.png", "Save");
         saveBtn.addActionListener(e -> performSaveFile());

@@ -172,7 +172,6 @@ public class AppState {
 //    }
 
     public void setEditState(EditState editState) {
-        System.out.println("setEditState: "+editState);
         this.editState = editState;
     }
 
