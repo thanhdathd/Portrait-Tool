@@ -16,7 +16,7 @@ public class RenderUtils {
         // 1 mm = 0.1 cm
         float circleRadiusCm = 0.1f;
         float rectWidthCm = 0.15f;
-        float rectLengthCm = rectWidthCm * 2.5f;
+        float rectLengthCm = rectWidthCm * 2.0f;
 
         int circleRadiusPx = Math.max(1, Math.round(circleRadiusCm / scale));
         int rectWidthPx = Math.max(1, Math.round(rectWidthCm / scale));
