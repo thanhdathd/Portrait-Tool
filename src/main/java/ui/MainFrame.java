@@ -1017,8 +1017,12 @@ public class MainFrame extends JFrame {
             setTitle(file.getAbsolutePath() + " - " + image.getWidth() + "x" + image.getHeight() + " (Restored)");
             
             // Restore History Stacks
-            java.util.Deque<core.history.Command> undo = convertToCommands(data.undoStack);
-            java.util.Deque<core.history.Command> redo = convertToCommands(data.redoStack);
+            appState.getCanvasState().clearAll();
+            java.util.Deque<core.history.Command> undo = reconstructStack(data.undoStack, image, true);
+            // The image for redo stack starts where undo stack ended
+            BufferedImage lastUndoImage = canvas.getBackgroundImage();
+            java.util.Deque<core.history.Command> redo = reconstructStack(data.redoStack, lastUndoImage, false);
+            
             appState.getHistoryManager().reconstructStacks(undo, redo);
             
             appState.getHistoryManager().markAsSaved(); // Reset modified state after recovery
@@ -1028,16 +1032,74 @@ public class MainFrame extends JFrame {
         }).execute();
     }
 
-    private java.util.Deque<core.history.Command> convertToCommands(java.util.List<CommandData> list) {
+    private java.util.Deque<core.history.Command> reconstructStack(java.util.List<CommandData> list, BufferedImage startImage, boolean execute) {
         java.util.Deque<core.history.Command> stack = new java.util.ArrayDeque<>();
         if (list == null) return stack;
+        
+        BufferedImage currentImage = startImage;
+        
         for (CommandData d : list) {
-            if (d.type == CommandData.CommandType.ADD_POINT) {
-                stack.addLast(new core.history.StickCommand(appState.getCanvasState(), canvas, d.point));
-            } else if (d.type == CommandData.CommandType.ADD_GRID) {
-                stack.addLast(new core.history.GridCommand(appState.getCanvasState(), canvas, d.point));
+            core.history.Command cmd = null;
+            BufferedImage nextImage = currentImage;
+            
+            switch (d.type) {
+                case ADD_POINT:
+                    cmd = new core.history.StickCommand(appState.getCanvasState(), canvas, d.point);
+                    break;
+                case ADD_GRID:
+                    cmd = new core.history.GridCommand(appState.getCanvasState(), canvas, d.point);
+                    break;
+                case CROP:
+                    // Recreate cropped image
+                    nextImage = new BufferedImage(d.cropW, d.cropH, currentImage.getType() == 0 ? BufferedImage.TYPE_INT_ARGB : currentImage.getType());
+                    Graphics2D g2 = nextImage.createGraphics();
+                    g2.setColor(Color.BLACK);
+                    g2.fillRect(0, 0, d.cropW, d.cropH);
+                    g2.drawImage(currentImage, -d.cropX, -d.cropY, null);
+                    g2.dispose();
+                    
+                    cmd = new core.history.CropCommand(canvas, appState.getCanvasState(), currentImage, 
+                            new Rectangle(d.cropX, d.cropY, d.cropW, d.cropH), 
+                            d.zomAtCrop != null ? d.zomAtCrop : 1.0f, 
+                            d.oldVisualX != null ? d.oldVisualX : 0, 
+                            d.oldVisualY != null ? d.oldVisualY : 0);
+                    break;
+                case RESIZE:
+                    Object hintObj = switch (d.resizeProps.hint) {
+                        case 0 -> RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR;
+                        case 1 -> RenderingHints.VALUE_INTERPOLATION_BILINEAR;
+                        default -> RenderingHints.VALUE_INTERPOLATION_BICUBIC;
+                    };
+                    nextImage = core.image.ImageResizer.resize(currentImage, d.resizeProps.width, d.resizeProps.height, hintObj);
+                    cmd = new core.history.ResizeCommand(canvas, appState.getCanvasState(), currentImage, nextImage, d.resizeProps);
+                    break;
+                case ROTATE:
+                case FLIP:
+                    nextImage = core.image.ImageTransformUtils.transform(currentImage, d.transformType);
+                    cmd = new core.history.TransformCommand(canvas, appState.getCanvasState(), currentImage, nextImage, d.transformType);
+                    break;
+                case FILTER:
+                    nextImage = core.image.ImageProcessor.applyFilter(currentImage, d.filterProps);
+                    cmd = new core.history.FilterCommand(canvas, currentImage, nextImage, d.filterProps);
+                    break;
+            }
+            
+            if (cmd != null) {
+                if (execute) {
+                    cmd.execute();
+                    // Some commands (like Stick) don't change the image, so we use nextImage calculated above
+                    // For transformation commands, execute() might have changed things in canvas,
+                    // but we rely on our nextImage for the chain.
+                }
+                stack.addLast(cmd);
+                currentImage = nextImage;
             }
         }
+        
+        if (execute) {
+            canvas.setBackgroundImage(currentImage);
+        }
+        
         return stack;
     }
 }
