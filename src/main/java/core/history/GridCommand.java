@@ -10,11 +10,23 @@ public class GridCommand implements Command {
     private final CanvasState canvasState;
     private final ImageCanvas canvas;
     private final SPoint gridData;
+    private final SPoint snapshot;
 
     public GridCommand(CanvasState canvasState, ImageCanvas canvas, SPoint gridData) {
         this.canvasState = canvasState;
         this.canvas = canvas;
         this.gridData = gridData;
+        
+        // Take a snapshot of the grid point's state at issuance time
+        this.snapshot = new SPoint();
+        this.snapshot.id = gridData.id;
+        this.snapshot.X = gridData.X;
+        this.snapshot.Y = gridData.Y;
+        this.snapshot.dr = gridData.dr;
+        this.snapshot.c = gridData.c;
+        this.snapshot.isCustomPlacement = gridData.isCustomPlacement;
+        this.snapshot.customGap = gridData.customGap;
+        this.snapshot.customAngle = gridData.customAngle;
     }
 
     @Override
@@ -33,7 +45,7 @@ public class GridCommand implements Command {
     public CommandData capture() {
         CommandData cmd = new CommandData();
         cmd.type = CommandData.CommandType.ADD_GRID;
-        cmd.point = gridData;
+        cmd.point = snapshot;
         return cmd;
     }
 
