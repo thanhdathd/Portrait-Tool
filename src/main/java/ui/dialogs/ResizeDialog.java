@@ -2,17 +2,19 @@ package ui.dialogs;
 
 import core.image.ImageResizer;
 import net.miginfocom.swing.MigLayout;
+import transform.ResizeBox;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.awt.image.BufferedImage;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class ResizeDialog extends JDialog {
 
     private final BufferedImage sourceImage;
-    private final Consumer<BufferedImage> onApply;
+    private final BiConsumer<BufferedImage, ResizeProps> onApply;
 
     private JTextField widthField;
     private JTextField heightField;
@@ -22,7 +24,7 @@ public class ResizeDialog extends JDialog {
     
     private boolean isUpdating = false;
 
-    public ResizeDialog(Frame owner, BufferedImage sourceImage, Consumer<BufferedImage> onApply) {
+    public ResizeDialog(Frame owner, BufferedImage sourceImage, BiConsumer<BufferedImage, ResizeProps> onApply) {
         super(owner, "Resize Image", true);
         this.sourceImage = sourceImage;
         this.onApply = onApply;
@@ -152,11 +154,24 @@ public class ResizeDialog extends JDialog {
             };
 
             BufferedImage newImg = ImageResizer.resize(sourceImage, w, h, hint);
-            onApply.accept(newImg);
+            ResizeProps props = new ResizeProps(w, h, interpolationBox.getSelectedIndex());
+            onApply.accept(newImg, props);
             dispose();
             
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Please enter valid numbers.");
+        }
+    }
+
+    public class ResizeProps {
+        public int  width;
+        public int height;
+        public int hint;
+
+        public ResizeProps(int width, int height, int hint) {
+            this.width = width;
+            this.height = height;
+            this.hint = hint;
         }
     }
 }

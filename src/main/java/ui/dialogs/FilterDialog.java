@@ -8,6 +8,7 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import workers.FilterWorker;
@@ -22,7 +23,7 @@ public class FilterDialog extends JDialog {
     private FilterFlag filterFlag = FilterFlag.GRAY;
     private final BufferedImage originalImage;
     private BufferedImage basePreviewSource;
-    private final Consumer<BufferedImage> onApply;
+    private final BiConsumer<BufferedImage, FilterProperties> onApply;
     private final Consumer<FilterProperties> onLivePreview;
 
     private JSlider redSlider, greenSlider, blueSlider, alphaSlider, graySlider;
@@ -33,7 +34,11 @@ public class FilterDialog extends JDialog {
     
     private FilterWorker currentWorker; // Keep track to avoid too many running
 
-    public FilterDialog(Frame owner, BufferedImage image, Consumer<BufferedImage> onApply, Consumer<FilterProperties> onLivePreview) {
+    public FilterDialog(
+            Frame owner,
+            BufferedImage image,
+            BiConsumer<BufferedImage, FilterProperties> onApply,
+            Consumer<FilterProperties> onLivePreview) {
         super(owner, "Image Filters", false); // Non-modal so user can see main canvas
         this.originalImage = image;
         createBasePreviewSource();
@@ -186,9 +191,10 @@ public class FilterDialog extends JDialog {
         btnApply.addActionListener(e -> {
             btnApply.setEnabled(false);
             btnApply.setText("Applying...");
-            new FilterWorker(originalImage, getCurrentProperties(), result -> {
+            FilterProperties props = getCurrentProperties();
+            new FilterWorker(originalImage, props, result -> {
                 if (onApply != null) {
-                    onApply.accept(result);
+                    onApply.accept(result, props);
                 }
                 dispose();
             }).execute();

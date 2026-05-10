@@ -7,12 +7,14 @@ import core.fileio.GridOptionInjector;
 import core.fileio.ThumbnailFileView;
 import core.history.Command;
 import core.history.FilterCommand;
+import core.history.ResizeCommand;
 import core.state.AppState;
 import core.state.CommandData;
 import tools.ToolManager;
 import ui.canvas.ImageCanvas;
 import ui.dialogs.FilterDialog;
 import ui.dialogs.ImagePreviewPanel;
+import ui.dialogs.ResizeDialog;
 import ui.dialogs.ZoomWindow;
 import utils.ExcelExportUtils;
 import workers.ImageLoadWorker;
@@ -506,8 +508,8 @@ public class MainFrame extends JFrame {
     private void performOpenFilter() {
         BufferedImage currentImage = canvas.getBackgroundImage();
         if (currentImage != null) {
-            new FilterDialog(this, currentImage, (newImage) -> {
-                Command filterCmd = new FilterCommand(canvas, currentImage, newImage);
+            new FilterDialog(this, currentImage, (newImage, props) -> {
+                Command filterCmd = new FilterCommand(canvas, currentImage, newImage, props);
                 appState.getHistoryManager().push(filterCmd);
                 canvas.repaint();
             }, (filterProps) -> {
@@ -527,9 +529,9 @@ public class MainFrame extends JFrame {
     private void performOpenResize() {
         BufferedImage currentImage = canvas.getBackgroundImage();
         if (currentImage != null) {
-            new ui.dialogs.ResizeDialog(this, currentImage, (newImage) -> {
-                core.history.Command resizeCmd = new core.history.ResizeCommand(
-                        canvas, appState.getCanvasState(), currentImage, newImage);
+            new ResizeDialog(this, currentImage, (newImage, props) -> {
+                Command resizeCmd = new ResizeCommand(
+                        canvas, appState.getCanvasState(), currentImage, newImage, props);
                 appState.getHistoryManager().push(resizeCmd);
                 canvas.repaint();
             }).setVisible(true);

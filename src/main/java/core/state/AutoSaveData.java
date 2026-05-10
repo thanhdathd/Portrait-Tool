@@ -17,10 +17,6 @@ public class AutoSaveData {
     public float gridSize;
     public boolean gridInCm;
     public Color brushColor;
-    
-    // Canvas Data
-    public List<SPoint> stickyPoints;
-    public List<SPoint> grids;
 
     // History Data
     public List<CommandData> undoStack;

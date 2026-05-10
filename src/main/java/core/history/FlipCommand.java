@@ -2,6 +2,8 @@ package core.history;
 
 // import userpackage.ImgFrame;
 
+import core.state.CommandData;
+
 public class FlipCommand implements Command {
 
     // private final ImgFrame imgFrame;
@@ -20,5 +22,10 @@ public class FlipCommand implements Command {
     @Override
     public void undo() {
         // imgFrame.FlipImg(flipType); // Flipping again reverses it
+    }
+
+    @Override
+    public CommandData capture() {
+        return null;
     }
 }

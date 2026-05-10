@@ -1,6 +1,7 @@
 package core.history;
 
 import core.state.CanvasState;
+import core.state.CommandData;
 import ui.canvas.ImageCanvas;
 import userpackage.SPoint;
 
@@ -75,7 +76,21 @@ public class CropCommand implements Command {
         
         applyVisualOffset(oldVisualX, oldVisualY, oldImage);
     }
-    
+
+    @Override
+    public CommandData capture() {
+        CommandData cmd = new CommandData();
+        cmd.type = "CROP";
+        cmd.cropX = cropBounds.x;
+        cmd.cropY = cropBounds.y;
+        cmd.cropW = cropBounds.width;
+        cmd.cropH = cropBounds.height;
+        cmd.oldVisualX = this.oldVisualX;
+        cmd.oldVisualY = this.oldVisualY;
+        cmd.zomAtCrop = this.zoomAtCrop;
+        return cmd;
+    }
+
     private void processPointsExecute(List<SPoint> points, List<SPoint> removedList) {
         Iterator<SPoint> it = points.iterator();
         while (it.hasNext()) {

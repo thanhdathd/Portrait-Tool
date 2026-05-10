@@ -1,7 +1,9 @@
 package core.history;
 
 import core.state.CanvasState;
+import core.state.CommandData;
 import ui.canvas.ImageCanvas;
+import ui.dialogs.ResizeDialog;
 import userpackage.SPoint;
 
 import java.awt.image.BufferedImage;
@@ -13,6 +15,7 @@ public class ResizeCommand implements Command {
     private final CanvasState canvasState;
     private final BufferedImage oldImage;
     private final BufferedImage newImage;
+    ResizeDialog.ResizeProps props;
     private final List<PointSnapshot> undoPoints = new ArrayList<>();
     private final List<PointSnapshot> undoGrids = new ArrayList<>();
     private final double scaleX;
@@ -35,11 +38,13 @@ public class ResizeCommand implements Command {
         }
     }
 
-    public ResizeCommand(ImageCanvas canvas, CanvasState canvasState, BufferedImage oldImage, BufferedImage newImage) {
+    public ResizeCommand(ImageCanvas canvas, CanvasState canvasState,
+                         BufferedImage oldImage, BufferedImage newImage, ResizeDialog.ResizeProps props) {
         this.canvas = canvas;
         this.canvasState = canvasState;
         this.oldImage = oldImage;
         this.newImage = newImage;
+        this.props = props;
         this.scaleX = (double) newImage.getWidth() / oldImage.getWidth();
         this.scaleY = (double) newImage.getHeight() / oldImage.getHeight();
     }
@@ -72,5 +77,13 @@ public class ResizeCommand implements Command {
         for (PointSnapshot ps : undoGrids) {
             ps.restore();
         }
+    }
+
+    @Override
+    public CommandData capture() {
+        CommandData cmd = new CommandData();
+        cmd.type = "RESIZE";
+        cmd.resizeProps = props;
+        return cmd;
     }
 }

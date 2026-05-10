@@ -1,6 +1,7 @@
 package core.history;
 
 import core.state.CanvasState;
+import core.state.CommandData;
 import ui.canvas.ImageCanvas;
 import userpackage.SPoint;
 
@@ -27,6 +28,15 @@ public class StickCommand implements Command {
         canvasState.removeStickyPoint(point);
         if (canvas != null) canvas.repaint();
     }
+
+    @Override
+    public CommandData capture() {
+        CommandData cmd = new CommandData();
+        cmd.type = "ADD_POINT";
+        cmd.point = point;
+        return cmd;
+    }
+
 
     @Override
     public String toString() {

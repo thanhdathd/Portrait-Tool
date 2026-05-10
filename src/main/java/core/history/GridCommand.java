@@ -1,6 +1,7 @@
 package core.history;
 
 import core.state.CanvasState;
+import core.state.CommandData;
 import ui.canvas.ImageCanvas;
 import userpackage.SPoint;
 
@@ -26,6 +27,14 @@ public class GridCommand implements Command {
     public void undo() {
         canvasState.removeGrid(gridData);
         if (canvas != null) canvas.repaint();
+    }
+
+    @Override
+    public CommandData capture() {
+        CommandData cmd = new CommandData();
+        cmd.type = "ADD_GRID";
+        cmd.point = gridData;
+        return null;
     }
 
     @Override

@@ -1,5 +1,8 @@
 package core.state;
 
+import core.image.ImageTransformUtils;
+import filter.FilterProperties;
+import ui.dialogs.ResizeDialog;
 import userpackage.SPoint;
 
 import java.awt.*;
@@ -15,9 +18,18 @@ public class CommandData {
         public Integer cropY;
         public Integer cropW;
         public Integer cropH;
+        public Float zomAtCrop;
+        public Integer oldVisualX;
+        public Integer oldVisualY;
 
-        // Tham số cho lệnh ROTATE
-        public Integer rotateAngle;
+        // tham số cho lệnh filter
+        public FilterProperties filterProps;
+
+        // tham số cho resize
+        public ResizeDialog.ResizeProps resizeProps;
+
+        // Tham số cho lệnh transform
+        public ImageTransformUtils.TransformType transformType;
 
         public CommandData() {}
 

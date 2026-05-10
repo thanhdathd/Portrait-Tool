@@ -2,6 +2,7 @@ package core.history;
 
 import core.image.ImageTransformUtils.TransformType;
 import core.state.CanvasState;
+import core.state.CommandData;
 import ui.canvas.ImageCanvas;
 import userpackage.SPoint;
 import user.Enum.Direction;
@@ -77,7 +78,15 @@ public class TransformCommand implements Command {
             ps.restore();
         }
     }
-    
+
+    @Override
+    public CommandData capture() {
+        CommandData cmd = new CommandData();
+        cmd.type = "TRANSFORM";
+        cmd.transformType = type;
+        return cmd;
+    }
+
     private void transformPoints(List<SPoint> points, int w, int h) {
         for (SPoint p : points) {
             int x = p.X;

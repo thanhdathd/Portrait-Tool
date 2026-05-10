@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import core.history.Command;
 import core.history.GridCommand;
 import core.history.StickCommand;
 import ui.canvas.ImageCanvas;
@@ -91,8 +92,6 @@ public class AutoSaveManager {
             data.gridSize = appState.getGridSize();
             data.gridInCm = appState.isGridInCm();
             data.brushColor = appState.getBrushColor();
-            data.stickyPoints = appState.getCanvasState().getStickyPoints();
-            data.grids = appState.getCanvasState().getGrids();
             
             // Capture History
             data.undoStack = captureStack(appState.getHistoryManager().getUndoStack());
@@ -136,9 +135,9 @@ public class AutoSaveManager {
         }
     }
 
-    private List<CommandData> captureStack(Deque<core.history.Command> stack) {
+    private List<CommandData> captureStack(Deque<Command> stack) {
         List<CommandData> list = new ArrayList<>();
-        for (core.history.Command cmd : stack) {
+        for (Command cmd : stack) {
             if (cmd instanceof StickCommand) {
                 // We need to use reflection or add a getter to StickCommand to get the point
                 // For now, I'll assume we can access it or I'll add a getter.
