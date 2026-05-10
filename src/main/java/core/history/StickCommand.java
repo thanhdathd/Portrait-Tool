@@ -32,7 +32,7 @@ public class StickCommand implements Command {
     @Override
     public CommandData capture() {
         CommandData cmd = new CommandData();
-        cmd.type = "ADD_POINT";
+        cmd.type = CommandData.CommandType.ADD_POINT;
         cmd.point = point;
         return cmd;
     }

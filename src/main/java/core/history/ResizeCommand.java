@@ -82,7 +82,7 @@ public class ResizeCommand implements Command {
     @Override
     public CommandData capture() {
         CommandData cmd = new CommandData();
-        cmd.type = "RESIZE";
+        cmd.type = CommandData.CommandType.RESIZE;
         cmd.resizeProps = props;
         return cmd;
     }

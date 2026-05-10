@@ -1012,19 +1012,7 @@ public class MainFrame extends JFrame {
             if (data.brushColor != null) {
                 appState.setBrushColor(data.brushColor);
             }
-            
-            // Restore Points & Grids
-            appState.getCanvasState().clearAll();
-            if (data.stickyPoints != null) {
-                for (userpackage.SPoint p : data.stickyPoints) {
-                    appState.getCanvasState().addStickyPoint(p);
-                }
-            }
-            if (data.grids != null) {
-                for (userpackage.SPoint g : data.grids) {
-                    appState.getCanvasState().addGrid(g);
-                }
-            }
+
             
             setTitle(file.getAbsolutePath() + " - " + image.getWidth() + "x" + image.getHeight() + " (Restored)");
             
@@ -1044,9 +1032,9 @@ public class MainFrame extends JFrame {
         java.util.Deque<core.history.Command> stack = new java.util.ArrayDeque<>();
         if (list == null) return stack;
         for (CommandData d : list) {
-            if ("STICK".equals(d.type)) {
+            if (d.type == CommandData.CommandType.ADD_POINT) {
                 stack.addLast(new core.history.StickCommand(appState.getCanvasState(), canvas, d.point));
-            } else if ("GRID".equals(d.type)) {
+            } else if (d.type == CommandData.CommandType.ADD_GRID) {
                 stack.addLast(new core.history.GridCommand(appState.getCanvasState(), canvas, d.point));
             }
         }

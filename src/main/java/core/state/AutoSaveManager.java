@@ -138,26 +138,9 @@ public class AutoSaveManager {
     private List<CommandData> captureStack(Deque<Command> stack) {
         List<CommandData> list = new ArrayList<>();
         for (Command cmd : stack) {
-            if (cmd instanceof StickCommand) {
-                // We need to use reflection or add a getter to StickCommand to get the point
-                // For now, I'll assume we can access it or I'll add a getter.
-                try {
-                    java.lang.reflect.Field field = StickCommand.class.getDeclaredField("point");
-                    field.setAccessible(true);
-                    userpackage.SPoint p = (userpackage.SPoint) field.get(cmd);
-                    list.add(CommandData.createPointCmd(p));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            } else if (cmd instanceof GridCommand) {
-                try {
-                    java.lang.reflect.Field field = GridCommand.class.getDeclaredField("gridPoint");
-                    field.setAccessible(true);
-                    userpackage.SPoint p = (userpackage.SPoint) field.get(cmd);
-                    list.add(CommandData.createGridCmd(p));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+            CommandData data = cmd.capture();
+            if (data != null) {
+                list.add(data);
             }
         }
         return list;

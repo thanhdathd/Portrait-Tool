@@ -82,7 +82,11 @@ public class TransformCommand implements Command {
     @Override
     public CommandData capture() {
         CommandData cmd = new CommandData();
-        cmd.type = "TRANSFORM";
+        if (type.name().contains("ROTATE")) {
+            cmd.type = CommandData.CommandType.ROTATE;
+        } else {
+            cmd.type = CommandData.CommandType.FLIP;
+        }
         cmd.transformType = type;
         return cmd;
     }

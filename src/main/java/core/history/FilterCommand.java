@@ -34,7 +34,7 @@ public class FilterCommand implements Command {
     @Override
     public CommandData capture() {
         CommandData cmd = new CommandData();
-        cmd.type = "FILTER";
+        cmd.type = CommandData.CommandType.FILTER;
         cmd.filterProps = props;
         return cmd;
     }

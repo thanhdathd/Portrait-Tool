@@ -80,7 +80,7 @@ public class CropCommand implements Command {
     @Override
     public CommandData capture() {
         CommandData cmd = new CommandData();
-        cmd.type = "CROP";
+        cmd.type = CommandData.CommandType.CROP;
         cmd.cropX = cropBounds.x;
         cmd.cropY = cropBounds.y;
         cmd.cropW = cropBounds.width;

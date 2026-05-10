@@ -32,9 +32,9 @@ public class GridCommand implements Command {
     @Override
     public CommandData capture() {
         CommandData cmd = new CommandData();
-        cmd.type = "ADD_GRID";
+        cmd.type = CommandData.CommandType.ADD_GRID;
         cmd.point = gridData;
-        return null;
+        return cmd;
     }
 
     @Override
