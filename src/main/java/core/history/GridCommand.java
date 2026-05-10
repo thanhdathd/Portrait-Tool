@@ -27,4 +27,9 @@ public class GridCommand implements Command {
         canvasState.removeGrid(gridData);
         if (canvas != null) canvas.repaint();
     }
+
+    @Override
+    public String toString() {
+        return "Grid command";
+    }
 }

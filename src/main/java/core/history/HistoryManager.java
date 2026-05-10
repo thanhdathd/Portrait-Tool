@@ -74,7 +74,7 @@ public class HistoryManager {
                 isSavedStateDropped = true;
             }
         }
-        
+        System.out.println("History add: "+command);
         undoStack.addLast(command);
         redoStack.clear(); // Pushing a new command clears the redo history
         notifyListeners();
@@ -104,5 +104,21 @@ public class HistoryManager {
 
     public boolean canRedo() {
         return !redoStack.isEmpty();
+    }
+
+    public Deque<Command> getUndoStack() {
+        return undoStack;
+    }
+
+    public Deque<Command> getRedoStack() {
+        return redoStack;
+    }
+
+    public void reconstructStacks(Deque<Command> undo, Deque<Command> redo) {
+        this.undoStack.clear();
+        this.undoStack.addAll(undo);
+        this.redoStack.clear();
+        this.redoStack.addAll(redo);
+        notifyListeners();
     }
 }

@@ -27,4 +27,9 @@ public class StickCommand implements Command {
         canvasState.removeStickyPoint(point);
         if (canvas != null) canvas.repaint();
     }
+
+    @Override
+    public String toString() {
+        return "Stick command";
+    }
 }

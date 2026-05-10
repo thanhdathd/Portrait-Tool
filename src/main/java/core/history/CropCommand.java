@@ -26,7 +26,9 @@ public class CropCommand implements Command {
     private final int oldVisualY;
     private final float zoomAtCrop;
 
-    public CropCommand(ImageCanvas canvas, CanvasState canvasState, BufferedImage oldImage, Rectangle cropBounds, float zoom, int oldVisualX, int oldVisualY) {
+    public CropCommand(ImageCanvas canvas, CanvasState canvasState,
+                       BufferedImage oldImage, Rectangle cropBounds,
+                       float zoom, int oldVisualX, int oldVisualY) {
         this.canvas = canvas;
         this.canvasState = canvasState;
         this.oldImage = oldImage;
@@ -134,5 +136,10 @@ public class CropCommand implements Command {
                 canvas.repaint();
             }
         });
+    }
+
+    @Override
+    public String toString() {
+        return "Crop command";
     }
 }

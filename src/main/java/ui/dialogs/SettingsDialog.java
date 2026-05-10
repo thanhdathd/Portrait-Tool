@@ -21,6 +21,8 @@ public class SettingsDialog extends JDialog {
     private JComboBox<String> languageCombo;
     private JCheckBox roundCheck;
     private JCheckBox showHelpCheck;
+    private JCheckBox autoSaveCheck;
+    private JSpinner autoSaveIntervalSpinner;
     private String[] comboItems = new String[]{"15", "30", "50", "100", "200", "300"};
 
     // Segmented control for checker size
@@ -129,6 +131,14 @@ public class SettingsDialog extends JDialog {
         formPanel.add(new JLabel("Language:"));
         languageCombo = new JComboBox<>(new String[]{"English", "Vietnamese"});
         formPanel.add(languageCombo);
+
+        formPanel.add(new JLabel("Auto Save:"), "gap top 10");
+        autoSaveCheck = new JCheckBox("Enable Auto Save");
+        formPanel.add(autoSaveCheck, "gap top 10");
+
+        formPanel.add(new JLabel("Save Interval (min):"));
+        autoSaveIntervalSpinner = new JSpinner(new SpinnerNumberModel(5, 1, 60, 1));
+        formPanel.add(autoSaveIntervalSpinner, "w 60!");
         
         add(formPanel, BorderLayout.CENTER);
 
@@ -168,6 +178,8 @@ public class SettingsDialog extends JDialog {
         roundCheck.setSelected(appState.isRound());
         showHelpCheck.setSelected(appState.isShowCropHelp());
         languageCombo.setSelectedIndex(appState.isViLang() ? 1 : 0);
+        autoSaveCheck.setSelected(appState.isAutoSaveEnabled());
+        autoSaveIntervalSpinner.setValue(appState.getAutoSaveInterval());
 
         // Select the checker-size button that matches the current value
         int currentCheckerSize = appState.getCheckerSize();
@@ -192,6 +204,8 @@ public class SettingsDialog extends JDialog {
             appState.setRound(roundCheck.isSelected());
             appState.setShowCropHelp(showHelpCheck.isSelected());
             appState.setViLang(languageCombo.getSelectedIndex() == 1);
+            appState.setAutoSaveEnabled(autoSaveCheck.isSelected());
+            appState.setAutoSaveInterval((Integer) autoSaveIntervalSpinner.getValue());
 
             // Optionally tell the parent to repaint or rebuild UI languages
             dispose();

@@ -60,10 +60,33 @@ public class AppState {
     private int customAngle = 40; // Độ (0 - 359), tăng theo chiều CCW (ngược chiều kim đồng hồ)
     private int checkerSize = 40;
     private boolean showPointMap = false;
+    private boolean autoSaveEnabled = true;
+    private int autoSaveInterval = 1; // Minutes
 
     public AppState() {
         this.historyManager = new HistoryManager(115);
         this.canvasState = new CanvasState();
+    }
+
+    public boolean isAutoSaveEnabled() {
+        return autoSaveEnabled;
+    }
+
+    public void setAutoSaveEnabled(boolean autoSaveEnabled) {
+        this.autoSaveEnabled = autoSaveEnabled;
+    }
+
+    public int getAutoSaveInterval() {
+        return autoSaveInterval;
+    }
+
+    public void setAutoSaveInterval(int autoSaveInterval) {
+        int oldInterval = this.autoSaveInterval;
+        this.autoSaveInterval = Math.max(1, autoSaveInterval);
+        if (oldInterval != this.autoSaveInterval && watchedKeys.containsKey("autoSaveInterval")) {
+            watchedKeys.get("autoSaveInterval").forEach(listener ->
+                    listener.propertyChange(new PropertyChangeEvent(this, "autoSaveInterval", oldInterval, this.autoSaveInterval)));
+        }
     }
 
 

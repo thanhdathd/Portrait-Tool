@@ -57,6 +57,10 @@ public class ConfigManager {
             appState.setStackSize(Integer.parseInt(stackSize));
             String checkerSize = props.getProperty("checkerSize", "40");
             appState.setCheckerSize(Integer.parseInt(checkerSize));
+            String autoSaveEnabled = props.getProperty("autoSaveEnabled", "true");
+            appState.setAutoSaveEnabled(Boolean.parseBoolean(autoSaveEnabled));
+            String autoSaveInterval = props.getProperty("autoSaveInterval", "5");
+            appState.setAutoSaveInterval(Integer.parseInt(autoSaveInterval));
 
 
             // Load vị trí và kích thước cửa sổ
@@ -99,6 +103,8 @@ public class ConfigManager {
         props.setProperty("showHelp", String.valueOf(appState.isShowCropHelp()));
         props.setProperty("stackSize", String.valueOf(appState.getStackSize()));
         props.setProperty("checkerSize", String.valueOf(appState.getCheckerSize()));
+        props.setProperty("autoSaveEnabled", String.valueOf(appState.isAutoSaveEnabled()));
+        props.setProperty("autoSaveInterval", String.valueOf(appState.getAutoSaveInterval()));
 
         // Có thể thêm: vị trí cửa sổ, kích thước, lần mở file gần nhất, tool đang dùng...
         props.setProperty("lastOpenedFile", appState.getFilePath());

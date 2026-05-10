@@ -8,6 +8,7 @@ import core.fileio.ThumbnailFileView;
 import core.history.Command;
 import core.history.FilterCommand;
 import core.state.AppState;
+import core.state.CommandData;
 import tools.ToolManager;
 import ui.canvas.ImageCanvas;
 import ui.dialogs.FilterDialog;
@@ -35,6 +36,7 @@ public class MainFrame extends JFrame {
     private JScrollPane scrollPane;
     private JMenuItem savePointMapItem;
     private JCheckBoxMenuItem showPointMapItem;
+    private final core.state.AutoSaveManager autoSaveManager;
 
     public MainFrame() {
         this.appState = new AppState();
@@ -42,6 +44,7 @@ public class MainFrame extends JFrame {
         configManager = new ConfigManager();
         configManager.load(appState);
         tool = ToolManager.initializeTools();
+        autoSaveManager = new core.state.AutoSaveManager(canvas);
         
         setTitle("Portrait Tool Modernized");
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -87,6 +90,10 @@ public class MainFrame extends JFrame {
         
         // Default tool
         canvas.setActiveTool(new tools.HandTool());
+        
+        // Auto recovery check
+        SwingUtilities.invokeLater(this::checkForRecovery);
+        
         autoOpenFile();
     }
 
@@ -335,13 +342,19 @@ public class MainFrame extends JFrame {
             if (result == JOptionPane.YES_OPTION) {
                 performSaveFile();
                 if (appState.getEditState() != AppState.EditState.MODIFIED) {
+                    autoSaveManager.cleanup();
+                    autoSaveManager.stop();
                     System.exit(0);
                 }
             } else if (result == JOptionPane.NO_OPTION) {
+                autoSaveManager.cleanup();
+                autoSaveManager.stop();
                 System.exit(0);
             }
             // Cancel does nothing
         } else {
+            autoSaveManager.cleanup();
+            autoSaveManager.stop();
             System.exit(0);
         }
     }
@@ -436,6 +449,7 @@ public class MainFrame extends JFrame {
             new workers.SaveWorker(canvas, file, true, true).execute();
             appState.setEditState(AppState.EditState.SAVED);
             appState.getHistoryManager().markAsSaved();
+            autoSaveManager.cleanup();
         }
     }
 
@@ -954,5 +968,86 @@ public class MainFrame extends JFrame {
             });
             toolBar.add(button);
         }
+    }
+
+    private void checkForRecovery() {
+        File autoSaveFile = autoSaveManager.getAutoSaveFile();
+        if (autoSaveFile != null) {
+            int result = JOptionPane.showConfirmDialog(this,
+                    "Found an unsaved session. Would you like to restore your work?",
+                    "Session Recovery",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE);
+
+            if (result == JOptionPane.YES_OPTION) {
+                try {
+                    core.state.AutoSaveData data = autoSaveManager.loadAutoSave(autoSaveFile);
+                    restoreSession(data);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(this, "Failed to restore session: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } else {
+                autoSaveManager.cleanup();
+            }
+        }
+    }
+
+    private void restoreSession(core.state.AutoSaveData data) {
+        if (data.imagePath == null) return;
+        File file = new File(data.imagePath);
+        if (!file.exists()) {
+            JOptionPane.showMessageDialog(this, "Original image not found: " + data.imagePath, "Recovery Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        setTitle("Restoring session...");
+        new workers.ImageLoadWorker(file, image -> {
+            canvas.setBackgroundImage(image);
+            appState.setFilePath(file.getAbsolutePath());
+            appState.setScale(data.scale);
+            appState.setGridSize(data.gridSize);
+            appState.setGridInCm(data.gridInCm);
+            if (data.brushColor != null) {
+                appState.setBrushColor(data.brushColor);
+            }
+            
+            // Restore Points & Grids
+            appState.getCanvasState().clearAll();
+            if (data.stickyPoints != null) {
+                for (userpackage.SPoint p : data.stickyPoints) {
+                    appState.getCanvasState().addStickyPoint(p);
+                }
+            }
+            if (data.grids != null) {
+                for (userpackage.SPoint g : data.grids) {
+                    appState.getCanvasState().addGrid(g);
+                }
+            }
+            
+            setTitle(file.getAbsolutePath() + " - " + image.getWidth() + "x" + image.getHeight() + " (Restored)");
+            
+            // Restore History Stacks
+            java.util.Deque<core.history.Command> undo = convertToCommands(data.undoStack);
+            java.util.Deque<core.history.Command> redo = convertToCommands(data.redoStack);
+            appState.getHistoryManager().reconstructStacks(undo, redo);
+            
+            appState.getHistoryManager().markAsSaved(); // Reset modified state after recovery
+            canvas.repaint();
+        }, ex -> {
+            JOptionPane.showMessageDialog(this, "Failed to load image for recovery: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }).execute();
+    }
+
+    private java.util.Deque<core.history.Command> convertToCommands(java.util.List<CommandData> list) {
+        java.util.Deque<core.history.Command> stack = new java.util.ArrayDeque<>();
+        if (list == null) return stack;
+        for (CommandData d : list) {
+            if ("STICK".equals(d.type)) {
+                stack.addLast(new core.history.StickCommand(appState.getCanvasState(), canvas, d.point));
+            } else if ("GRID".equals(d.type)) {
+                stack.addLast(new core.history.GridCommand(appState.getCanvasState(), canvas, d.point));
+            }
+        }
+        return stack;
     }
 }
