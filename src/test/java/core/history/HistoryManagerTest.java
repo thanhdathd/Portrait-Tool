@@ -94,5 +94,10 @@ class HistoryManagerTest {
         public void undo() {
             executed = false;
         }
+
+        @Override
+        public core.state.CommandData capture() {
+            return null;
+        }
     }
 }

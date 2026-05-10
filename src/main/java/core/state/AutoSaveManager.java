@@ -135,6 +135,137 @@ public class AutoSaveManager {
         }
     }
 
+    /**
+     * Entry point for restoring a session.
+     * Orchestrates image loading and history reconstruction.
+     */
+    public void restoreSession(File file, RecoveryUI ui) {
+        try {
+            AutoSaveData data = loadAutoSave(file);
+            if (data == null || data.imagePath == null) return;
+            
+            File imageFile = new File(data.imagePath);
+            if (!imageFile.exists()) {
+                ui.onRecoveryError("Original image not found: " + data.imagePath);
+                return;
+            }
+
+            ui.onRecoveryStarted();
+            ui.updateProgress(10, "Loading base image...");
+
+            new workers.ImageLoadWorker(imageFile, image -> {
+                try {
+                    ui.updateProgress(30, "Restoring application state...");
+                    AppState appState = ui.getAppState();
+                    appState.setFilePath(imageFile.getAbsolutePath());
+                    appState.setScale(data.scale);
+                    appState.setGridSize(data.gridSize);
+                    appState.setGridInCm(data.gridInCm);
+                    if (data.brushColor != null) {
+                        appState.setBrushColor(data.brushColor);
+                    }
+
+                    // Replay
+                    appState.getCanvasState().clearAll();
+                    ui.updateProgress(40, "Reconstructing undo stack...");
+                    Deque<Command> undo = reconstructStack(ui, data.undoStack, image, true);
+                    
+                    ui.updateProgress(70, "Reconstructing redo stack...");
+                    java.awt.image.BufferedImage lastUndoImage = ui.getCanvas().getBackgroundImage();
+                    Deque<Command> redo = reconstructStack(ui, data.redoStack, lastUndoImage, false);
+                    
+                    appState.getHistoryManager().reconstructStacks(undo, redo);
+                    appState.getHistoryManager().markAsSaved();
+                    
+                    String finalTitle = imageFile.getAbsolutePath() + " - " + image.getWidth() + "x" + image.getHeight() + " (Restored)";
+                    ui.onRecoveryFinished(finalTitle);
+                } catch (Exception ex) {
+                    ui.onRecoveryError("Error during reconstruction: " + ex.getMessage());
+                }
+            }, ex -> {
+                ui.onRecoveryError("Failed to load image for recovery: " + ex.getMessage());
+            }).execute();
+
+        } catch (IOException e) {
+            ui.onRecoveryError("Failed to load auto-save data: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Reconstructs a history stack from CommandData.
+     * Migrated from MainFrame.
+     */
+    public Deque<Command> reconstructStack(RecoveryUI ui, List<CommandData> list, java.awt.image.BufferedImage startImage, boolean execute) {
+        Deque<Command> stack = new java.util.ArrayDeque<>();
+        if (list == null) return stack;
+        
+        java.awt.image.BufferedImage currentImage = startImage;
+        AppState appState = ui.getAppState();
+        ui.getCanvas(); // Ensure canvas is accessible
+        
+        for (CommandData d : list) {
+            Command cmd = null;
+            java.awt.image.BufferedImage nextImage = currentImage;
+            
+            switch (d.type) {
+                case ADD_POINT:
+                    cmd = new StickCommand(appState.getCanvasState(), ui.getCanvas(), d.point);
+                    break;
+                case ADD_GRID:
+                    cmd = new GridCommand(appState.getCanvasState(), ui.getCanvas(), d.point);
+                    break;
+                case CROP:
+                    // Recreate cropped image
+                    nextImage = new java.awt.image.BufferedImage(d.cropW, d.cropH, currentImage.getType() == 0 ? java.awt.image.BufferedImage.TYPE_INT_ARGB : currentImage.getType());
+                    java.awt.Graphics2D g2 = nextImage.createGraphics();
+                    g2.setColor(java.awt.Color.BLACK);
+                    g2.fillRect(0, 0, d.cropW, d.cropH);
+                    g2.drawImage(currentImage, -d.cropX, -d.cropY, null);
+                    g2.dispose();
+                    
+                    cmd = new core.history.CropCommand(ui.getCanvas(), appState.getCanvasState(), currentImage, 
+                            new java.awt.Rectangle(d.cropX, d.cropY, d.cropW, d.cropH), 
+                            d.zomAtCrop != null ? d.zomAtCrop : 1.0f, 
+                            d.oldVisualX != null ? d.oldVisualX : 0, 
+                            d.oldVisualY != null ? d.oldVisualY : 0);
+                    break;
+                case RESIZE:
+                    java.awt.RenderingHints.Key hintKey = java.awt.RenderingHints.KEY_INTERPOLATION;
+                    Object hintObj = switch (d.resizeProps.hint) {
+                        case 0 -> java.awt.RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR;
+                        case 1 -> java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR;
+                        default -> java.awt.RenderingHints.VALUE_INTERPOLATION_BICUBIC;
+                    };
+                    nextImage = core.image.ImageResizer.resize(currentImage, d.resizeProps.width, d.resizeProps.height, hintObj);
+                    cmd = new core.history.ResizeCommand(ui.getCanvas(), appState.getCanvasState(), currentImage, nextImage, d.resizeProps);
+                    break;
+                case ROTATE:
+                case FLIP:
+                    nextImage = core.image.ImageTransformUtils.transform(currentImage, d.transformType);
+                    cmd = new core.history.TransformCommand(ui.getCanvas(), appState.getCanvasState(), currentImage, nextImage, d.transformType);
+                    break;
+                case FILTER:
+                    nextImage = core.image.ImageProcessor.applyFilter(currentImage, d.filterProps);
+                    cmd = new core.history.FilterCommand(ui.getCanvas(), currentImage, nextImage, d.filterProps);
+                    break;
+            }
+            
+            if (cmd != null) {
+                if (execute) {
+                    cmd.execute();
+                }
+                stack.addLast(cmd);
+                currentImage = nextImage;
+            }
+        }
+        
+        if (execute) {
+            ui.setCanvasImage(currentImage);
+        }
+        
+        return stack;
+    }
+
     private List<CommandData> captureStack(Deque<Command> stack) {
         List<CommandData> list = new ArrayList<>();
         for (Command cmd : stack) {

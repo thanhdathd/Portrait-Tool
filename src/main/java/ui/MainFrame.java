@@ -28,7 +28,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
 
-public class MainFrame extends JFrame {
+public class MainFrame extends JFrame implements core.state.RecoveryUI {
 
     private final AppState appState;
     private final ImageCanvas canvas;
@@ -39,6 +39,7 @@ public class MainFrame extends JFrame {
     private JMenuItem savePointMapItem;
     private JCheckBoxMenuItem showPointMapItem;
     private final core.state.AutoSaveManager autoSaveManager;
+    private JProgressBar recoveryProgressBar;
 
     public MainFrame() {
         this.appState = new AppState();
@@ -84,6 +85,11 @@ public class MainFrame extends JFrame {
         disableScrollByArrowKey(scrollPane);
         
         add(scrollPane, BorderLayout.CENTER);
+        
+        recoveryProgressBar = new JProgressBar(0, 100);
+        recoveryProgressBar.setVisible(false);
+        recoveryProgressBar.setStringPainted(true);
+        add(recoveryProgressBar, BorderLayout.SOUTH);
         
         initMenuBar();
         initToolBar();
@@ -982,124 +988,62 @@ public class MainFrame extends JFrame {
                     JOptionPane.QUESTION_MESSAGE);
 
             if (result == JOptionPane.YES_OPTION) {
-                try {
-                    core.state.AutoSaveData data = autoSaveManager.loadAutoSave(autoSaveFile);
-                    restoreSession(data);
-                } catch (Exception e) {
-                    JOptionPane.showMessageDialog(this, "Failed to restore session: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                }
+                autoSaveManager.restoreSession(autoSaveFile, this);
             } else {
                 autoSaveManager.cleanup();
             }
         }
     }
 
-    private void restoreSession(core.state.AutoSaveData data) {
-        if (data.imagePath == null) return;
-        File file = new File(data.imagePath);
-        if (!file.exists()) {
-            JOptionPane.showMessageDialog(this, "Original image not found: " + data.imagePath, "Recovery Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
+    @Override
+    public void onRecoveryStarted() {
+        recoveryProgressBar.setVisible(true);
+        recoveryProgressBar.setValue(0);
+        recoveryProgressBar.setString("Starting recovery...");
         setTitle("Restoring session...");
-        new workers.ImageLoadWorker(file, image -> {
-            canvas.setBackgroundImage(image);
-            appState.setFilePath(file.getAbsolutePath());
-            appState.setScale(data.scale);
-            appState.setGridSize(data.gridSize);
-            appState.setGridInCm(data.gridInCm);
-            if (data.brushColor != null) {
-                appState.setBrushColor(data.brushColor);
-            }
-
-            
-            setTitle(file.getAbsolutePath() + " - " + image.getWidth() + "x" + image.getHeight() + " (Restored)");
-            
-            // Restore History Stacks
-            appState.getCanvasState().clearAll();
-            java.util.Deque<core.history.Command> undo = reconstructStack(data.undoStack, image, true);
-            // The image for redo stack starts where undo stack ended
-            BufferedImage lastUndoImage = canvas.getBackgroundImage();
-            java.util.Deque<core.history.Command> redo = reconstructStack(data.redoStack, lastUndoImage, false);
-            
-            appState.getHistoryManager().reconstructStacks(undo, redo);
-            
-            appState.getHistoryManager().markAsSaved(); // Reset modified state after recovery
-            canvas.repaint();
-        }, ex -> {
-            JOptionPane.showMessageDialog(this, "Failed to load image for recovery: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }).execute();
+        setEnabled(false); // Block interaction during recovery
     }
 
-    private java.util.Deque<core.history.Command> reconstructStack(java.util.List<CommandData> list, BufferedImage startImage, boolean execute) {
-        java.util.Deque<core.history.Command> stack = new java.util.ArrayDeque<>();
-        if (list == null) return stack;
-        
-        BufferedImage currentImage = startImage;
-        
-        for (CommandData d : list) {
-            core.history.Command cmd = null;
-            BufferedImage nextImage = currentImage;
-            
-            switch (d.type) {
-                case ADD_POINT:
-                    cmd = new core.history.StickCommand(appState.getCanvasState(), canvas, d.point);
-                    break;
-                case ADD_GRID:
-                    cmd = new core.history.GridCommand(appState.getCanvasState(), canvas, d.point);
-                    break;
-                case CROP:
-                    // Recreate cropped image
-                    nextImage = new BufferedImage(d.cropW, d.cropH, currentImage.getType() == 0 ? BufferedImage.TYPE_INT_ARGB : currentImage.getType());
-                    Graphics2D g2 = nextImage.createGraphics();
-                    g2.setColor(Color.BLACK);
-                    g2.fillRect(0, 0, d.cropW, d.cropH);
-                    g2.drawImage(currentImage, -d.cropX, -d.cropY, null);
-                    g2.dispose();
-                    
-                    cmd = new core.history.CropCommand(canvas, appState.getCanvasState(), currentImage, 
-                            new Rectangle(d.cropX, d.cropY, d.cropW, d.cropH), 
-                            d.zomAtCrop != null ? d.zomAtCrop : 1.0f, 
-                            d.oldVisualX != null ? d.oldVisualX : 0, 
-                            d.oldVisualY != null ? d.oldVisualY : 0);
-                    break;
-                case RESIZE:
-                    Object hintObj = switch (d.resizeProps.hint) {
-                        case 0 -> RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR;
-                        case 1 -> RenderingHints.VALUE_INTERPOLATION_BILINEAR;
-                        default -> RenderingHints.VALUE_INTERPOLATION_BICUBIC;
-                    };
-                    nextImage = core.image.ImageResizer.resize(currentImage, d.resizeProps.width, d.resizeProps.height, hintObj);
-                    cmd = new core.history.ResizeCommand(canvas, appState.getCanvasState(), currentImage, nextImage, d.resizeProps);
-                    break;
-                case ROTATE:
-                case FLIP:
-                    nextImage = core.image.ImageTransformUtils.transform(currentImage, d.transformType);
-                    cmd = new core.history.TransformCommand(canvas, appState.getCanvasState(), currentImage, nextImage, d.transformType);
-                    break;
-                case FILTER:
-                    nextImage = core.image.ImageProcessor.applyFilter(currentImage, d.filterProps);
-                    cmd = new core.history.FilterCommand(canvas, currentImage, nextImage, d.filterProps);
-                    break;
-            }
-            
-            if (cmd != null) {
-                if (execute) {
-                    cmd.execute();
-                    // Some commands (like Stick) don't change the image, so we use nextImage calculated above
-                    // For transformation commands, execute() might have changed things in canvas,
-                    // but we rely on our nextImage for the chain.
-                }
-                stack.addLast(cmd);
-                currentImage = nextImage;
-            }
-        }
-        
-        if (execute) {
-            canvas.setBackgroundImage(currentImage);
-        }
-        
-        return stack;
+    @Override
+    public void updateProgress(int percent, String message) {
+        SwingUtilities.invokeLater(() -> {
+            recoveryProgressBar.setValue(percent);
+            recoveryProgressBar.setString(message);
+        });
+    }
+
+    @Override
+    public void onRecoveryFinished(String finalTitle) {
+        SwingUtilities.invokeLater(() -> {
+            recoveryProgressBar.setVisible(false);
+            setTitle(finalTitle);
+            setEnabled(true);
+            canvas.repaint();
+        });
+    }
+
+    @Override
+    public void onRecoveryError(String message) {
+        SwingUtilities.invokeLater(() -> {
+            recoveryProgressBar.setVisible(false);
+            setEnabled(true);
+            updateWindowTitle();
+            JOptionPane.showMessageDialog(this, message, "Recovery Error", JOptionPane.ERROR_MESSAGE);
+        });
+    }
+
+    @Override
+    public void setCanvasImage(BufferedImage img) {
+        canvas.setBackgroundImage(img);
+    }
+
+    @Override
+    public core.state.AppState getAppState() {
+        return appState;
+    }
+
+    @Override
+    public ui.canvas.ImageCanvas getCanvas() {
+        return canvas;
     }
 }
