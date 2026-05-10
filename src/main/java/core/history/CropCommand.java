@@ -17,8 +17,8 @@ public class CropCommand implements Command {
     private final BufferedImage newImage;
     private final Rectangle cropBounds;
     
-    private final List<SPoint> oldPoints;
-    private final List<SPoint> oldGrids;
+    private final List<SPoint> removedPoints = new ArrayList<>();
+    private final List<SPoint> removedGrids = new ArrayList<>();
     
     private final int targetVisualX;
     private final int targetVisualY;
@@ -46,9 +46,6 @@ public class CropCommand implements Command {
         g2.drawImage(oldImage, -cropBounds.x, -cropBounds.y, null);
         g2.dispose();
         
-        this.oldPoints = clonePoints(canvasState.getStickyPoints());
-        this.oldGrids = clonePoints(canvasState.getGrids());
-        
         this.zoomAtCrop = zoom;
         this.oldVisualX = oldVisualX;
         this.oldVisualY = oldVisualY;
@@ -56,37 +53,30 @@ public class CropCommand implements Command {
         this.targetVisualY = Math.round(oldVisualY + cropBounds.y * zoom);
     }
 
-    private List<SPoint> clonePoints(List<SPoint> points) {
-        List<SPoint> cloned = new ArrayList<>();
-        for (SPoint p : points) {
-            SPoint newP = new SPoint(p.id, p.X, p.Y, p.c, p.dr);
-            newP.isCustomPlacement = p.isCustomPlacement;
-            newP.customGap = p.customGap;
-            newP.customAngle = p.customAngle;
-            cloned.add(newP);
-        }
-        return cloned;
-    }
-
     @Override
     public void execute() {
         canvas.setBackgroundImage(newImage);
-        processPoints(canvasState.getStickyPoints());
-        processPoints(canvasState.getGrids());
+        
+        removedPoints.clear();
+        removedGrids.clear();
+        
+        processPointsExecute(canvasState.getStickyPoints(), removedPoints);
+        processPointsExecute(canvasState.getGrids(), removedGrids);
+        
         applyVisualOffset(targetVisualX, targetVisualY, newImage);
     }
 
     @Override
     public void undo() {
         canvas.setBackgroundImage(oldImage);
-        canvasState.getStickyPoints().clear();
-        canvasState.getStickyPoints().addAll(oldPoints);
-        canvasState.getGrids().clear();
-        canvasState.getGrids().addAll(oldGrids);
+        
+        processPointsUndo(canvasState.getStickyPoints(), removedPoints);
+        processPointsUndo(canvasState.getGrids(), removedGrids);
+        
         applyVisualOffset(oldVisualX, oldVisualY, oldImage);
     }
     
-    private void processPoints(List<SPoint> points) {
+    private void processPointsExecute(List<SPoint> points, List<SPoint> removedList) {
         Iterator<SPoint> it = points.iterator();
         while (it.hasNext()) {
             SPoint p = it.next();
@@ -94,9 +84,25 @@ public class CropCommand implements Command {
             p.Y -= cropBounds.y;
             // Remove points that fall completely outside the new bounds
             if (p.X < 0 || p.Y < 0 || p.X >= cropBounds.width || p.Y >= cropBounds.height) {
+                removedList.add(p);
                 it.remove();
             }
         }
+    }
+
+    private void processPointsUndo(List<SPoint> currentPoints, List<SPoint> removedList) {
+        // 1. Revert coordinates of points currently on canvas
+        for (SPoint p : currentPoints) {
+            p.X += cropBounds.x;
+            p.Y += cropBounds.y;
+        }
+        // 2. Revert coordinates of removed points and put them back
+        for (SPoint p : removedList) {
+            p.X += cropBounds.x;
+            p.Y += cropBounds.y;
+            currentPoints.add(p);
+        }
+        removedList.clear();
     }
     
     private void applyVisualOffset(int vX, int vY, BufferedImage img) {
