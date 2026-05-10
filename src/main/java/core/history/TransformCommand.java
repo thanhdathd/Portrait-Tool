@@ -15,9 +15,32 @@ public class TransformCommand implements Command {
     private final CanvasState canvasState;
     private final BufferedImage oldImage;
     private final BufferedImage newImage;
-    private final List<SPoint> oldPoints;
-    private final List<SPoint> oldGrids;
+    private final List<PointSnapshot> undoPoints = new ArrayList<>();
+    private final List<PointSnapshot> undoGrids = new ArrayList<>();
     private final TransformType type;
+
+    private static class PointSnapshot {
+        final SPoint point;
+        final int oldX;
+        final int oldY;
+        final Direction oldDr;
+        final int oldAngle;
+
+        PointSnapshot(SPoint point) {
+            this.point = point;
+            this.oldX = point.X;
+            this.oldY = point.Y;
+            this.oldDr = point.dr;
+            this.oldAngle = point.customAngle;
+        }
+        
+        void restore() {
+            point.X = oldX;
+            point.Y = oldY;
+            point.dr = oldDr;
+            point.customAngle = oldAngle;
+        }
+    }
 
     public TransformCommand(ImageCanvas canvas, CanvasState canvasState, BufferedImage oldImage, BufferedImage newImage, TransformType type) {
         this.canvas = canvas;
@@ -25,25 +48,21 @@ public class TransformCommand implements Command {
         this.oldImage = oldImage;
         this.newImage = newImage;
         this.type = type;
-        this.oldPoints = clonePoints(canvasState.getStickyPoints());
-        this.oldGrids = clonePoints(canvasState.getGrids());
-    }
-
-    private List<SPoint> clonePoints(List<SPoint> points) {
-        List<SPoint> cloned = new ArrayList<>();
-        for (SPoint p : points) {
-            SPoint newP = new SPoint(p.id, p.X, p.Y, p.c, p.dr);
-            newP.isCustomPlacement = p.isCustomPlacement;
-            newP.customGap = p.customGap;
-            newP.customAngle = p.customAngle;
-            cloned.add(newP);
-        }
-        return cloned;
     }
 
     @Override
     public void execute() {
         canvas.setBackgroundImage(newImage);
+        
+        undoPoints.clear();
+        for (SPoint p : canvasState.getStickyPoints()) {
+            undoPoints.add(new PointSnapshot(p));
+        }
+        undoGrids.clear();
+        for (SPoint p : canvasState.getGrids()) {
+            undoGrids.add(new PointSnapshot(p));
+        }
+        
         transformPoints(canvasState.getStickyPoints(), oldImage.getWidth(), oldImage.getHeight());
         transformPoints(canvasState.getGrids(), oldImage.getWidth(), oldImage.getHeight());
     }
@@ -51,10 +70,12 @@ public class TransformCommand implements Command {
     @Override
     public void undo() {
         canvas.setBackgroundImage(oldImage);
-        canvasState.getStickyPoints().clear();
-        canvasState.getStickyPoints().addAll(oldPoints);
-        canvasState.getGrids().clear();
-        canvasState.getGrids().addAll(oldGrids);
+        for (PointSnapshot ps : undoPoints) {
+            ps.restore();
+        }
+        for (PointSnapshot ps : undoGrids) {
+            ps.restore();
+        }
     }
     
     private void transformPoints(List<SPoint> points, int w, int h) {
