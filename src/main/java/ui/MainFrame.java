@@ -17,6 +17,7 @@ import ui.dialogs.ImagePreviewPanel;
 import ui.dialogs.ResizeDialog;
 import ui.dialogs.ZoomWindow;
 import utils.ExcelExportUtils;
+import ui.components.SaveStatusIcon;
 import workers.ImageLoadWorker;
 
 import javax.swing.*;
@@ -38,6 +39,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     private JScrollPane scrollPane;
     private JMenuItem savePointMapItem;
     private JCheckBoxMenuItem showPointMapItem;
+    private SaveStatusIcon saveStatusIcon;
     private final core.state.AutoSaveManager autoSaveManager;
     private JProgressBar recoveryProgressBar;
 
@@ -48,6 +50,22 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         configManager.load(appState);
         tool = ToolManager.initializeTools();
         autoSaveManager = new core.state.AutoSaveManager(canvas);
+        autoSaveManager.setSaveStatusListener(new core.state.AutoSaveManager.SaveStatusListener() {
+            @Override
+            public void onSaveStarted() {
+                if (saveStatusIcon != null) saveStatusIcon.startSaving();
+            }
+
+            @Override
+            public void onSaveFinished() {
+                if (saveStatusIcon != null) saveStatusIcon.stopSaving();
+            }
+
+            @Override
+            public void onDirtyStateChanged(boolean isDirty) {
+                if (saveStatusIcon != null) saveStatusIcon.setDirty(isDirty);
+            }
+        });
         
         setTitle("Portrait Tool Modernized");
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -458,6 +476,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             appState.setEditState(AppState.EditState.SAVED);
             appState.getHistoryManager().markAsSaved();
             autoSaveManager.cleanup();
+            autoSaveManager.onManualSave();
         }
     }
 
@@ -956,7 +975,12 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         toolBar.add(colorBtn);
         toolBar.addSeparator();
         initColorPlate(toolBar, colorBtn);
-        
+
+        toolBar.add(Box.createHorizontalGlue());
+        saveStatusIcon = new SaveStatusIcon();
+        toolBar.add(saveStatusIcon);
+        toolBar.add(Box.createHorizontalStrut(10));
+
         add(toolBar, BorderLayout.NORTH);
     }
 

@@ -26,15 +26,33 @@ import java.util.concurrent.TimeUnit;
 /**
  * Manages periodic auto-saving of the application state.
  */
-public class AutoSaveManager {
+public class AutoSaveManager implements core.history.HistoryManager.HistoryListener {
     private static final String AUTOSAVE_DIR = ".myapp/autosave";
     private static final String AUTOSAVE_FILE = "autosave.pdt";
-    
+    private static final int DEBOUNCE_TIME = 10; // sec
+    private static final int PERIODIC_SAVE_TIME = 1; // minute
+
     private final ImageCanvas canvas;
     private final AppState appState;
     private final ScheduledExecutorService scheduler;
     private final Gson gson;
     private final File autosaveDir;
+    private SaveStatusListener statusListener;
+
+    public interface SaveStatusListener {
+        void onSaveStarted();
+        void onSaveFinished();
+        void onDirtyStateChanged(boolean isDirty);
+    }
+
+    public void setSaveStatusListener(SaveStatusListener listener) {
+        this.statusListener = listener;
+    }
+
+    private boolean isDirty = false;
+    private boolean isRestoring = false;
+    private java.util.concurrent.ScheduledFuture<?> debounceTask;
+    private java.util.concurrent.ScheduledFuture<?> fallbackTask;
 
     public AutoSaveManager(ImageCanvas canvas) {
         this.canvas = canvas;
@@ -57,32 +75,83 @@ public class AutoSaveManager {
             autosaveDir.mkdirs();
         }
         
-        appState.addPropertyChangeListener("autoSaveInterval", evt -> restartTimer());
-        
-        startTimer();
+        // Listen for AppState changes
+        tools.PropertyChangeListener changeListener = evt -> notifyChange();
+        appState.addPropertyChangeListener("brushColor", changeListener);
+        appState.addPropertyChangeListener("gridSize", changeListener);
+        appState.addPropertyChangeListener("gridInCm", changeListener);
+        appState.addPropertyChangeListener("scale", changeListener);
+
+        // Listen for History changes
+        appState.getHistoryManager().addListener(this);
     }
 
-    private java.util.concurrent.ScheduledFuture<?> currentTask;
-
-    private void startTimer() {
-        int interval = appState.getAutoSaveInterval();
-        currentTask = scheduler.scheduleAtFixedRate(this::performAutoSave, interval, interval, TimeUnit.MINUTES);
+    @Override
+    public void onHistoryChanged(boolean canUndo, boolean canRedo, boolean isModified) {
+        notifyChange();
     }
 
-    public synchronized void restartTimer() {
-        if (currentTask != null) {
-            currentTask.cancel(false);
+    public synchronized void notifyChange() {
+        if (isRestoring || !appState.isAutoSaveEnabled()) return;
+        if (!isDirty) {
+            isDirty = true;
+            if (statusListener != null) {
+                javax.swing.SwingUtilities.invokeLater(() -> statusListener.onDirtyStateChanged(true));
+            }
         }
-        startTimer();
-        System.out.println("AutoSave timer restarted with interval: " + appState.getAutoSaveInterval() + " min");
+        startTimers();
+    }
+
+    private synchronized void startTimers() {
+        // Debounce: reset if already running
+        if (debounceTask != null) debounceTask.cancel(false);
+        debounceTask = scheduler.schedule(this::performAutoSave, DEBOUNCE_TIME, TimeUnit.SECONDS);
+
+        // Fallback: start only if not already running
+        if (fallbackTask == null) {
+            fallbackTask = scheduler.schedule(this::performAutoSave, PERIODIC_SAVE_TIME, TimeUnit.MINUTES);
+        }
+    }
+
+    public synchronized void onManualSave() {
+        if (isDirty) {
+            isDirty = false;
+            if (statusListener != null) {
+                javax.swing.SwingUtilities.invokeLater(() -> statusListener.onDirtyStateChanged(false));
+            }
+        }
+        cancelTimers();
+    }
+
+    private synchronized void cancelTimers() {
+        if (debounceTask != null) {
+            debounceTask.cancel(false);
+            debounceTask = null;
+        }
+        if (fallbackTask != null) {
+            fallbackTask.cancel(false);
+            fallbackTask = null;
+        }
     }
 
     /**
      * Captures current state and writes to the .pdt file.
      */
     public synchronized void performAutoSave() {
-        if (!appState.isAutoSaveEnabled() || canvas.getBackgroundImage() == null) {
+        if (!isDirty || !appState.isAutoSaveEnabled() || canvas.getBackgroundImage() == null) {
             return;
+        }
+
+        // Cancel tasks as we are saving now
+        cancelTimers();
+        boolean wasDirty = isDirty;
+        isDirty = false;
+        if (wasDirty && statusListener != null) {
+            javax.swing.SwingUtilities.invokeLater(() -> statusListener.onDirtyStateChanged(false));
+        }
+
+        if (statusListener != null) {
+            javax.swing.SwingUtilities.invokeLater(() -> statusListener.onSaveStarted());
         }
 
         try {
@@ -111,6 +180,10 @@ public class AutoSaveManager {
             
         } catch (IOException e) {
             System.err.println("Failed to perform auto-save: " + e.getMessage());
+        } finally {
+            if (statusListener != null) {
+                javax.swing.SwingUtilities.invokeLater(() -> statusListener.onSaveFinished());
+            }
         }
     }
 
@@ -142,6 +215,7 @@ public class AutoSaveManager {
      */
     public void restoreSession(File file, RecoveryUI ui) {
         try {
+            isRestoring = true;
             AutoSaveData data = loadAutoSave(file);
             if (data == null || data.imagePath == null) return;
             
@@ -187,12 +261,17 @@ public class AutoSaveManager {
                     ui.onRecoveryFinished(finalTitle);
                 } catch (Exception ex) {
                     ui.onRecoveryError("Error during reconstruction: " + ex.getMessage());
+                } finally {
+                    isRestoring = false;
+                    onManualSave(); // Reset dirty state and timers
                 }
             }, ex -> {
+                isRestoring = false;
                 ui.onRecoveryError("Failed to load image for recovery: " + ex.getMessage());
             }).execute();
 
         } catch (IOException e) {
+            isRestoring = false;
             ui.onRecoveryError("Failed to load auto-save data: " + e.getMessage());
         }
     }

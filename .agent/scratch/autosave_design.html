@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portrait Tool - Auto-Save Design</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-color: #f1f5f9;
+            --accent-color: #38bdf8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 32px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        h1, h2 {
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        h1 { margin-bottom: 40px; text-align: center; font-size: 2.5rem; }
+
+        .diagram-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 16px;
+        }
+
+        .timing-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .timer-box {
+            padding: 16px;
+            border-left: 4px solid var(--accent-color);
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        .footer {
+            text-align: center;
+            opacity: 0.6;
+            margin-top: 40px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Auto-Save Design Visualization</h1>
+
+        <div class="glass-card">
+            <h2>1. State Diagram</h2>
+            <p>Transitions between system states during the auto-save lifecycle.</p>
+            <div class="diagram-container">
+                <pre class="mermaid">
+                stateDiagram-v2
+                    [*] --> IDLE
+                    IDLE --> DIRTY : User Action (Brush/Grid/Command)
+                    DIRTY --> DIRTY : Additional Action (Reset Debounce)
+                    DIRTY --> SAVING : Debounce Timeout (10s)
+                    DIRTY --> SAVING : Fallback Timeout (60s)
+                    SAVING --> IDLE : Save Success / Reset Dirty
+                    SAVING --> DIRTY : Action during save
+                    IDLE --> IDLE : Ctrl+S (Manual Save)
+                    DIRTY --> IDLE : Ctrl+S (Manual Save)
+                </pre>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h2>2. Data Flow Diagram</h2>
+            <p>How events propagate from user interaction to the file system.</p>
+            <div class="diagram-container">
+                <pre class="mermaid">
+                graph TD
+                    User[User Action] --> App[AppState / HistoryManager]
+                    App -->|Notify Change| CL[Change Listener]
+                    CL --> ASM[AutoSaveManager]
+                    
+                    subgraph "Timer Orchestration"
+                        ASM --> DB[Debounce Timer 10s]
+                        ASM --> FB[Fallback Timer 60s]
+                    end
+                    
+                    DB -->|Trigger| SV[Save Executor]
+                    FB -->|Trigger| SV
+                    SV -->|Write| FS[(File System .pdt)]
+                    SV -->|Update UI| UI[Blinking Icon]
+                </pre>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h2>3. Timing Logic</h2>
+            <div class="timing-grid">
+                <div class="timer-box">
+                    <strong>Debounce (10s)</strong>
+                    <p>Resets on every action. Ensures we only save when the user stops working for a moment.</p>
+                </div>
+                <div class="timer-box">
+                    <strong>Fallback (60s)</strong>
+                    <p>Fixed period from the FIRST dirty change. Ensures data is safe even during intense, non-stop work.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            Portrait Tool Design Documentation - 2026
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            theme: 'dark',
+            startOnLoad: true,
+            securityLevel: 'loose'
+        });
+    </script>
+</body>
+</html>
