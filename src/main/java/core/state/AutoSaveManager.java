@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 public class AutoSaveManager implements core.history.HistoryManager.HistoryListener {
     private static final String AUTOSAVE_DIR = ".myapp/autosave";
     private static final String AUTOSAVE_FILE = "autosave.pdt";
+    private static final String SHADOW_DIR = "shadow_cache";
     private static final int DEBOUNCE_TIME = 10; // sec
     private static final int PERIODIC_SAVE_TIME = 1; // minute
 
@@ -37,6 +38,8 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
     private final ScheduledExecutorService scheduler;
     private final Gson gson;
     private final File autosaveDir;
+    private final File shadowCacheDir;
+    private final java.util.concurrent.ExecutorService copyExecutor;
     private SaveStatusListener statusListener;
 
     public interface SaveStatusListener {
@@ -74,6 +77,17 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
         if (!autosaveDir.exists()) {
             autosaveDir.mkdirs();
         }
+
+        this.shadowCacheDir = new File(autosaveDir, SHADOW_DIR);
+        if (!shadowCacheDir.exists()) {
+            shadowCacheDir.mkdirs();
+        }
+
+        this.copyExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "ShadowCopyThread");
+            t.setDaemon(true);
+            return t;
+        });
         
         // Listen for AppState changes
         tools.PropertyChangeListener changeListener = evt -> notifyChange();
@@ -157,6 +171,8 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
         try {
             AutoSaveData data = new AutoSaveData();
             data.imagePath = appState.getFilePath();
+            data.shadowPath = appState.getShadowPath();
+            data.originalHash = appState.getOriginalHash();
             data.scale = appState.getScale();
             data.gridSize = appState.getGridSize();
             data.gridInCm = appState.isGridInCm();
@@ -202,11 +218,61 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
         }
     }
 
-    public void cleanup() {
+    /**
+     * Deletes the autosave file and shadow copy, resetting session state.
+     */
+    public void cleanupSession() {
+        // Delete .pdt file
         File f = getAutoSaveFile();
-        if (f != null) {
+        if (f != null && f.exists()) {
             f.delete();
         }
+
+        // Delete shadow copy
+        String shadowPath = appState.getShadowPath();
+        if (shadowPath != null) {
+            File shadowFile = new File(shadowPath);
+            if (shadowFile.exists()) {
+                shadowFile.delete();
+            }
+            appState.setShadowPath(null);
+            appState.setOriginalHash(null);
+        }
+
+        onManualSave();
+    }
+
+    public void cleanup() {
+        cleanupSession();
+    }
+
+    /**
+     * Initializes a shadow session by creating a background backup of the original image.
+     */
+    public void initShadowSession(File originalFile) {
+        if (originalFile == null || !originalFile.exists()) return;
+
+        copyExecutor.execute(() -> {
+            try {
+                // 1. Calculate Hash
+                String hash = utils.HashUtils.calculateSHA256(originalFile);
+                appState.setOriginalHash(hash);
+
+                // 2. Prepare Shadow Copy
+                String shadowName = Integer.toHexString(originalFile.getAbsolutePath().hashCode()) + "_" + originalFile.getName();
+                File shadowFile = new File(shadowCacheDir, shadowName);
+
+                // 3. Copy if not already there or different
+                Files.copy(originalFile.toPath(), shadowFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                
+                appState.setShadowPath(shadowFile.getAbsolutePath());
+                System.out.println("Shadow copy created at: " + shadowFile.getAbsolutePath());
+                
+            } catch (Exception e) {
+                System.err.println("Failed to initialize shadow session: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
     }
 
     /**
@@ -219,20 +285,57 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
             AutoSaveData data = loadAutoSave(file);
             if (data == null || data.imagePath == null) return;
             
-            File imageFile = new File(data.imagePath);
-            if (!imageFile.exists()) {
-                ui.onRecoveryError("Original image not found: " + data.imagePath);
+            // 1. Determine which file to load (Shadow > Original)
+            File fileToLoad = null;
+            boolean isFallback = false;
+
+            if (data.shadowPath != null) {
+                File shadowFile = new File(data.shadowPath);
+                if (shadowFile.exists() && shadowFile.canRead()) {
+                    fileToLoad = shadowFile;
+                }
+            }
+
+            if (fileToLoad == null) {
+                // Fallback to original
+                File originalFile = new File(data.imagePath);
+                if (originalFile.exists() && originalFile.canRead()) {
+                    // INTEGRITY CHECK
+                    if (data.originalHash != null) {
+                        try {
+                            String currentHash = utils.HashUtils.calculateSHA256(originalFile);
+                            if (!data.originalHash.equals(currentHash)) {
+                                ui.onRecoveryError("Recovery failed: Original image has been modified externally.");
+                                return;
+                            }
+                        } catch (Exception hashEx) {
+                            ui.onRecoveryError("Integrity check failed: " + hashEx.getMessage());
+                            return;
+                        }
+                    }
+                    fileToLoad = originalFile;
+                    isFallback = true;
+                }
+            }
+
+            if (fileToLoad == null) {
+                ui.onRecoveryError("Base image not found. Shadow: " + data.shadowPath + ", Original: " + data.imagePath);
                 return;
             }
+
+            final File finalFileToLoad = fileToLoad;
+            final String originalPath = data.imagePath;
 
             ui.onRecoveryStarted();
             ui.updateProgress(10, "Loading base image...");
 
-            new workers.ImageLoadWorker(imageFile, image -> {
+            new workers.ImageLoadWorker(finalFileToLoad, image -> {
                 try {
                     ui.updateProgress(30, "Restoring application state...");
                     AppState appState = ui.getAppState();
-                    appState.setFilePath(imageFile.getAbsolutePath());
+                    appState.setFilePath(originalPath);
+                    appState.setShadowPath(data.shadowPath);
+                    appState.setOriginalHash(data.originalHash);
                     appState.setScale(data.scale);
                     appState.setGridSize(data.gridSize);
                     appState.setGridInCm(data.gridInCm);
@@ -257,7 +360,7 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     appState.getHistoryManager().markAsSaved();
                     
                     java.awt.image.BufferedImage restoredImage = ui.getCanvas().getBackgroundImage();
-                    String finalTitle = imageFile.getAbsolutePath() + " - " + restoredImage.getWidth() + "x" + restoredImage.getHeight() + " (Restored)";
+                    String finalTitle = originalPath + " - " + restoredImage.getWidth() + "x" + restoredImage.getHeight() + " (Restored)";
                     ui.onRecoveryFinished(finalTitle);
                 } catch (Exception ex) {
                     ui.onRecoveryError("Error during reconstruction: " + ex.getMessage());

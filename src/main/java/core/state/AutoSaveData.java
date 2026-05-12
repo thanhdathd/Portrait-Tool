@@ -11,6 +11,8 @@ public class AutoSaveData {
     public String version = "2.0";
     public long timestamp;
     public String imagePath;
+    public String shadowPath;
+    public String originalHash;
     
     // Settings
     public float scale;

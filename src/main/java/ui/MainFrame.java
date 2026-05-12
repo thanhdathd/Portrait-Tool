@@ -315,6 +315,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             canvas.setBackgroundImage(image);
             setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
             appState.getHistoryManager().markAsSaved();
+            autoSaveManager.initShadowSession(file);
         }, ex -> {
             JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             setTitle("Portrait Tool Modernized");
@@ -407,6 +408,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 appState.getHistoryManager().markAsSaved();
                 appState.getHistoryManager().clearAll();
                 appState.getCanvasState().clearAll();
+                autoSaveManager.initShadowSession(file);
             }, ex -> {
                 JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 setTitle("Portrait Tool Modernized");
@@ -475,8 +477,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             new workers.SaveWorker(canvas, file, true, true).execute();
             appState.setEditState(AppState.EditState.SAVED);
             appState.getHistoryManager().markAsSaved();
-            autoSaveManager.cleanup();
-            autoSaveManager.onManualSave();
+            autoSaveManager.cleanupSession();
         }
     }
 

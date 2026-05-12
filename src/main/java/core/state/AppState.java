@@ -38,6 +38,8 @@ public class AppState {
     private boolean round = false;
     private int windowX, windowY, windowWidth, windowHeight;
     private String filePath = "Untitled-00.jpg";
+    private String shadowPath = null;
+    private String originalHash = null;
     private String lastOpenedDir = "~/";
     private EditState editState = EditState.SAVED;
     private Color brushColor = Color.CYAN;
@@ -196,6 +198,22 @@ public class AppState {
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
+    }
+
+    public String getShadowPath() {
+        return shadowPath;
+    }
+
+    public void setShadowPath(String shadowPath) {
+        this.shadowPath = shadowPath;
+    }
+
+    public String getOriginalHash() {
+        return originalHash;
+    }
+
+    public void setOriginalHash(String originalHash) {
+        this.originalHash = originalHash;
     }
 
     public EditState getEditState() {
