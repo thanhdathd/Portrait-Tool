@@ -94,8 +94,9 @@ public class AutoSaveManager {
             data.brushColor = appState.getBrushColor();
             
             // Capture History
-            data.undoStack = captureStack(appState.getHistoryManager().getUndoStack());
-            data.redoStack = captureStack(appState.getHistoryManager().getRedoStack());
+            // Capture Persistent Metadata History
+            data.undoStack = new ArrayList<>(appState.getHistoryManager().getPersistentUndoStack());
+            data.redoStack = new ArrayList<>(appState.getHistoryManager().getPersistentRedoStack());
 
             File finalFile = new File(autosaveDir, AUTOSAVE_FILE);
             File tempFile = new File(autosaveDir, AUTOSAVE_FILE + ".tmp");
@@ -174,7 +175,11 @@ public class AutoSaveManager {
                     java.awt.image.BufferedImage lastUndoImage = ui.getCanvas().getBackgroundImage();
                     Deque<Command> redo = reconstructStack(ui, data.redoStack, lastUndoImage, false);
                     
-                    appState.getHistoryManager().reconstructStacks(undo, redo);
+                    // Convert metadata lists back to Deques for HistoryManager
+                    Deque<CommandData> persistentUndo = new java.util.ArrayDeque<>(data.undoStack);
+                    Deque<CommandData> persistentRedo = new java.util.ArrayDeque<>(data.redoStack);
+                    
+                    appState.getHistoryManager().reconstructStacks(undo, redo, persistentUndo, persistentRedo);
                     appState.getHistoryManager().markAsSaved();
                     
                     String finalTitle = imageFile.getAbsolutePath() + " - " + image.getWidth() + "x" + image.getHeight() + " (Restored)";

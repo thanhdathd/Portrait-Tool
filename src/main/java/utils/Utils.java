@@ -1,6 +1,37 @@
 package utils;
 
 public class Utils {
+    public static String bytesToHumanReadable(long bytes) {
+        if (bytes < 0) {
+            throw new IllegalArgumentException("Số byte không thể âm");
+        }
+
+        // Các đơn vị từ nhỏ đến lớn
+        String[] units = {"B", "KB", "MB", "GB", "TB", "PB"};
+
+        if (bytes == 0) {
+            return "0 B";
+        }
+
+        int unitIndex = 0;
+        double size = bytes;
+
+        // Chia cho 1024 cho đến khi size < 1024 hoặc hết đơn vị
+        while (size >= 1024 && unitIndex < units.length - 1) {
+            size /= 1024;
+            unitIndex++;
+        }
+
+        // Format số với 2 chữ số thập phân nếu cần
+        if (size == Math.floor(size)) {
+            // Nếu là số nguyên thì không hiển thị phần thập phân
+            return String.format("%.0f %s", size, units[unitIndex]);
+        } else {
+            // Nếu có phần thập phân, hiển thị 2 chữ số
+            return String.format("%.2f %s", size, units[unitIndex]);
+        }
+    }
+
     public static String formatFileSize(long size) {
         if (size <= 0) return "Unknown";
         String[] units = {"B", "KB", "MB", "GB"};

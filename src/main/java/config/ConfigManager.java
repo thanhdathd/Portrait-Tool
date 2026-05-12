@@ -53,14 +53,19 @@ public class ConfigManager {
             appState.setRound(Boolean.parseBoolean(round));
             String showHelp =  props.getProperty("showHelp", "false");
             appState.setShowCropHelp(Boolean.parseBoolean(showHelp));
-            String stackSize = props.getProperty("stackSize", "15");
-            appState.setStackSize(Integer.parseInt(stackSize));
             String checkerSize = props.getProperty("checkerSize", "40");
             appState.setCheckerSize(Integer.parseInt(checkerSize));
             String autoSaveEnabled = props.getProperty("autoSaveEnabled", "true");
             appState.setAutoSaveEnabled(Boolean.parseBoolean(autoSaveEnabled));
             String autoSaveInterval = props.getProperty("autoSaveInterval", "5");
             appState.setAutoSaveInterval(Integer.parseInt(autoSaveInterval));
+            
+            String memLevel = props.getProperty("historyMemoryLevel", "MEDIUM");
+            try {
+                appState.setHistoryMemoryLevel(core.history.HistoryMemoryLevel.valueOf(memLevel));
+            } catch (Exception e) {
+                appState.setHistoryMemoryLevel(core.history.HistoryMemoryLevel.MEDIUM);
+            }
 
 
             // Load vị trí và kích thước cửa sổ
@@ -101,10 +106,10 @@ public class ConfigManager {
         props.setProperty("viLang", String.valueOf(appState.isViLang()));
         props.setProperty("round", String.valueOf(appState.isRound()));
         props.setProperty("showHelp", String.valueOf(appState.isShowCropHelp()));
-        props.setProperty("stackSize", String.valueOf(appState.getStackSize()));
         props.setProperty("checkerSize", String.valueOf(appState.getCheckerSize()));
         props.setProperty("autoSaveEnabled", String.valueOf(appState.isAutoSaveEnabled()));
         props.setProperty("autoSaveInterval", String.valueOf(appState.getAutoSaveInterval()));
+        props.setProperty("historyMemoryLevel", appState.getHistoryMemoryLevel().name());
 
         // Có thể thêm: vị trí cửa sổ, kích thước, lần mở file gần nhất, tool đang dùng...
         props.setProperty("lastOpenedFile", appState.getFilePath());

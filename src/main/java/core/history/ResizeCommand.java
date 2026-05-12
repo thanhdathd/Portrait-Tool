@@ -86,4 +86,12 @@ public class ResizeCommand implements Command {
         cmd.resizeProps = props;
         return cmd;
     }
+
+    @Override
+    public long getMemorySize() {
+        long size = 0;
+        if (oldImage != null) size += (long) oldImage.getWidth() * oldImage.getHeight() * 4;
+        if (newImage != null) size += (long) newImage.getWidth() * newImage.getHeight() * 4;
+        return size + 1024;
+    }
 }

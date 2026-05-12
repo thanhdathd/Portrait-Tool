@@ -22,10 +22,6 @@ public class AppState {
         this.lastOpenedDir = lastOpenedDir;
     }
 
-    public void resizeHistoryStack(int newSize) {
-        historyManager.setLength(newSize);
-        stackSize = newSize;
-    }
 
 
     public enum EditState {
@@ -34,7 +30,6 @@ public class AppState {
         NOT_SAVED
     }
 
-    private int stackSize = 15;
     private float currentZoom = 1.0f;
     private float scale = 1.0f;
     private MouseMode mouseMode = MouseMode.DRAG;
@@ -62,9 +57,10 @@ public class AppState {
     private boolean showPointMap = false;
     private boolean autoSaveEnabled = true;
     private int autoSaveInterval = 1; // Minutes
+    private core.history.HistoryMemoryLevel historyMemoryLevel = core.history.HistoryMemoryLevel.MEDIUM;
 
     public AppState() {
-        this.historyManager = new HistoryManager(115);
+        this.historyManager = new HistoryManager(historyMemoryLevel.getRamBudgetBytes());
         this.canvasState = new CanvasState();
     }
 
@@ -86,6 +82,22 @@ public class AppState {
         if (oldInterval != this.autoSaveInterval && watchedKeys.containsKey("autoSaveInterval")) {
             watchedKeys.get("autoSaveInterval").forEach(listener ->
                     listener.propertyChange(new PropertyChangeEvent(this, "autoSaveInterval", oldInterval, this.autoSaveInterval)));
+        }
+    }
+
+    public core.history.HistoryMemoryLevel getHistoryMemoryLevel() {
+        return historyMemoryLevel;
+    }
+
+    public void setHistoryMemoryLevel(core.history.HistoryMemoryLevel level) {
+        core.history.HistoryMemoryLevel oldLevel = this.historyMemoryLevel;
+        this.historyMemoryLevel = level;
+        if (historyManager != null) {
+            historyManager.setMemoryBudget(level.getRamBudgetBytes());
+        }
+        if (oldLevel != this.historyMemoryLevel && watchedKeys.containsKey("historyMemoryLevel")) {
+            watchedKeys.get("historyMemoryLevel").forEach(listener ->
+                    listener.propertyChange(new PropertyChangeEvent(this, "historyMemoryLevel", oldLevel, this.historyMemoryLevel)));
         }
     }
 
@@ -206,13 +218,6 @@ public class AppState {
         this.brushColor = brushColor;
     }
 
-    public int getStackSize() {
-        return stackSize;
-    }
-
-    public void setStackSize(int stackSize) {
-        this.stackSize = stackSize;
-    }
 
     public float getGridSize() {
         return gridSize;

@@ -31,6 +31,7 @@ class GridToolTest {
                 System.currentTimeMillis(), 0, 200, 250, 1, false, MouseEvent.BUTTON1);
 
         // Act
+        gridTool.onMouseMoved(releaseEvent, appState, canvas);
         gridTool.onMouseReleased(releaseEvent, appState, canvas);
 
         // Assert
@@ -39,7 +40,7 @@ class GridToolTest {
         assertEquals(1, appState.getCanvasState().getGrids().size());
         SPoint grid = appState.getCanvasState().getGrids().get(0);
         assertEquals(40, grid.id); // Storing size in ID as per legacy pattern
-        assertEquals(200, grid.X);
-        assertEquals(250, grid.Y);
+        assertEquals(200 - ui.canvas.ImageCanvas.CANVAS_PADDING, grid.X);
+        assertEquals(160, grid.Y); // Snapped from 170 (250-80) to nearest 40 multiple
     }
 }

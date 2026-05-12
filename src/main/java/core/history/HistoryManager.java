@@ -1,37 +1,42 @@
 package core.history;
 
+import core.state.CommandData;
+import utils.Utils;
+
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 
 public class HistoryManager {
 
-    public void setLength(int newSize) {
-        this.capacity = newSize;
-    }
-
-    public void clearAll() {
-        undoStack.clear();
-        redoStack.clear();
-        notifyListeners();
-    }
-
-    public interface HistoryListener {
-        void onHistoryChanged(boolean canUndo, boolean canRedo, boolean isModified);
-    }
-    
-    private int capacity;
+    private long maxMemoryBudget;
+    private long currentMemoryUsage = 0;
     private final Deque<Command> undoStack;
     private final Deque<Command> redoStack;
-    private final java.util.List<HistoryListener> listeners = new java.util.ArrayList<>();
+    
+    // Metadata stacks for persistent recovery
+    private final Deque<CommandData> persistentUndoStack;
+    private final Deque<CommandData> persistentRedoStack;
 
-    // --- Các biến mới để theo dõi trạng thái Save ---
+    private final List<HistoryListener> listeners = new ArrayList<>();
+
+    // Save state tracking
     private Command savedCommand = null;
     private boolean isSavedStateDropped = false;
 
-    public HistoryManager(int capacity) {
-        this.capacity = capacity;
+    public HistoryManager(long maxMemoryBudget) {
+        this.maxMemoryBudget = maxMemoryBudget;
         this.undoStack = new ArrayDeque<>();
         this.redoStack = new ArrayDeque<>();
+        this.persistentUndoStack = new ArrayDeque<>();
+        this.persistentRedoStack = new ArrayDeque<>();
+    }
+
+    public void setMemoryBudget(long bytes) {
+        this.maxMemoryBudget = bytes;
+        checkBudget();
+        notifyListeners();
     }
 
     public void addListener(HistoryListener listener) {
@@ -45,21 +50,16 @@ public class HistoryManager {
         }
     }
 
-    // GỌI HÀM NÀY SAU KHI USER LƯU ẢNH THÀNH CÔNG
     public void markAsSaved() {
-        savedCommand = undoStack.peekLast(); // Trạng thái hiện tại chính là trạng thái đã lưu
-        isSavedStateDropped = false;         // Reset lại cờ
+        savedCommand = undoStack.peekLast();
+        isSavedStateDropped = false;
         notifyListeners();
     }
 
     public boolean isModified() {
-        // Nếu cái command chứa trạng thái save đã bị xóa khỏi bộ nhớ do quá capacity
-        // thì chắc chắn user không thể undo về trạng thái đó được nữa -> Luôn modified.
         if (isSavedStateDropped) {
             return true;
         }
-
-        // Nếu đỉnh của stack khác với command lúc save, nghĩa là có sự thay đổi
         Command currentCommand = undoStack.peekLast();
         return currentCommand != savedCommand;
     }
@@ -67,17 +67,34 @@ public class HistoryManager {
     public void push(Command command) {
         command.execute();
         
-        if (undoStack.size() == capacity) {
-            Command droppedCommand = undoStack.removeFirst(); // Drop the oldest command from the bottom
-            // Kiểm tra xem command bị drop có phải là mốc Save không
+        long cmdSize = command.getMemorySize();
+        currentMemoryUsage += cmdSize;
+        
+        undoStack.addLast(command);
+        persistentUndoStack.addLast(command.capture());
+        
+        redoStack.clear(); 
+        persistentRedoStack.clear();
+        
+        checkBudget();
+        
+        System.out.println("History add: " + command
+                + " (Size: " + Utils.bytesToHumanReadable(cmdSize)
+                + " bytes, Total: " + Utils.bytesToHumanReadable(currentMemoryUsage) + ")");
+        notifyListeners();
+    }
+
+    private void checkBudget() {
+        while (currentMemoryUsage > maxMemoryBudget && undoStack.size() > 0) {
+            Command droppedCommand = undoStack.removeFirst();
+            currentMemoryUsage -= droppedCommand.getMemorySize();
+            System.out.println("drop "+droppedCommand+" save "+
+                    Utils.bytesToHumanReadable(droppedCommand.getMemorySize())+" bytes");
+            
             if (droppedCommand == savedCommand) {
                 isSavedStateDropped = true;
             }
         }
-        System.out.println("History add: "+command);
-        undoStack.addLast(command);
-        redoStack.clear(); // Pushing a new command clears the redo history
-        notifyListeners();
     }
 
     public void undo() {
@@ -85,6 +102,12 @@ public class HistoryManager {
             Command command = undoStack.removeLast();
             command.undo();
             redoStack.addLast(command);
+            
+            // Sync metadata
+            if (!persistentUndoStack.isEmpty()) {
+                persistentRedoStack.addLast(persistentUndoStack.removeLast());
+            }
+            
             notifyListeners();
         }
     }
@@ -94,8 +117,23 @@ public class HistoryManager {
             Command command = redoStack.removeLast();
             command.execute();
             undoStack.addLast(command);
+            
+            // Sync metadata
+            if (!persistentRedoStack.isEmpty()) {
+                persistentUndoStack.addLast(persistentRedoStack.removeLast());
+            }
+            
             notifyListeners();
         }
+    }
+
+    public void clearAll() {
+        undoStack.clear();
+        redoStack.clear();
+        persistentUndoStack.clear();
+        persistentRedoStack.clear();
+        currentMemoryUsage = 0;
+        notifyListeners();
     }
 
     public boolean canUndo() {
@@ -114,11 +152,35 @@ public class HistoryManager {
         return redoStack;
     }
 
-    public void reconstructStacks(Deque<Command> undo, Deque<Command> redo) {
+    public Deque<CommandData> getPersistentUndoStack() {
+        return persistentUndoStack;
+    }
+
+    public Deque<CommandData> getPersistentRedoStack() {
+        return persistentRedoStack;
+    }
+
+    public void reconstructStacks(Deque<Command> undo, Deque<Command> redo, 
+                                  Deque<CommandData> persistentUndo, Deque<CommandData> persistentRedo) {
         this.undoStack.clear();
         this.undoStack.addAll(undo);
         this.redoStack.clear();
         this.redoStack.addAll(redo);
+        
+        this.persistentUndoStack.clear();
+        this.persistentUndoStack.addAll(persistentUndo);
+        this.persistentRedoStack.clear();
+        this.persistentRedoStack.addAll(persistentRedo);
+
+        // Re-calculate memory usage
+        currentMemoryUsage = 0;
+        for (Command c : undoStack) currentMemoryUsage += c.getMemorySize();
+        
+        checkBudget();
         notifyListeners();
+    }
+
+    public interface HistoryListener {
+        void onHistoryChanged(boolean canUndo, boolean canRedo, boolean isModified);
     }
 }

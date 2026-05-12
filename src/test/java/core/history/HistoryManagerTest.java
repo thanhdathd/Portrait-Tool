@@ -10,15 +10,15 @@ class HistoryManagerTest {
 
     @BeforeEach
     void setUp() {
-        historyManager = new HistoryManager(10); // Max capacity of 10
+        historyManager = new HistoryManager(1000); // 1000 bytes budget
     }
 
     @Test
     void testUndoRedoBehavior() {
         // Create simple dummy commands
-        DummyCommand cmd1 = new DummyCommand(1);
-        DummyCommand cmd2 = new DummyCommand(2);
-        DummyCommand cmd3 = new DummyCommand(3);
+        DummyCommand cmd1 = new DummyCommand(1, 10);
+        DummyCommand cmd2 = new DummyCommand(2, 10);
+        DummyCommand cmd3 = new DummyCommand(3, 10);
 
         // 1. Push three commands
         historyManager.push(cmd1);
@@ -49,7 +49,7 @@ class HistoryManagerTest {
         assertTrue(historyManager.canRedo());
         
         // 4. Push new command (should clear redo stack)
-        DummyCommand cmd4 = new DummyCommand(4);
+        DummyCommand cmd4 = new DummyCommand(4, 10);
         historyManager.push(cmd4);
         assertTrue(cmd4.executed);
         assertFalse(historyManager.canRedo());
@@ -61,10 +61,10 @@ class HistoryManagerTest {
     
     @Test
     void testCapacityLimit() {
-        historyManager = new HistoryManager(2);
-        DummyCommand cmd1 = new DummyCommand(1);
-        DummyCommand cmd2 = new DummyCommand(2);
-        DummyCommand cmd3 = new DummyCommand(3);
+        historyManager = new HistoryManager(200); // Budget for 2 commands
+        DummyCommand cmd1 = new DummyCommand(1, 100);
+        DummyCommand cmd2 = new DummyCommand(2, 100);
+        DummyCommand cmd3 = new DummyCommand(3, 100);
         
         historyManager.push(cmd1);
         historyManager.push(cmd2);
@@ -80,9 +80,11 @@ class HistoryManagerTest {
     static class DummyCommand implements Command {
         boolean executed = false;
         int id;
+        long size;
 
-        DummyCommand(int id) {
+        DummyCommand(int id, long size) {
             this.id = id;
+            this.size = size;
         }
 
         @Override
@@ -97,7 +99,12 @@ class HistoryManagerTest {
 
         @Override
         public core.state.CommandData capture() {
-            return null;
+            return new core.state.CommandData();
+        }
+
+        @Override
+        public long getMemorySize() {
+            return size;
         }
     }
 }

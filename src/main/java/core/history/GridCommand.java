@@ -50,6 +50,11 @@ public class GridCommand implements Command {
     }
 
     @Override
+    public long getMemorySize() {
+        return 256;
+    }
+
+    @Override
     public String toString() {
         return "Grid command";
     }

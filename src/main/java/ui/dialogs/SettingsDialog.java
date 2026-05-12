@@ -2,6 +2,7 @@ package ui.dialogs;
 
 import com.formdev.flatlaf.FlatClientProperties;
 import core.state.AppState;
+import core.history.HistoryMemoryLevel;
 import net.miginfocom.swing.MigLayout;
 import ui.button.RoundToggleButton;
 
@@ -12,7 +13,6 @@ public class SettingsDialog extends JDialog {
 
     private final AppState appState;
     
-    private JComboBox<String> historySizeCombo;
     private JTextField gridSizeField;
     private JComboBox<String> gridUnitCombo;
     private JTextField scaleField;
@@ -23,13 +23,18 @@ public class SettingsDialog extends JDialog {
     private JCheckBox showHelpCheck;
     private JCheckBox autoSaveCheck;
     private JSpinner autoSaveIntervalSpinner;
-    private String[] comboItems = new String[]{"15", "30", "50", "100", "200", "300"};
 
     // Segmented control for checker size
     private static final int[] CHECKER_SIZES  = {20, 40, 80};
     private static final String[] CHECKER_LABELS = {"Small", "Medium", "Large"};
     private final JToggleButton[] checkerBtns = new JToggleButton[CHECKER_SIZES.length];
     private final ButtonGroup checkerGroup = new ButtonGroup();
+
+    // Segmented control for RAM Budget
+    private static final HistoryMemoryLevel[] RAM_LEVELS = HistoryMemoryLevel.values();
+    private static final String[] RAM_LABELS = {"512M", "1G", "2G"};
+    private final JToggleButton[] ramBtns = new JToggleButton[RAM_LEVELS.length];
+    private final ButtonGroup ramGroup = new ButtonGroup();
 
     public SettingsDialog(Frame owner, AppState appState) {
         super(owner, "Settings", true);
@@ -47,11 +52,33 @@ public class SettingsDialog extends JDialog {
         
         JPanel formPanel = new JPanel(new MigLayout("wrap 2", "[right][grow,fill]"));
         
-        // Form Fields
-        formPanel.add(new JLabel("History Stack Size:"));
-        historySizeCombo = new JComboBox<>(comboItems);
-        formPanel.add(historySizeCombo);
-        
+        // --- RAM Budget Setting ---
+        formPanel.add(new JLabel("RAM Budget:"));
+        JPanel ramPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 2));
+        ramPanel.setBorder(BorderFactory.createLineBorder(Color.decode("#f2f2f2")));
+        ramPanel.getInsets().set(2,2,2,2);
+        ramPanel.setOpaque(false);
+
+        for (int i = 0; i < RAM_LEVELS.length; i++) {
+            final int idx = i;
+            RoundToggleButton btn = new RoundToggleButton(RAM_LABELS[i]);
+            btn.setFocusable(false);
+            int w = i == 0 ? 80 : 60;
+            btn.setPreferredSize(new Dimension(w, 20));
+
+            if (i == 0) {
+                btn.setCornerRadius(10, 0, 0, 10);
+            } else if (i == RAM_LEVELS.length - 1) {
+                btn.setCornerRadius(0, 10, 10, 0);
+            }
+            
+            ramBtns[i] = btn;
+            ramGroup.add(btn);
+            ramPanel.add(btn);
+        }
+        formPanel.add(ramPanel, "gapx 2");
+
+        // --- Grid Size ---
         formPanel.add(new JLabel("Grid Size:"));
         gridSizeField = new JTextField(5);
         gridUnitCombo = new JComboBox<>(new String[]{"px", "cm"});
@@ -67,7 +94,6 @@ public class SettingsDialog extends JDialog {
         calcBtn.setFocusable(false);
         formPanel.add(calcBtn, "w 30!");
         calcBtn.addActionListener(e -> {
-            // Mở sub-dialog và truyền scaleField vào để nó tự điền kết quả
             ScaleCalculatorDialog calcDialog = new ScaleCalculatorDialog(
                     (JDialog) SwingUtilities.getWindowAncestor(formPanel),
                     scaleField
@@ -96,7 +122,6 @@ public class SettingsDialog extends JDialog {
         formPanel.add(showHelpCheck);
 
         formPanel.add(new JLabel("Checker size:"));
-        // Use a small vertical gap (2px) in FlowLayout to prevent top/bottom clipping
         JPanel checkerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 2));
         checkerPanel.setBorder(BorderFactory.createLineBorder(Color.decode("#f2f2f2")));
         checkerPanel.getInsets().set(2,2,2,2);
@@ -125,7 +150,6 @@ public class SettingsDialog extends JDialog {
             checkerGroup.add(btn);
             checkerPanel.add(btn);
         }
-        // Add gapx 2 to prevent the leftmost edge from touching the label/edge
         formPanel.add(checkerPanel, "gapx 2");
 
         formPanel.add(new JLabel("Language:"));
@@ -156,14 +180,15 @@ public class SettingsDialog extends JDialog {
     }
 
     private void loadState() {
-        // AppState only has some of these variables currently.
-        int stackSize = appState.getStackSize();
-        for (int i = 0; i < comboItems.length; i++) {
-            if(String.valueOf(stackSize).equals(comboItems[i])) {
-                historySizeCombo.setSelectedIndex(i);
+        // RAM Budget
+        HistoryMemoryLevel currentLevel = appState.getHistoryMemoryLevel();
+        for (int i = 0; i < RAM_LEVELS.length; i++) {
+            if (RAM_LEVELS[i] == currentLevel) {
+                ramBtns[i].setSelected(true);
                 break;
             }
         }
+
         float gs = appState.getGridSize();
         gridSizeField.setText(gs == (int) gs ? String.valueOf((int) gs) : String.valueOf(gs));
         gridUnitCombo.setSelectedIndex(appState.isGridInCm() ? 1 : 0);
@@ -181,9 +206,9 @@ public class SettingsDialog extends JDialog {
         autoSaveCheck.setSelected(appState.isAutoSaveEnabled());
         autoSaveIntervalSpinner.setValue(appState.getAutoSaveInterval());
 
-        // Select the checker-size button that matches the current value
+        // Checker size
         int currentCheckerSize = appState.getCheckerSize();
-        int matchIdx = 1; // default to Medium
+        int matchIdx = 1; 
         for (int i = 0; i < CHECKER_SIZES.length; i++) {
             if (CHECKER_SIZES[i] == currentCheckerSize) { matchIdx = i; break; }
         }
@@ -192,10 +217,17 @@ public class SettingsDialog extends JDialog {
 
     private void saveState() {
         try {
+            // Save RAM Budget
+            for (int i = 0; i < RAM_LEVELS.length; i++) {
+                if (ramBtns[i].isSelected()) {
+                    appState.setHistoryMemoryLevel(RAM_LEVELS[i]);
+                    break;
+                }
+            }
+
             float newGridSize = Float.parseFloat(gridSizeField.getText());
             appState.setGridSize(newGridSize);
             appState.setGridInCm(gridUnitCombo.getSelectedIndex() == 1);
-            appState.resizeHistoryStack(Integer.parseInt((String) historySizeCombo.getSelectedItem()));
             
             float newScale = Float.parseFloat(scaleField.getText());
             appState.setScale(newScale);
@@ -207,10 +239,9 @@ public class SettingsDialog extends JDialog {
             appState.setAutoSaveEnabled(autoSaveCheck.isSelected());
             appState.setAutoSaveInterval((Integer) autoSaveIntervalSpinner.getValue());
 
-            // Optionally tell the parent to repaint or rebuild UI languages
             dispose();
         } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Please enter valid numbers for Grid Size and Scale.", "Input Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please enter valid numbers.", "Input Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

@@ -145,4 +145,12 @@ public class TransformCommand implements Command {
         if (d == Direction.SOUTH) return Direction.EAST;
         return Direction.NORTH;
     }
+
+    @Override
+    public long getMemorySize() {
+        long size = 0;
+        if (oldImage != null) size += (long) oldImage.getWidth() * oldImage.getHeight() * 4;
+        if (newImage != null) size += (long) newImage.getWidth() * newImage.getHeight() * 4;
+        return size + 1024;
+    }
 }

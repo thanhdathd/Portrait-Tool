@@ -49,6 +49,10 @@ public class StickCommand implements Command {
         return cmd;
     }
 
+    @Override
+    public long getMemorySize() {
+        return 256;
+    }
 
     @Override
     public String toString() {

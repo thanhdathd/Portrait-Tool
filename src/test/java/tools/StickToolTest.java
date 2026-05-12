@@ -41,7 +41,7 @@ class StickToolTest {
         // And the canvas state should contain exactly one point at 100, 150
         assertEquals(1, appState.getCanvasState().getStickyPoints().size());
         SPoint point = appState.getCanvasState().getStickyPoints().get(0);
-        assertEquals(100, point.X);
-        assertEquals(150, point.Y);
+        assertEquals(100 - ui.canvas.ImageCanvas.CANVAS_PADDING, point.X);
+        assertEquals(150 - ui.canvas.ImageCanvas.CANVAS_PADDING, point.Y);
     }
 }

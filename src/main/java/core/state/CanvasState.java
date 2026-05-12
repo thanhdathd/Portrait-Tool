@@ -49,12 +49,16 @@ public class CanvasState {
 
     public void addStickyPoint(SPoint p) {
         stickyPoints.add(p);
-        pointChangeListener.accept(stickyPoints.size());
+        if (pointChangeListener != null) {
+            pointChangeListener.accept(stickyPoints.size());
+        }
     }
 
     public void removeStickyPoint(SPoint p) {
         stickyPoints.remove(p);
-        pointChangeListener.accept(stickyPoints.size());
+        if (pointChangeListener != null) {
+            pointChangeListener.accept(stickyPoints.size());
+        }
     }
     
     public void removeLastStickyPoint() {
