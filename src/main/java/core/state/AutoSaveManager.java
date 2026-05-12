@@ -182,7 +182,8 @@ public class AutoSaveManager {
                     appState.getHistoryManager().reconstructStacks(undo, redo, persistentUndo, persistentRedo);
                     appState.getHistoryManager().markAsSaved();
                     
-                    String finalTitle = imageFile.getAbsolutePath() + " - " + image.getWidth() + "x" + image.getHeight() + " (Restored)";
+                    java.awt.image.BufferedImage restoredImage = ui.getCanvas().getBackgroundImage();
+                    String finalTitle = imageFile.getAbsolutePath() + " - " + restoredImage.getWidth() + "x" + restoredImage.getHeight() + " (Restored)";
                     ui.onRecoveryFinished(finalTitle);
                 } catch (Exception ex) {
                     ui.onRecoveryError("Error during reconstruction: " + ex.getMessage());
