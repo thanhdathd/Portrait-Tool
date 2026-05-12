@@ -283,11 +283,13 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
         try {
             isRestoring = true;
             AutoSaveData data = loadAutoSave(file);
-            if (data == null || data.imagePath == null) return;
+            if (data == null || data.imagePath == null) {
+                isRestoring = false;
+                return;
+            }
             
             // 1. Determine which file to load (Shadow > Original)
             File fileToLoad = null;
-            boolean isFallback = false;
 
             if (data.shadowPath != null) {
                 File shadowFile = new File(data.shadowPath);
@@ -306,20 +308,22 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                             String currentHash = utils.HashUtils.calculateSHA256(originalFile);
                             if (!data.originalHash.equals(currentHash)) {
                                 ui.onRecoveryError("Recovery failed: Original image has been modified externally.");
+                                isRestoring = false;
                                 return;
                             }
                         } catch (Exception hashEx) {
                             ui.onRecoveryError("Integrity check failed: " + hashEx.getMessage());
+                            isRestoring = false;
                             return;
                         }
                     }
                     fileToLoad = originalFile;
-                    isFallback = true;
                 }
             }
 
             if (fileToLoad == null) {
                 ui.onRecoveryError("Base image not found. Shadow: " + data.shadowPath + ", Original: " + data.imagePath);
+                isRestoring = false;
                 return;
             }
 
