@@ -52,4 +52,17 @@ public class SPoint {
         this.dr = d;
         this.c = Color.BLACK;
     }
+
+    public SPoint copy() {
+        SPoint p = new SPoint();
+        p.id = this.id;
+        p.X = this.X;
+        p.Y = this.Y;
+        p.dr = this.dr;
+        p.c = this.c;
+        p.isCustomPlacement = this.isCustomPlacement;
+        p.customGap = this.customGap;
+        p.customAngle = this.customAngle;
+        return p;
+    }
 }

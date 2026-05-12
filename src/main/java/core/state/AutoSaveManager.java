@@ -215,10 +215,10 @@ public class AutoSaveManager {
             
             switch (d.type) {
                 case ADD_POINT:
-                    cmd = new StickCommand(appState.getCanvasState(), ui.getCanvas(), d.point);
+                    cmd = new StickCommand(appState.getCanvasState(), ui.getCanvas(), d.point.copy());
                     break;
                 case ADD_GRID:
-                    cmd = new GridCommand(appState.getCanvasState(), ui.getCanvas(), d.point);
+                    cmd = new GridCommand(appState.getCanvasState(), ui.getCanvas(), d.point.copy());
                     break;
                 case CROP:
                     // Recreate cropped image

@@ -16,17 +16,7 @@ public class GridCommand implements Command {
         this.canvasState = canvasState;
         this.canvas = canvas;
         this.gridData = gridData;
-        
-        // Take a snapshot of the grid point's state at issuance time
-        this.snapshot = new SPoint();
-        this.snapshot.id = gridData.id;
-        this.snapshot.X = gridData.X;
-        this.snapshot.Y = gridData.Y;
-        this.snapshot.dr = gridData.dr;
-        this.snapshot.c = gridData.c;
-        this.snapshot.isCustomPlacement = gridData.isCustomPlacement;
-        this.snapshot.customGap = gridData.customGap;
-        this.snapshot.customAngle = gridData.customAngle;
+        this.snapshot = gridData.copy();
     }
 
     @Override
