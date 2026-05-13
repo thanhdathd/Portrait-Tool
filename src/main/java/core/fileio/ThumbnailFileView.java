@@ -16,6 +16,7 @@ public class ThumbnailFileView extends FileView {
     private final JFileChooser chooser;
     private final Icon placeholderIcon;
     private Icon pdwIcon;
+    private Icon folderIcon;
 
     public ThumbnailFileView(JFileChooser chooser, int iconSize) {
         this.chooser = chooser;
@@ -60,10 +61,10 @@ public class ThumbnailFileView extends FileView {
         }
 
         if (f.isDirectory()) {
-            Icon dirIcon = UIManager.getIcon("FileView.directoryIcon");
-            Icon resized = createResizedIcon(dirIcon);
-            cache.put(path, resized);
-            return resized;
+            if (folderIcon == null) {
+                folderIcon = new FlatSVGIcon("icons/folder-ic.svg", iconSize, iconSize);
+            }
+            return folderIcon;
         }
 
         if (f.getName().toLowerCase().endsWith(".pdw")) {
@@ -155,7 +156,13 @@ public class ThumbnailFileView extends FileView {
     @Override
     public String getDescription(File f) { return null; }
     @Override
-    public String getName(File f) { return f.getName(); }
+    public String getName(File f) {
+        String name = f.getName();
+        if (name.toLowerCase().endsWith(".lnk")) {
+            return name.substring(0, name.length() - 4);
+        }
+        return name;
+    }
     @Override
     public String getTypeDescription(File f) { return null; }
 }

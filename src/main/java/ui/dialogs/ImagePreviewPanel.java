@@ -19,6 +19,10 @@ public class ImagePreviewPanel extends JPanel {
     private final JLabel pointsLabel;
     private final JLabel gridsLabel;
     private final JLabel scaleLabel;
+    
+    private final JPanel pointsRow;
+    private final JPanel gridsRow;
+    private final JPanel scaleRow;
 
     private static final int PREVIEW_MAX_SIZE = 220;
     private static final int NAME_MAX_CHARS_PER_LINE = 25;
@@ -39,60 +43,74 @@ public class ImagePreviewPanel extends JPanel {
         // Metadata panel
         JPanel metaPanel = new JPanel();
         metaPanel.setLayout(new BoxLayout(metaPanel, BoxLayout.Y_AXIS));
-        metaPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        metaPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         nameLabel = new JLabel();
         nameLabel.setFont(nameLabel.getFont().deriveFont(Font.BOLD, 14f));
         nameLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        nameLabel.setMaximumSize(new Dimension(180, Integer.MAX_VALUE));
+        nameLabel.setMaximumSize(new Dimension(200, Integer.MAX_VALUE));
 
         typeLabel = new JLabel();
         typeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        typeLabel.setFont(typeLabel.getFont().deriveFont(11f));
+        typeLabel.setFont(typeLabel.getFont().deriveFont(Font.ITALIC, 11f));
+        typeLabel.setForeground(Color.GRAY);
 
         sizeLabel = new JLabel();
-        sizeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        sizeLabel.setFont(sizeLabel.getFont().deriveFont(11f));
-
         modifiedLabel = new JLabel();
-        modifiedLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        modifiedLabel.setFont(modifiedLabel.getFont().deriveFont(11f));
-
         dimensionLabel = new JLabel();
-        dimensionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        dimensionLabel.setFont(dimensionLabel.getFont().deriveFont(11f));
-
         pointsLabel = new JLabel();
-        pointsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        pointsLabel.setFont(pointsLabel.getFont().deriveFont(11f));
-
         gridsLabel = new JLabel();
-        gridsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        gridsLabel.setFont(gridsLabel.getFont().deriveFont(11f));
-
         scaleLabel = new JLabel();
-        scaleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        scaleLabel.setFont(scaleLabel.getFont().deriveFont(11f));
 
+        // Helper to add rows
         metaPanel.add(nameLabel);
         metaPanel.add(Box.createVerticalStrut(5));
         metaPanel.add(typeLabel);
-        metaPanel.add(sizeLabel);
-        metaPanel.add(modifiedLabel);
-        metaPanel.add(dimensionLabel);
-        metaPanel.add(pointsLabel);
-        metaPanel.add(gridsLabel);
-        metaPanel.add(scaleLabel);
+        metaPanel.add(Box.createVerticalStrut(15));
+        
+        metaPanel.add(createRow("Size", sizeLabel));
+        metaPanel.add(createRow("Modified", modifiedLabel));
+        metaPanel.add(createRow("Dimension", dimensionLabel));
+        metaPanel.add(Box.createVerticalStrut(10));
+        
+        pointsRow = createRow("Points", pointsLabel);
+        gridsRow = createRow("Grids", gridsLabel);
+        scaleRow = createRow("Scale", scaleLabel);
+        
+        metaPanel.add(pointsRow);
+        metaPanel.add(gridsRow);
+        metaPanel.add(scaleRow);
+
+        // Hide project rows by default
+        pointsRow.setVisible(false);
+        gridsRow.setVisible(false);
+        scaleRow.setVisible(false);
 
         // Sắp xếp
         add(previewLabel);
-        add(Box.createVerticalStrut(60));
         add(metaPanel);
         add(Box.createVerticalGlue());
 
         // Lắng nghe sự kiện chọn file
         chooser.addPropertyChangeListener(JFileChooser.SELECTED_FILE_CHANGED_PROPERTY,
                 evt -> updatePreview(chooser.getSelectedFile()));
+    }
+
+    private JPanel createRow(String label, JLabel valueLabel) {
+        JPanel row = new JPanel(new BorderLayout());
+        row.setMaximumSize(new Dimension(210, 20));
+        row.setOpaque(false);
+        
+        JLabel keyLabel = new JLabel(label + ":");
+        keyLabel.setFont(keyLabel.getFont().deriveFont(Font.BOLD, 11f));
+        keyLabel.setForeground(new Color(100, 100, 100));
+        
+        valueLabel.setFont(valueLabel.getFont().deriveFont(11f));
+        valueLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        
+        row.add(keyLabel, BorderLayout.WEST);
+        row.add(valueLabel, BorderLayout.CENTER);
+        return row;
     }
 
     private void updatePreview(File file) {
@@ -180,25 +198,29 @@ public class ImagePreviewPanel extends JPanel {
                     if (isPdw) {
                         typeLabel.setText("<html><div style=\"color:#10acd3; width:180px; text-align:center;\"><b>PDW Portrait Data Work File</b></div></html>");
                     } else {
-                        typeLabel.setText("Type: " + ext + " Image");
+                        typeLabel.setText(ext + " Image");
                     }
-                    sizeLabel.setText("Size: " + formatFileSize(fileSize));
-                    modifiedLabel.setText("Modified: " + formatDate(lastModified));
+                    sizeLabel.setText(formatFileSize(fileSize));
+                    modifiedLabel.setText(formatDate(lastModified));
 
                     if (isPdw && pointsCount >= 0) {
-                        pointsLabel.setText("Points: " + pointsCount);
-                        gridsLabel.setText("Grids: " + gridsCount);
-                        scaleLabel.setText(String.format("Scale: %.2f", scaleVal));
+                        pointsLabel.setText(String.valueOf(pointsCount));
+                        gridsLabel.setText(String.valueOf(gridsCount));
+                        scaleLabel.setText(String.format("%.2f", scaleVal));
+                        
+                        pointsRow.setVisible(true);
+                        gridsRow.setVisible(true);
+                        scaleRow.setVisible(true);
                     } else {
-                        pointsLabel.setText("");
-                        gridsLabel.setText("");
-                        scaleLabel.setText("");
+                        pointsRow.setVisible(false);
+                        gridsRow.setVisible(false);
+                        scaleRow.setVisible(false);
                     }
 
                     if (imgWidth > 0 && imgHeight > 0) {
-                        dimensionLabel.setText("Dimension: " + imgWidth + " x " + imgHeight);
+                        dimensionLabel.setText(imgWidth + " x " + imgHeight);
                     } else {
-                        dimensionLabel.setText("Dimension: N/A");
+                        dimensionLabel.setText("N/A");
                     }
                 } catch (Exception ex) {
                     clearPreview();
@@ -214,9 +236,10 @@ public class ImagePreviewPanel extends JPanel {
         sizeLabel.setText("");
         modifiedLabel.setText("");
         dimensionLabel.setText("");
-        pointsLabel.setText("");
-        gridsLabel.setText("");
-        scaleLabel.setText("");
+        
+        pointsRow.setVisible(false);
+        gridsRow.setVisible(false);
+        scaleRow.setVisible(false);
     }
 
     private boolean isSupportedFile(File f) {

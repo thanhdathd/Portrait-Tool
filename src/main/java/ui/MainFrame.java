@@ -5,6 +5,7 @@ import config.ConfigManager;
 import core.actions.KeyAction;
 import core.fileio.GridOptionInjector;
 import core.fileio.ThumbnailFileView;
+import core.fileio.PreviewOptionInjector;
 import core.history.Command;
 import core.history.FilterCommand;
 import core.history.ResizeCommand;
@@ -651,6 +652,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         // ========== Preview Panel cải tiến ==========
         ImagePreviewPanel previewPanel = new ImagePreviewPanel(chooser);
         chooser.setAccessory(previewPanel);
+        PreviewOptionInjector.inject(chooser, previewPanel);
 
         return chooser;
     }
