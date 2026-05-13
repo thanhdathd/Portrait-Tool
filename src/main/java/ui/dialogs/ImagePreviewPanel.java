@@ -16,6 +16,9 @@ public class ImagePreviewPanel extends JPanel {
     private final JLabel sizeLabel;
     private final JLabel modifiedLabel;
     private final JLabel dimensionLabel;
+    private final JLabel pointsLabel;
+    private final JLabel gridsLabel;
+    private final JLabel scaleLabel;
 
     private static final int PREVIEW_MAX_SIZE = 220;
     private static final int NAME_MAX_CHARS_PER_LINE = 25;
@@ -59,12 +62,27 @@ public class ImagePreviewPanel extends JPanel {
         dimensionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         dimensionLabel.setFont(dimensionLabel.getFont().deriveFont(11f));
 
+        pointsLabel = new JLabel();
+        pointsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        pointsLabel.setFont(pointsLabel.getFont().deriveFont(11f));
+
+        gridsLabel = new JLabel();
+        gridsLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        gridsLabel.setFont(gridsLabel.getFont().deriveFont(11f));
+
+        scaleLabel = new JLabel();
+        scaleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        scaleLabel.setFont(scaleLabel.getFont().deriveFont(11f));
+
         metaPanel.add(nameLabel);
         metaPanel.add(Box.createVerticalStrut(5));
         metaPanel.add(typeLabel);
         metaPanel.add(sizeLabel);
         metaPanel.add(modifiedLabel);
         metaPanel.add(dimensionLabel);
+        metaPanel.add(pointsLabel);
+        metaPanel.add(gridsLabel);
+        metaPanel.add(scaleLabel);
 
         // Sắp xếp
         add(previewLabel);
@@ -78,7 +96,7 @@ public class ImagePreviewPanel extends JPanel {
     }
 
     private void updatePreview(File file) {
-        if (file == null || !isImageFile(file)) {
+        if (file == null || !isSupportedFile(file)) {
             clearPreview();
             return;
         }
@@ -87,18 +105,39 @@ public class ImagePreviewPanel extends JPanel {
             private int imgWidth, imgHeight;
             private long fileSize;
             private long lastModified;
+            private int pointsCount = -1;
+            private int gridsCount = -1;
+            private double scaleVal = -1;
+            private boolean isPdw = false;
 
             @Override
             protected BufferedImage doInBackground() {
                 fileSize = file.length();
                 lastModified = file.lastModified();
                 try {
-                    BufferedImage original = ImageIO.read(file);
+                    isPdw = file.getName().toLowerCase().endsWith(".pdw");
+                    BufferedImage original = null;
+                    
+                    if (isPdw) {
+                        try {
+                            core.state.ProjectFileManager.LoadedProject project = core.state.ProjectFileManager.loadProject(file);
+                            original = project.image;
+                            if (project.data != null) {
+                                pointsCount = project.data.stickyPoints != null ? project.data.stickyPoints.size() : 0;
+                                gridsCount = project.data.grids != null ? project.data.grids.size() : 0;
+                                scaleVal = project.data.scale;
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Failed to parse PDW for preview: " + e.getMessage());
+                        }
+                    } else {
+                        original = ImageIO.read(file);
+                    }
+
                     if (original != null) {
                         imgWidth = original.getWidth();
                         imgHeight = original.getHeight();
                         // Chỉ scale xuống nếu ảnh thực sự quá lớn (để tiết kiệm RAM)
-                        // KHÔNG cần phải scale chính xác bằng kích thước thumbnail
                         final int MAX_SAFE_RESOLUTION = 800;
 
                         if (imgWidth > MAX_SAFE_RESOLUTION || imgHeight > MAX_SAFE_RESOLUTION) {
@@ -107,7 +146,6 @@ public class ImagePreviewPanel extends JPanel {
                             int w = (int) (imgWidth * scale);
                             int h = (int) (imgHeight * scale);
 
-                            // Dùng hàm SCALE_SMOOTH mặc định của Java (chậm nhưng chất lượng hoàn hảo)
                             Image tempImg = original.getScaledInstance(w, h, Image.SCALE_SMOOTH);
                             BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
                             Graphics2D g2d = scaled.createGraphics();
@@ -116,7 +154,7 @@ public class ImagePreviewPanel extends JPanel {
                             return scaled;
                         }
 
-                        return original; // Nếu ảnh nhỏ hơn 800px, giữ nguyên
+                        return original; 
                     }
                 } catch (Exception e) {
                     // ignore
@@ -139,9 +177,23 @@ public class ImagePreviewPanel extends JPanel {
                     if (dot > 0) ext = file.getName().substring(dot + 1).toUpperCase();
 
                     nameLabel.setText( wrapFileName(file.getName(), NAME_MAX_CHARS_PER_LINE, NAME_MAX_LINES) );
-                    typeLabel.setText("Type: " + ext + " Image");
+                    if (isPdw) {
+                        typeLabel.setText("<html><div style=\"color:#10acd3; width:180px; text-align:center;\"><b>PDW Portrait Data Work File</b></div></html>");
+                    } else {
+                        typeLabel.setText("Type: " + ext + " Image");
+                    }
                     sizeLabel.setText("Size: " + formatFileSize(fileSize));
                     modifiedLabel.setText("Modified: " + formatDate(lastModified));
+
+                    if (isPdw && pointsCount >= 0) {
+                        pointsLabel.setText("Points: " + pointsCount);
+                        gridsLabel.setText("Grids: " + gridsCount);
+                        scaleLabel.setText(String.format("Scale: %.2f", scaleVal));
+                    } else {
+                        pointsLabel.setText("");
+                        gridsLabel.setText("");
+                        scaleLabel.setText("");
+                    }
 
                     if (imgWidth > 0 && imgHeight > 0) {
                         dimensionLabel.setText("Dimension: " + imgWidth + " x " + imgHeight);
@@ -162,13 +214,17 @@ public class ImagePreviewPanel extends JPanel {
         sizeLabel.setText("");
         modifiedLabel.setText("");
         dimensionLabel.setText("");
+        pointsLabel.setText("");
+        gridsLabel.setText("");
+        scaleLabel.setText("");
     }
 
-    private boolean isImageFile(File f) {
+    private boolean isSupportedFile(File f) {
         String name = f.getName().toLowerCase();
         return name.endsWith(".jpg") || name.endsWith(".jpeg") ||
                 name.endsWith(".png") || name.endsWith(".gif") ||
-                name.endsWith(".bmp") || name.endsWith(".webp");
+                name.endsWith(".bmp") || name.endsWith(".webp") ||
+                name.endsWith(".pdw");
     }
 
     private String formatFileSize(long size) {
