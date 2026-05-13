@@ -157,7 +157,12 @@ public class ThumbnailFileView extends FileView {
     public String getDescription(File f) { return null; }
     @Override
     public String getName(File f) {
-        String name = f.getName();
+        // Use FileSystemView to get the correct localized name (e.g., "Local Disk (C:)" instead of empty)
+        String name = chooser.getFileSystemView().getSystemDisplayName(f);
+        if (name == null || name.isEmpty()) {
+            name = f.getName();
+        }
+        
         if (name.toLowerCase().endsWith(".lnk")) {
             return name.substring(0, name.length() - 4);
         }
