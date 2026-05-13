@@ -7,6 +7,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
+import com.formdev.flatlaf.extras.FlatSVGIcon;
 
 public class ThumbnailFileView extends FileView {
     private final ConcurrentHashMap<String, Icon> cache = new ConcurrentHashMap<>();
@@ -14,6 +15,7 @@ public class ThumbnailFileView extends FileView {
     private int iconSize;
     private final JFileChooser chooser;
     private final Icon placeholderIcon;
+    private Icon pdwIcon;
 
     public ThumbnailFileView(JFileChooser chooser, int iconSize) {
         this.chooser = chooser;
@@ -62,6 +64,13 @@ public class ThumbnailFileView extends FileView {
             Icon resized = createResizedIcon(dirIcon);
             cache.put(path, resized);
             return resized;
+        }
+
+        if (f.getName().toLowerCase().endsWith(".pdw")) {
+            if (pdwIcon == null) {
+                pdwIcon = new FlatSVGIcon("icons/pdw_file.svg", iconSize, iconSize);
+            }
+            return pdwIcon;
         }
 
         if (!isImageFile(f)) {
