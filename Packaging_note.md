@@ -2,6 +2,25 @@
 
 Tài liệu này hướng dẫn cách đóng gói **PortraitTool** thành file cài đặt Windows (.msi) chuyên nghiệp bằng công cụ `jpackage` (đi kèm với JDK 14+).
 
+## 0. Chuẩn bị môi trường & Tài nguyên
+
+### A. Cài đặt WiX Toolset (Bắt buộc để tạo MSI)
+`jpackage` phụ thuộc vào WiX Toolset để tạo bộ cài đặt Windows.
+1.  Truy cập [github.com/wixtoolset/wix3/releases](https://github.com/wixtoolset/wix3/releases) và tải xuống bản **WiX Toolset v3.11** (file `wix311.exe` hoặc bản 3.x mới nhất).
+2.  Chạy file `.exe` để cài đặt.
+3.  **Quan trọng**: Sau khi cài đặt, bạn phải thêm thư mục `bin` của WiX (ví dụ: `C:\Program Files (x86)\WiX Toolset v3.11\bin`) vào biến môi trường **PATH** của hệ thống để `jpackage` có thể gọi được các lệnh `candle` và `light`.
+
+### B. Chuẩn bị file biểu tượng (.ico)
+Ứng dụng cần một file `.ico` chứa nhiều kích thước khác nhau để hiển thị đẹp trên mọi vùng của Windows (Taskbar, Desktop, Explorer).
+1.  Chuẩn bị một file ảnh logo dạng `.png` hình vuông (khuyên dùng 512x512 hoặc 1024x1024).
+2.  Truy cập trang [icoconverter.com](https://www.icoconverter.com/).
+3.  Upload file PNG của bạn.
+4.  Tại mục **Sizes**, hãy chọn **tất cả** các kích thước: `16, 32, 48, 64, 128, 256 pixels`.
+5.  Tại mục **Bit depth**, chọn `32 bits`.
+6.  Nhấn **Convert** và tải file về, đổi tên thành `pdw.ico` và đặt vào thư mục `resources/`.
+
+---
+
 ## 1. Build JAR Artifact bằng IntelliJ IDEA
 
 Trước khi đóng gói, bạn cần tạo file JAR "fat-jar" (chứa code và các thư viện liên quan) bằng IntelliJ:
@@ -64,7 +83,7 @@ jpackage --type msi `
   --verbose
 ```
 
-## 3. Giải thích các tham số chính
+## 4. Giải thích các tham số chính
 
 | Tham số | Ý nghĩa |
 |---------|---------|
@@ -87,6 +106,6 @@ jpackage --type msi `
 | `--win-dir-chooser` | Cho phép người dùng chọn thư mục cài đặt khi chạy Installer. |
 | `--verbose` | Hiển thị chi tiết quá trình đóng gói để dễ debug nếu có lỗi. |
 
-## 4. Sau khi đóng gói
+## 5. Sau khi đóng gói
 - File cài đặt sẽ xuất hiện trong thư mục `output/`.
 - Sau khi cài đặt, các file `.pdw` trên máy tính sẽ tự động hiển thị icon `pdw.ico` và mở bằng PortraitTool khi được click đúp.
