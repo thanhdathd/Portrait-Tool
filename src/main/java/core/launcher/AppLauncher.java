@@ -19,6 +19,11 @@ public class AppLauncher {
 
             MainFrame mainFrame = new MainFrame();
             mainFrame.setVisible(true);
+
+            // Handle file association (double click to open)
+            if (args.length > 0) {
+                mainFrame.openExternalFile(new java.io.File(args[0]));
+            }
         });
     }
 }

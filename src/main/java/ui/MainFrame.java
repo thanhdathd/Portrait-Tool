@@ -311,15 +311,11 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         }
         setTitle("Loading...");
         System.out.println("Loading... "+file.getAbsolutePath());
-        new ImageLoadWorker(file, image -> {
-            canvas.setBackgroundImage(image);
-            setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
-            appState.getHistoryManager().markAsSaved();
-            autoSaveManager.initShadowSession(file);
-        }, ex -> {
-            JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            setTitle("Portrait Tool Modernized");
-        }).execute();
+        if (file.getName().toLowerCase().endsWith(".pdw")) {
+            loadPDWProject(file);
+        } else {
+            loadImage(file);
+        }
     }
 
     private void updateWindowTitle() {
@@ -367,7 +363,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                     "Save");
             
             if (result == JOptionPane.YES_OPTION) {
-                performSaveFile();
+                performSavePDWFile();
                 if (appState.getEditState() != AppState.EditState.MODIFIED) {
                     autoSaveManager.cleanup();
                     autoSaveManager.stop();
@@ -397,22 +393,82 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     private void performOpenFile() {
         JFileChooser chooser = prepareChooserDialog();
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            java.io.File file = chooser.getSelectedFile();
-            System.out.println("user open file: " + file.getAbsolutePath());
-            setTitle("Portrait Tool Modernized - Loading...");
-            new workers.ImageLoadWorker(file, image -> {
-                canvas.setBackgroundImage(image);
-                appState.setFilePath(file.getAbsolutePath());
-                appState.setLastOpenedDir(file.getParent());
-                setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
-                appState.getHistoryManager().markAsSaved();
-                appState.getHistoryManager().clearAll();
-                appState.getCanvasState().clearAll();
-                autoSaveManager.initShadowSession(file);
-            }, ex -> {
-                JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                setTitle("Portrait Tool Modernized");
-            }).execute();
+            openExternalFile(chooser.getSelectedFile());
+        }
+    }
+
+    public void openExternalFile(java.io.File file) {
+        if (file == null || !file.exists()) return;
+        
+        if (file.getName().toLowerCase().endsWith(".pdw")) {
+            loadPDWProject(file);
+        } else {
+            loadImage(file);
+        }
+    }
+
+    private void loadImage(java.io.File file) {
+        System.out.println("user open image: " + file.getAbsolutePath());
+        setTitle("Portrait Tool Modernized - Loading...");
+        new workers.ImageLoadWorker(file, image -> {
+            canvas.setBackgroundImage(image);
+            appState.setFilePath(file.getAbsolutePath());
+            appState.setLastOpenedDir(file.getParent());
+            setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
+            appState.getHistoryManager().markAsSaved();
+            appState.getHistoryManager().clearAll();
+            appState.getCanvasState().clearAll();
+            autoSaveManager.initShadowSession(file);
+        }, ex -> {
+            JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            setTitle("Portrait Tool Modernized");
+        }).execute();
+    }
+
+    private void loadPDWProject(java.io.File file) {
+        System.out.println("user open project: " + file.getAbsolutePath());
+        setTitle("Portrait Tool Modernized - Loading Project...");
+        try {
+            core.state.ProjectFileManager.LoadedProject project = core.state.ProjectFileManager.loadProject(file);
+            
+            // 1. Set Image
+            canvas.setBackgroundImage(project.image);
+            
+            // 2. Restore State
+            appState.setFilePath(file.getAbsolutePath()); // We use the PDW path as current path
+            appState.setLastOpenedDir(file.getParent());
+            appState.setScale(project.data.scale);
+            appState.setGridSize(project.data.gridSize);
+            appState.setGridInCm(project.data.gridInCm);
+            if (project.data.brushColor != null) {
+                appState.setBrushColor(project.data.brushColor);
+            }
+            
+            // 3. Restore Points
+            appState.getCanvasState().clearAll();
+            if (project.data.stickyPoints != null) {
+                for (userpackage.SPoint p : project.data.stickyPoints) {
+                    appState.getCanvasState().addStickyPoint(p);
+                }
+            }
+            if (project.data.grids != null) {
+                for (userpackage.SPoint p : project.data.grids) {
+                    appState.getCanvasState().addGrid(p);
+                }
+            }
+            
+            // 4. Reset History
+            appState.getHistoryManager().clearAll();
+            appState.getHistoryManager().markAsSaved();
+            
+            setTitle(file.getAbsolutePath() + " (Project) - " + project.image.getWidth() + "x" + project.image.getHeight());
+            
+            // Notify AutoSave that we are clean
+            autoSaveManager.onManualSave();
+            
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Failed to load project: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            setTitle("Portrait Tool Modernized");
         }
     }
 
@@ -467,11 +523,52 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         }
     }
 
-    private void performSaveFile() {
+    private void performSavePDWFile() {
         JFileChooser chooser = prepareChooserDialog();
+        chooser.setDialogTitle("Save Project (.pdw)");
+        // Set PDW filter as default
+        for (javax.swing.filechooser.FileFilter ff : chooser.getChoosableFileFilters()) {
+            if (ff.getDescription().contains(".pdw")) {
+                chooser.setFileFilter(ff);
+                break;
+            }
+        }
+
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
-            if (!file.getName().endsWith(".png")) {
+            if (!file.getName().toLowerCase().endsWith(".pdw")) {
+                file = new java.io.File(file.getAbsolutePath() + ".pdw");
+            }
+            
+            try {
+                core.state.ProjectData data = new core.state.ProjectData();
+                data.scale = appState.getScale();
+                data.gridSize = appState.getGridSize();
+                data.gridInCm = appState.isGridInCm();
+                data.brushColor = appState.getBrushColor();
+                data.stickyPoints = new java.util.ArrayList<>(appState.getCanvasState().getStickyPoints());
+                data.grids = new java.util.ArrayList<>(appState.getCanvasState().getGrids());
+                
+                core.state.ProjectFileManager.saveProject(file, canvas.getBackgroundImage(), data);
+                
+                appState.setFilePath(file.getAbsolutePath());
+                appState.setEditState(AppState.EditState.SAVED);
+                appState.getHistoryManager().markAsSaved();
+                autoSaveManager.cleanupSession();
+                
+                JOptionPane.showMessageDialog(this, "Project saved successfully!");
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Failed to save project: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void performSavePNGFile() {
+        JFileChooser chooser = prepareChooserDialog();
+        chooser.setDialogTitle("Export as PNG");
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (!file.getName().toLowerCase().endsWith(".png")) {
                 file = new java.io.File(file.getAbsolutePath() + ".png");
             }
             new workers.SaveWorker(canvas, file, true, true).execute();
@@ -484,12 +581,19 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     private JFileChooser prepareChooserDialog() {
         JFileChooser chooser = new JFileChooser();
         chooser.setPreferredSize(new Dimension(900, 600));
+        FileNameExtensionFilter pdwFilter =
+                new FileNameExtensionFilter(
+                        "Portrait Project (.pdw)",
+                        "pdw"
+                );
         FileNameExtensionFilter imageFilter =
                 new FileNameExtensionFilter(
                         "Image Files (JPG, JPEG, PNG, GIF, BMP, WEBP)",
                         "jpg", "jpeg", "png", "gif", "bmp", "webp"
                 );
-        chooser.setFileFilter(imageFilter);
+        chooser.addChoosableFileFilter(pdwFilter);
+        chooser.addChoosableFileFilter(imageFilter);
+        chooser.setFileFilter(pdwFilter); // PDW as primary filter
 
 
         // Thumbnail view for file list
@@ -628,27 +732,38 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         JMenuItem openItem = new JMenuItem("Open");
         openItem.addActionListener(e -> attemptOpenFile());
         
-        JMenuItem saveItem = new JMenuItem("Save");
-        saveItem.addActionListener(e -> performSaveFile());
+        JMenuItem saveItem = new JMenuItem("Save Project (.pdw)");
+        saveItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        saveItem.setToolTipText("Save the full project for future editing");
+        saveItem.addActionListener(e -> performSavePDWFile());
         
-        JMenuItem exportPointData = new JMenuItem("Export Data");
+        JMenu exportMenu = new JMenu("Export");
+        
+        JMenuItem exportImageItem = new JMenuItem("Export as PNG...");
+        exportImageItem.addActionListener(e -> performSavePNGFile());
+
+        JMenuItem exportPointData = new JMenuItem("Export Point Data (Excel)");
         exportPointData.addActionListener(e -> performExportToExcel());
 
-        JMenuItem savePointOnly = new JMenuItem("Save Image with Points Only");
+        JMenuItem savePointOnly = new JMenuItem("Export Image with Points Only");
         savePointOnly.addActionListener(e -> performSaveTicksOnly());
 
-        savePointMapItem = new JMenuItem("Save Point Map");
+        savePointMapItem = new JMenuItem("Export Point Map Image");
         savePointMapItem.setEnabled(false);
         savePointMapItem.addActionListener(e -> performSavePointMap());
+
+        exportMenu.add(exportImageItem);
+        exportMenu.add(exportPointData);
+        exportMenu.add(savePointOnly);
+        exportMenu.add(savePointMapItem);
 
         JMenuItem exitItem = new JMenuItem("Exit");
         exitItem.addActionListener(e -> attemptClose());
 
         fileMenu.add(openItem);
         fileMenu.add(saveItem);
-        fileMenu.add(exportPointData);
-        fileMenu.add(savePointOnly);
-        fileMenu.add(savePointMapItem);
+        fileMenu.addSeparator();
+        fileMenu.add(exportMenu);
         fileMenu.addSeparator();
         fileMenu.add(exitItem);
 
@@ -832,6 +947,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     }
 
     private void initToolBar() {
+        Color lineColor = Color.decode("#0242a1");
         JToolBar toolBar = new JToolBar();
         toolBar.setOrientation(JToolBar.HORIZONTAL);
         
@@ -839,16 +955,20 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         JButton openBtn = createIconButton("icon3.png", "Open");
         openBtn.addActionListener(e -> attemptOpenFile());
         
-        JButton saveBtn = createIconButton("icon2.png", "Save");
-        saveBtn.addActionListener(e -> performSaveFile());
+        JButton saveBtn = createIconButton("icon2.png", "Save Project (.pdw)");
+        saveBtn.addActionListener(e -> performSavePDWFile());
         
+        JButton exportBtn = createSVGIconButton("ic_save_as_png.svg", "Export as PNG",20,20,lineColor);
+        exportBtn.addActionListener(e -> performSavePNGFile());
+
         JButton saveTicksBtn = createSVGIconButton(
-                "ic_spoint.svg", "Save Image with Points Only",
+                "ic_spoint.svg", "Export Image with Points Only",
                 24,24, Color.decode("#0e5299"));
         saveTicksBtn.addActionListener(e -> performSaveTicksOnly());
         
         toolBar.add(openBtn);
         toolBar.add(saveBtn);
+        toolBar.add(exportBtn);
         toolBar.add(saveTicksBtn);
         toolBar.addSeparator();
         
@@ -884,7 +1004,6 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         toolBar.addSeparator();
         
         // Mouse Modes
-        Color lineColor = Color.decode("#0242a1");
         JButton handBtn = createSVGIconButton("ic_hand.svg", "Hand tool", 24,24, lineColor);
         handBtn.addActionListener(e -> canvas.setActiveTool(tool.handTool));
 
@@ -949,13 +1068,13 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         toolBar.addSeparator();
         
         // Data & Settings
-        JButton exportBtn = createSVGIconButton("ic_export.svg", "Export Stick point to Excel",20,20,lineColor);
-        exportBtn.addActionListener(e -> performExportToExcel());
+        JButton exportExcelBtn = createSVGIconButton("ic_export.svg", "Export Stick point to Excel",20,20,lineColor);
+        exportExcelBtn.addActionListener(e -> performExportToExcel());
         
         JButton settingsBtn = createSVGIconButton("ic_setting.svg", "Settings", 20,20, Color.decode("#04aeda"));
         settingsBtn.addActionListener(e -> new ui.dialogs.SettingsDialog(this, appState).setVisible(true));
         
-        toolBar.add(exportBtn);
+        toolBar.add(exportExcelBtn);
         toolBar.add(settingsBtn);
         toolBar.addSeparator();
         

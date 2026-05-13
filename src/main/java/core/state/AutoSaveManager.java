@@ -468,25 +468,4 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
         }
         return list;
     }
-
-    /**
-     * Custom Adapter to save java.awt.Color as Hex string.
-     */
-    private static class ColorTypeAdapter extends TypeAdapter<Color> {
-        @Override
-        public void write(JsonWriter out, Color value) throws IOException {
-            if (value == null) {
-                out.nullValue();
-                return;
-            }
-            String hex = String.format("#%02X%02X%02X", value.getRed(), value.getGreen(), value.getBlue());
-            out.value(hex);
-        }
-
-        @Override
-        public Color read(JsonReader in) throws IOException {
-            String hex = in.nextString();
-            return Color.decode(hex);
-        }
-    }
 }
