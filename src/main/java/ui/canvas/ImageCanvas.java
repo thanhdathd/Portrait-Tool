@@ -24,8 +24,14 @@ import java.util.List;
 import userpackage.SPoint;
 import user.Enum.Direction;
 import workers.FilterWorker;
+import ui.MainFrame;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.dnd.*;
+import java.io.File;
+import java.util.ArrayList;
 
-public class ImageCanvas extends JPanel {
+public class ImageCanvas extends JPanel implements DropTargetListener {
 
     private final AppState appState;
     private Tool activeTool;
@@ -39,6 +45,8 @@ public class ImageCanvas extends JPanel {
     private boolean isShiftDown = false;
 
     private boolean isLivePreviewFilterActive = false;
+    private boolean isDraggingFile = false;
+    private MainFrame mainFrame;
     public static final int CANVAS_PADDING = 80;
 
     public ImageCanvas(AppState appState) {
@@ -56,6 +64,9 @@ public class ImageCanvas extends JPanel {
         setAutoscrolls(true); // Enables auto-scrolling for drag events
         setFocusTraversalKeysEnabled(false);
         enableInputMethods(false);
+        
+        // Initialize Drop Target
+        new DropTarget(this, this);
         
         // Mouse Listeners that delegate to the active tool
         this.addMouseListener(new MouseAdapter() {
@@ -270,6 +281,68 @@ public class ImageCanvas extends JPanel {
     }
 
     private Point lastPoint = new Point(-1,-1);
+    public void setMainFrame(MainFrame mainFrame) {
+        this.mainFrame = mainFrame;
+    }
+
+    @Override
+    public void dragEnter(DropTargetDragEvent dtde) {
+        if (dtde.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+            isDraggingFile = true;
+            repaint();
+        }
+    }
+
+    @Override
+    public void dragOver(DropTargetDragEvent dtde) {
+        // Just keep the flag true
+    }
+
+    @Override
+    public void dropActionChanged(DropTargetDragEvent dtde) {
+    }
+
+    @Override
+    public void dragExit(DropTargetEvent dte) {
+        isDraggingFile = false;
+        repaint();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public void drop(DropTargetDropEvent dtde) {
+        isDraggingFile = false;
+        repaint();
+        
+        try {
+            if (dtde.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                dtde.acceptDrop(DnDConstants.ACTION_COPY);
+                Transferable t = dtde.getTransferable();
+                List<File> files = (List<File>) t.getTransferData(DataFlavor.javaFileListFlavor);
+                
+                if (files != null && !files.isEmpty()) {
+                    if (files.size() > 1) {
+                        JOptionPane.showMessageDialog(this, 
+                            "Please drop only one file at a time.", 
+                            "Multiple Files Detected", 
+                            JOptionPane.WARNING_MESSAGE);
+                    } else {
+                        File file = files.get(0);
+                        if (mainFrame != null) {
+                            mainFrame.openExternalFile(file);
+                        }
+                    }
+                }
+                dtde.dropComplete(true);
+            } else {
+                dtde.rejectDrop();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            dtde.dropComplete(false);
+        }
+    }
+
     private void updateZoomWindow(java.awt.Point p) {
         if (zoomWindow != null && zoomWindow.isVisible() && backgroundImage != null) {
             // zoomWindow expects coordinates relative to the unscaled image
@@ -489,6 +562,40 @@ public class ImageCanvas extends JPanel {
         RenderUtils.drawGrids(g2d, zoom, appState, width, height);
 
         g2d.dispose();
+
+        // 5. Draw Drag & Drop Overlay (Absolute coordinates, after disposing transformed g2d)
+        if (isDraggingFile) {
+            Graphics2D gDrag = (Graphics2D) gp.create();
+            gDrag.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            
+            int w = getWidth();
+            int h = getHeight();
+            
+            // Draw semi-transparent overlay
+            gDrag.setColor(new Color(65, 105, 225, 50)); // Royal Blue with alpha
+            gDrag.fillRect(0, 0, w, h);
+            
+            // Draw dashed border
+            gDrag.setColor(new Color(65, 105, 225));
+            gDrag.setStroke(new BasicStroke(4, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, new float[]{10}, 0));
+            gDrag.drawRect(5, 5, w - 10, h - 10);
+            
+            // Draw Text
+            String text = "Drop to open file";
+            gDrag.setFont(new Font("SansSerif", Font.BOLD, 24));
+            FontMetrics fm = gDrag.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+            int textHeight = fm.getAscent();
+            
+            // Text shadow for readability
+            gDrag.setColor(new Color(255, 255, 255, 150));
+            gDrag.drawString(text, (w - textWidth) / 2 + 2, (h + textHeight) / 2 + 2);
+            
+            gDrag.setColor(new Color(65, 105, 225));
+            gDrag.drawString(text, (w - textWidth) / 2, (h + textHeight) / 2);
+            
+            gDrag.dispose();
+        }
     }
 
 

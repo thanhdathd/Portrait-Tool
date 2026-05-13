@@ -50,7 +50,7 @@ public class HistoryManager {
         }
     }
 
-    public void markAsSaved() {
+    public void markAsClean() {
         savedCommand = undoStack.peekLast();
         isSavedStateDropped = false;
         notifyListeners();

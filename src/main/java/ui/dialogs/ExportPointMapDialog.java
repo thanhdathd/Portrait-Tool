@@ -234,6 +234,7 @@ public class ExportPointMapDialog extends JDialog {
                 // Use a modified SavePointMapWorker that takes these parameters
                 SavePointMapWorker worker = new SavePointMapWorker(canvas, file, wCm, dpi);
                 worker.execute();
+                appState.setLastOpenedDir(file.getParent());
                 dispose();
             }
         } catch (Exception e) {

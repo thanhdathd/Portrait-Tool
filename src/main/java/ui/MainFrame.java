@@ -9,7 +9,6 @@ import core.history.Command;
 import core.history.FilterCommand;
 import core.history.ResizeCommand;
 import core.state.AppState;
-import core.state.CommandData;
 import tools.ToolManager;
 import ui.canvas.ImageCanvas;
 import ui.dialogs.FilterDialog;
@@ -18,9 +17,9 @@ import ui.dialogs.ResizeDialog;
 import ui.dialogs.ZoomWindow;
 import utils.ExcelExportUtils;
 import ui.components.SaveStatusIcon;
-import workers.ImageLoadWorker;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileFilter;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -46,6 +45,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     public MainFrame() {
         this.appState = new AppState();
         this.canvas = new ImageCanvas(appState);
+        this.canvas.setMainFrame(this);
         configManager = new ConfigManager();
         configManager.load(appState);
         tool = ToolManager.initializeTools();
@@ -332,7 +332,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     }
 
     private void attemptOpenFile() {
-        if (appState.getEditState() == AppState.EditState.MODIFIED) {
+        if (appState.getHistoryManager().isModified()) {
             int result = JOptionPane.showOptionDialog(this,
                     "Open new file will erase all current points. Are you sure to continue?",
                     "Unsaved Changes",
@@ -399,8 +399,44 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
 
     public void openExternalFile(java.io.File file) {
         if (file == null || !file.exists()) return;
-        
-        if (file.getName().toLowerCase().endsWith(".pdw")) {
+
+        String name = file.getName().toLowerCase();
+        boolean isProject = name.endsWith(".pdw");
+        boolean isImage = name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg");
+
+        if (!isProject && !isImage) {
+            JOptionPane.showMessageDialog(this,
+                    "Unsupported file format: " + file.getName() + "\nPlease open .pdw, .png, .jpg, or .jpeg files.",
+                    "Unsupported File",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Check for unsaved changes before opening new file
+        if (appState.getHistoryManager().isModified()) {
+            int result = JOptionPane.showOptionDialog(this,
+                    "You have unsaved changes. What would you like to do?",
+                    "Unsaved Changes",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    new String[]{"Save data", "Continue anyway", "Cancel"},
+                    "Save data");
+
+            if (result == 0) { // Save data
+                performSavePDWFile();
+                // If user cancelled save or it failed, history will still be modified
+                if (appState.getHistoryManager().isModified()) {
+                    return;
+                }
+            } else if (result == 1) { // Continue anyway
+                // Proceed without saving
+            } else { // Cancel or Close dialog
+                return;
+            }
+        }
+
+        if (isProject) {
             loadPDWProject(file);
         } else {
             loadImage(file);
@@ -415,8 +451,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             appState.setFilePath(file.getAbsolutePath());
             appState.setLastOpenedDir(file.getParent());
             setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
-            appState.getHistoryManager().markAsSaved();
             appState.getHistoryManager().clearAll();
+            appState.getHistoryManager().markAsClean();
             appState.getCanvasState().clearAll();
             autoSaveManager.initShadowSession(file);
         }, ex -> {
@@ -459,7 +495,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             
             // 4. Reset History
             appState.getHistoryManager().clearAll();
-            appState.getHistoryManager().markAsSaved();
+            appState.getHistoryManager().markAsClean();
             
             setTitle(file.getAbsolutePath() + " (Project) - " + project.image.getWidth() + "x" + project.image.getHeight());
             
@@ -550,10 +586,11 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 data.grids = new java.util.ArrayList<>(appState.getCanvasState().getGrids());
                 
                 core.state.ProjectFileManager.saveProject(file, canvas.getBackgroundImage(), data);
-                
+
+                appState.setLastOpenedDir(file.getParent());
                 appState.setFilePath(file.getAbsolutePath());
                 appState.setEditState(AppState.EditState.SAVED);
-                appState.getHistoryManager().markAsSaved();
+                appState.getHistoryManager().markAsClean();
                 autoSaveManager.cleanupSession();
                 
                 JOptionPane.showMessageDialog(this, "Project saved successfully!");
@@ -566,14 +603,20 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     private void performSavePNGFile() {
         JFileChooser chooser = prepareChooserDialog();
         chooser.setDialogTitle("Export as PNG");
+        for (FileFilter ff : chooser.getChoosableFileFilters()) {
+            if (ff.getDescription().contains("PNG")) {
+                chooser.setFileFilter(ff);
+                break;
+            }
+        }
         if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             java.io.File file = chooser.getSelectedFile();
             if (!file.getName().toLowerCase().endsWith(".png")) {
                 file = new java.io.File(file.getAbsolutePath() + ".png");
             }
             new workers.SaveWorker(canvas, file, true, true).execute();
-            appState.setEditState(AppState.EditState.SAVED);
-            appState.getHistoryManager().markAsSaved();
+            appState.setEditState(AppState.EditState.PARTLY_SAVED);
+            appState.setLastOpenedDir(file.getParent());
             autoSaveManager.cleanupSession();
         }
     }
@@ -588,12 +631,12 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 );
         FileNameExtensionFilter imageFilter =
                 new FileNameExtensionFilter(
-                        "Image Files (JPG, JPEG, PNG, GIF, BMP, WEBP)",
-                        "jpg", "jpeg", "png", "gif", "bmp", "webp"
+                        "Image Files (JPG, JPEG, PNG, GIF, BMP, WEBP, PDW)",
+                        "jpg", "jpeg", "png", "gif", "bmp", "webp", "pdw"
                 );
         chooser.addChoosableFileFilter(pdwFilter);
         chooser.addChoosableFileFilter(imageFilter);
-        chooser.setFileFilter(pdwFilter); // PDW as primary filter
+        chooser.setFileFilter(imageFilter); // PDW as primary filter
 
 
         // Thumbnail view for file list
@@ -622,6 +665,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             
             workers.SaveWorker worker = new workers.SaveWorker(canvas, file, false, false);
             worker.execute();
+            appState.setLastOpenedDir(file.getParent());
         }
     }
 
@@ -715,6 +759,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                         appState.getScale(),
                         outputStream
                 );
+                appState.setLastOpenedDir(file.getParent());
                 JOptionPane.showMessageDialog(this, "Successfully exported to " + file.getName(), "Export Complete", JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Failed to export: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

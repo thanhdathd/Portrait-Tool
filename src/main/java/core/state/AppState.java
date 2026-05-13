@@ -26,6 +26,7 @@ public class AppState {
 
     public enum EditState {
         SAVED,
+        PARTLY_SAVED,
         MODIFIED,
         NOT_SAVED
     }

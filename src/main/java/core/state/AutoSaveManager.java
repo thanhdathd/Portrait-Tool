@@ -2,9 +2,7 @@ package core.state;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.TypeAdapter;
 import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonWriter;
 import core.history.Command;
 import core.history.GridCommand;
 import core.history.StickCommand;
@@ -361,7 +359,7 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     Deque<CommandData> persistentRedo = new java.util.ArrayDeque<>(data.redoStack);
                     
                     appState.getHistoryManager().reconstructStacks(undo, redo, persistentUndo, persistentRedo);
-                    appState.getHistoryManager().markAsSaved();
+                    appState.getHistoryManager().markAsClean();
                     
                     java.awt.image.BufferedImage restoredImage = ui.getCanvas().getBackgroundImage();
                     String finalTitle = originalPath + " - " + restoredImage.getWidth() + "x" + restoredImage.getHeight() + " (Restored)";
