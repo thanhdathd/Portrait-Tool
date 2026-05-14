@@ -132,8 +132,16 @@ public class ConfigManager {
     private void setDefaults(AppState appState) {
         appState.setCurrentZoom(1.0f);
         appState.setBrushColor(Color.RED);
-        appState.setGridSize(40);
+        appState.setGridSize(3);
         // Các giá trị mặc định khác
+        appState.setGridInCm(true);
+        appState.setCmUnit(true);
+        appState.setScale(1.0f);
+        appState.setWindowX(100);
+        appState.setWindowY(100);
+        appState.setWindowWidth(1000);
+        appState.setWindowHeight(750);
+        appState.setStringZoomWindowBounds("200;200;500;500");
     }
 
     /**

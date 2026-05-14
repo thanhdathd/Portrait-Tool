@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=PortraitTool
+Exec=bin/PortraitTool
+Icon=PortraitTool
+Type=Application
+Categories=Graphics;Utility;
+Comment=App for measuring and constructing outline sketch for portrait drawing
+Terminal=false
+StartupNotify=true
+StartupWMClass=core-launcher-AppLauncher

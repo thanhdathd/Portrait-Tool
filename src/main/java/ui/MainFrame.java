@@ -28,6 +28,7 @@ import java.awt.event.KeyEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.net.URL;
 
 public class MainFrame extends JFrame implements core.state.RecoveryUI {
 
@@ -69,6 +70,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         });
         
         setTitle("Portrait Tool Modernized");
+        setIconImage(new FlatSVGIcon("icons/p_icon.svg").getImage());
         setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 //        setSize(1000, 750);
 //        setLocationRelativeTo(null); // Center on screen
