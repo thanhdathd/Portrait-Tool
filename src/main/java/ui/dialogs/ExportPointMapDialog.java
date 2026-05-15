@@ -30,14 +30,21 @@ public class ExportPointMapDialog extends JDialog {
     private JComboBox<String> formatComboBox;
     private JToggleButton lockBtn;
     private JLabel warningLabel;
+    private JLabel limitWarningLabel;
     private JCheckBox printTitleCb;
     private JTextField titleField;
     private JFileChooser chooser;
 
+    private JCheckBox previewCb;
+    private final Frame ownerFrame;
+
     private boolean isUpdating = false;
 
     public ExportPointMapDialog(Frame owner, ImageCanvas canvas, AppState appState, JFileChooser chooser) {
-        super(owner, "Export Point Map Settings", true);
+        super(owner, "Export Point Map Settings", false); // Non-modal
+        setAlwaysOnTop(true);
+        setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        this.ownerFrame = owner;
         this.canvas = canvas;
         this.appState = appState;
         this.chooser = chooser;
@@ -110,19 +117,31 @@ public class ExportPointMapDialog extends JDialog {
         gbc.gridx = 0; gbc.gridy = 2;
         gbc.gridwidth = 3;
         mainPanel.add(warningLabel, gbc);
+
+        // Limit Warning Label
+        limitWarningLabel = new JLabel("Preview clamped to safe bounds (10-120cm)");
+        limitWarningLabel.setForeground(Color.RED);
+        limitWarningLabel.setFont(limitWarningLabel.getFont().deriveFont(Font.BOLD | Font.ITALIC, 11f));
+        limitWarningLabel.setVisible(false);
+        
+        gbc.gridy = 3;
+        mainPanel.add(limitWarningLabel, gbc);
+        
+        // Reset gbc
+        gbc.gridwidth = 1;
         
         widthField.setEnabled(false);
         heightField.setEnabled(false);
 
         // Map Title Checkbox
-        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridx = 0; gbc.gridy = 4;
         gbc.gridwidth = 2;
         printTitleCb = new JCheckBox("Print Map Title");
         printTitleCb.setSelected(true);
         mainPanel.add(printTitleCb, gbc);
 
         // Map Title Field
-        gbc.gridy = 4;
+        gbc.gridy = 5;
         gbc.gridwidth = 1;
         mainPanel.add(new JLabel("Title:"), gbc);
         
@@ -137,7 +156,7 @@ public class ExportPointMapDialog extends JDialog {
         mainPanel.add(titleField, gbc);
 
         // 2. Format Selection Section
-        gbc.gridx = 0; gbc.gridy = 5;
+        gbc.gridx = 0; gbc.gridy = 6;
         mainPanel.add(new JLabel("Export Format:"), gbc);
 
         formatComboBox = new JComboBox<>(new String[]{"PDF Document (*.pdf)", "PNG Image (*.png)"});
@@ -145,7 +164,7 @@ public class ExportPointMapDialog extends JDialog {
         mainPanel.add(formatComboBox, gbc);
 
         // 3. DPI Section
-        gbc.gridx = 0; gbc.gridy = 6;
+        gbc.gridx = 0; gbc.gridy = 7;
         gbc.gridwidth = 2;
         mainPanel.add(new JLabel("Select Export DPI:"), gbc);
 
@@ -162,19 +181,26 @@ public class ExportPointMapDialog extends JDialog {
         dpiSlider.setLabelTable(labelTable);
         dpiSlider.setPaintLabels(true);
 
-        gbc.gridy = 7;
+        gbc.gridy = 8;
         mainPanel.add(dpiSlider, gbc);
 
         dpiLabel = new JLabel("Current DPI: 300");
         dpiLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        gbc.gridy = 8;
+        gbc.gridy = 9;
         mainPanel.add(dpiLabel, gbc);
 
         // 4. Result Info Section
         resultSizeLabel = new JLabel("Result size: 0 x 0 px");
         resultSizeLabel.setFont(new Font("SansSerif", Font.ITALIC, 11));
-        gbc.gridy = 9;
+        gbc.gridy = 10;
         mainPanel.add(resultSizeLabel, gbc);
+
+        // 5. Live Preview Checkbox
+        previewCb = new JCheckBox("Live Preview on Canvas");
+        previewCb.setSelected(false);
+        gbc.gridy = 11;
+        gbc.gridwidth = 2;
+        mainPanel.add(previewCb, gbc);
 
         add(mainPanel, BorderLayout.CENTER);
 
@@ -204,15 +230,21 @@ public class ExportPointMapDialog extends JDialog {
 
     private void setupListeners() {
         widthField.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { updateHeightFromWidth(); }
-            public void removeUpdate(DocumentEvent e) { updateHeightFromWidth(); }
-            public void changedUpdate(DocumentEvent e) { updateHeightFromWidth(); }
+            public void insertUpdate(DocumentEvent e) { updateHeightFromWidth(); updatePreviewState(); }
+            public void removeUpdate(DocumentEvent e) { updateHeightFromWidth(); updatePreviewState(); }
+            public void changedUpdate(DocumentEvent e) { updateHeightFromWidth(); updatePreviewState(); }
         });
 
         heightField.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { updateWidthFromHeight(); }
-            public void removeUpdate(DocumentEvent e) { updateWidthFromHeight(); }
-            public void changedUpdate(DocumentEvent e) { updateWidthFromHeight(); }
+            public void insertUpdate(DocumentEvent e) { updateWidthFromHeight(); updatePreviewState(); }
+            public void removeUpdate(DocumentEvent e) { updateWidthFromHeight(); updatePreviewState(); }
+            public void changedUpdate(DocumentEvent e) { updateWidthFromHeight(); updatePreviewState(); }
+        });
+        
+        titleField.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { updatePreviewState(); }
+            public void removeUpdate(DocumentEvent e) { updatePreviewState(); }
+            public void changedUpdate(DocumentEvent e) { updatePreviewState(); }
         });
 
         dpiSlider.addChangeListener(e -> {
@@ -233,9 +265,66 @@ public class ExportPointMapDialog extends JDialog {
                 widthField.setText(strWcm);
                 updateHeightFromWidth();
             }
+            updatePreviewState();
         });
 
-        printTitleCb.addActionListener(e -> titleField.setEnabled(printTitleCb.isSelected()));
+        printTitleCb.addActionListener(e -> {
+            titleField.setEnabled(printTitleCb.isSelected());
+            updatePreviewState();
+        });
+        
+        previewCb.addActionListener(e -> updatePreviewState());
+        
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowOpened(java.awt.event.WindowEvent e) {
+                if (ownerFrame instanceof ui.MainFrame) {
+                    ((ui.MainFrame) ownerFrame).setExportFocusMode(true);
+                }
+            }
+            @Override
+            public void windowClosed(java.awt.event.WindowEvent e) {
+                if (ownerFrame instanceof ui.MainFrame) {
+                    ((ui.MainFrame) ownerFrame).setExportFocusMode(false);
+                }
+                appState.getCanvasState().setExportPreview(false, 1.0, null);
+                canvas.repaint();
+            }
+        });
+    }
+
+    private void updatePreviewState() {
+        if (previewCb != null && previewCb.isSelected()) {
+            try {
+                double wCm = Double.parseDouble(widthField.getText());
+                double hCm = Double.parseDouble(heightField.getText());
+                
+                // Clamping for preview
+                boolean isClamped = false;
+                if (wCm < 10.0) { wCm = 10.0; hCm = wCm / originalAspectRatio; isClamped = true; }
+                if (hCm < 10.0) { hCm = 10.0; wCm = hCm * originalAspectRatio; isClamped = true; }
+                if (wCm > 120.0) { wCm = 120.0; hCm = wCm / originalAspectRatio; isClamped = true; }
+                if (hCm > 120.0) { hCm = 120.0; wCm = hCm * originalAspectRatio; isClamped = true; }
+                
+                if (isClamped && limitWarningLabel != null) {
+                    limitWarningLabel.setText(String.format(Locale.US, "Preview clamped to %.1fx%.1f cm (10-120cm limit)", wCm, hCm));
+                    limitWarningLabel.setVisible(true);
+                } else if (limitWarningLabel != null) {
+                    limitWarningLabel.setVisible(false);
+                }
+
+                double effectiveScale = wCm / originalWidth;
+                String title = printTitleCb.isSelected() ? titleField.getText() : null;
+                appState.getCanvasState().setExportPreview(true, effectiveScale, title);
+            } catch (Exception e) {
+                if (limitWarningLabel != null) limitWarningLabel.setVisible(false);
+                appState.getCanvasState().setExportPreview(false, 1.0, null);
+            }
+        } else {
+            if (limitWarningLabel != null) limitWarningLabel.setVisible(false);
+            appState.getCanvasState().setExportPreview(false, 1.0, null);
+        }
+        canvas.repaint();
     }
 
     private void updateHeightFromWidth() {
@@ -286,6 +375,15 @@ public class ExportPointMapDialog extends JDialog {
     private void performExport() {
         try {
             double wCm = Double.parseDouble(widthField.getText());
+            double hCm = Double.parseDouble(heightField.getText());
+            
+            if (wCm < 10.0 || wCm > 120.0 || hCm < 10.0 || hCm > 120.0) {
+                JOptionPane.showMessageDialog(this, 
+                        "Paper width and height must be between 10 cm and 120 cm.", 
+                        "Invalid Size", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
             int dpi = dpiSlider.getValue();
 
             // 1. Determine user's selected format

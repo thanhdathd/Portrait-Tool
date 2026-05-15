@@ -526,10 +526,16 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         g2d.scale(zoom, zoom);
         
         // 1. Draw Background Image
-        if (appState.isShowPointMap()) {
+        boolean showPointMap = appState.isShowPointMap() || appState.getCanvasState().isExportPreviewActive();
+        if (showPointMap) {
             int width = backgroundImage != null ? backgroundImage.getWidth() : getWidth();
             int height = backgroundImage != null ? backgroundImage.getHeight() : getHeight();
-            RenderUtils.drawPointMap(g2d, appState.getCanvasState().getStickyPoints(), appState.getScale(), width, height);
+            
+            float scaleToUse = appState.getScale();
+            if (appState.getCanvasState().isExportPreviewActive()) {
+                scaleToUse = (float) appState.getCanvasState().getExportPreviewScale();
+            }
+            RenderUtils.drawPointMap(g2d, appState.getCanvasState().getStickyPoints(), scaleToUse, width, height);
         } else if (backgroundImage != null) {
             g2d.drawImage(backgroundImage, 0, 0, this);
         }
@@ -554,12 +560,21 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         }
         
         // 3. Draw Sticky Points
-        RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels);
+        if (!appState.getCanvasState().isExportPreviewActive()) {
+            RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels);
+        }
         
         // 4. Draw Grids
         int width = backgroundImage != null ? backgroundImage.getWidth() : (this.getWidth() > 0 ? this.getWidth() : 800);
         int height = backgroundImage != null ? backgroundImage.getHeight() : (this.getHeight() > 0 ? this.getHeight() : 600);
         RenderUtils.drawGrids(g2d, zoom, appState, width, height);
+
+        // ==========================================
+        // 5. Draw Live Preview Calibration Markers
+        // ==========================================
+        if (appState.getCanvasState().isExportPreviewActive()) {
+            drawLivePreviewMarkers(g2d, width, height);
+        }
 
         g2d.dispose();
 
@@ -598,7 +613,65 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         }
     }
 
+    private void drawLivePreviewMarkers(Graphics2D g2d, int width, int height) {
+        double effScale = appState.getCanvasState().getExportPreviewScale();
+        String title = appState.getCanvasState().getExportPreviewTitle();
+        float pxPerCm = (float) (1.0 / effScale); // Pixel count equivalent to 1cm on the original unscaled image
+        
+        g2d.setColor(Color.BLACK);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        
+        // 1. Corner Markers (1cm stroke, 4cm arm)
+        int strokeWidthPx = Math.round(1.0f * pxPerCm);
+        int armLengthPx = Math.round(4.0f * pxPerCm);
+        
+        // Top-Left
+        g2d.fillRect(0, 0, armLengthPx, strokeWidthPx);
+        g2d.fillRect(0, 0, strokeWidthPx, armLengthPx);
+        // Top-Right
+        g2d.fillRect(width - armLengthPx, 0, armLengthPx, strokeWidthPx);
+        g2d.fillRect(width - strokeWidthPx, 0, strokeWidthPx, armLengthPx);
+        // Bottom-Left
+        g2d.fillRect(0, height - strokeWidthPx, armLengthPx, strokeWidthPx);
+        g2d.fillRect(0, height - armLengthPx, strokeWidthPx, armLengthPx);
+        // Bottom-Right
+        g2d.fillRect(width - armLengthPx, height - strokeWidthPx, armLengthPx, strokeWidthPx);
+        g2d.fillRect(width - strokeWidthPx, height - armLengthPx, strokeWidthPx, armLengthPx);
 
+        // 2. Calibration Square (2x2 cm)
+        int squareSizePx = Math.round(2.0f * pxPerCm);
+        int squareOffsetPx = Math.round(5.0f * pxPerCm);
+        int sqX = squareOffsetPx;
+        int sqY = height - squareOffsetPx - squareSizePx;
+        
+        Stroke oldStroke = g2d.getStroke();
+        g2d.setStroke(new BasicStroke(0.05f * pxPerCm)); // ~0.5mm
+        g2d.drawRect(sqX, sqY, squareSizePx, squareSizePx);
+        
+        int midX = sqX + squareSizePx / 2;
+        int midY = sqY + squareSizePx / 2;
+        int tickLen = Math.round(0.2f * pxPerCm);
+        g2d.drawLine(midX, sqY - tickLen/2, midX, sqY + tickLen/2);
+        g2d.drawLine(midX, sqY + squareSizePx - tickLen/2, midX, sqY + squareSizePx + tickLen/2);
+        g2d.drawLine(sqX - tickLen/2, midY, sqX + tickLen/2, midY);
+        g2d.drawLine(sqX + squareSizePx - tickLen/2, midY, sqX + squareSizePx + tickLen/2, midY);
+        g2d.setStroke(oldStroke);
+
+        // Label "2x2 cm" (Physical size: 12pt = 12/72 * 2.54 cm)
+        int fontSizePx = Math.round((12.0f / 72.0f * 2.54f) * pxPerCm);
+        g2d.setFont(new Font("Arial", Font.PLAIN, fontSizePx));
+        int labelX = sqX + squareSizePx + Math.round(0.2f * pxPerCm);
+        int labelY = sqY + squareSizePx;
+        g2d.drawString("2x2 cm", labelX, labelY);
+
+        // 3. Map Title
+        if (title != null && !title.trim().isEmpty()) {
+            g2d.setFont(new Font("Monospaced", Font.PLAIN, fontSizePx));
+            int titleX = armLengthPx + Math.round(0.5f * pxPerCm);
+            int titleY = height - Math.round(0.5f * pxPerCm);
+            g2d.drawString(title, titleX, titleY);
+        }
+    }
 
     public AppState getAppState() {
         return appState;

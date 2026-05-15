@@ -84,4 +84,19 @@ public class CanvasState {
         grids.clear();
         pointChangeListener.accept(stickyPoints.size());
     }
+
+    // --- Export Live Preview Properties ---
+    private boolean exportPreviewActive = false;
+    private double exportPreviewScale = 1.0;
+    private String exportPreviewTitle = "";
+    
+    public void setExportPreview(boolean active, double scale, String title) {
+        this.exportPreviewActive = active;
+        this.exportPreviewScale = scale;
+        this.exportPreviewTitle = title;
+    }
+    
+    public boolean isExportPreviewActive() { return exportPreviewActive; }
+    public double getExportPreviewScale() { return exportPreviewScale; }
+    public String getExportPreviewTitle() { return exportPreviewTitle; }
 }

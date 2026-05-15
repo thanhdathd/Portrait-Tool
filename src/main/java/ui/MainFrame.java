@@ -43,6 +43,34 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     private SaveStatusIcon saveStatusIcon;
     private final core.state.AutoSaveManager autoSaveManager;
     private JProgressBar recoveryProgressBar;
+    private final java.util.List<JComponent> disableInExportMode = new java.util.ArrayList<>();
+    private boolean exportFocusMode = false;
+
+    public void setExportFocusMode(boolean active) {
+        this.exportFocusMode = active;
+        for (JComponent c : disableInExportMode) {
+            c.setEnabled(!active);
+        }
+        if (active) {
+            tools.Tool current = canvas.getActiveTool();
+            if (!(current instanceof tools.HandTool) && !(current instanceof tools.ZoomCanvasTool)) {
+                canvas.setActiveTool(tool.handTool);
+            }
+        } else {
+            // Restore Undo/Redo states
+            for (JComponent c : disableInExportMode) {
+                if (c instanceof JButton btn && "Undo".equals(btn.getToolTipText())) {
+                    btn.setEnabled(appState.getHistoryManager().canUndo());
+                } else if (c instanceof JButton btn && "Redo".equals(btn.getToolTipText())) {
+                    btn.setEnabled(appState.getHistoryManager().canRedo());
+                } else if (c instanceof JMenuItem item && "Undo".equals(item.getText())) {
+                    item.setEnabled(appState.getHistoryManager().canUndo());
+                } else if (c instanceof JMenuItem item && "Redo".equals(item.getText())) {
+                    item.setEnabled(appState.getHistoryManager().canRedo());
+                }
+            }
+        }
+    }
 
     public MainFrame() {
         this.appState = new AppState();
@@ -190,8 +218,10 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         contextMenu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
             @Override
             public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
-                undoItem.setEnabled(appState.getHistoryManager().canUndo());
-                redoItem.setEnabled(appState.getHistoryManager().canRedo());
+                if (!exportFocusMode) {
+                    undoItem.setEnabled(appState.getHistoryManager().canUndo());
+                    redoItem.setEnabled(appState.getHistoryManager().canRedo());
+                }
             }
 
             @Override
@@ -202,6 +232,17 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         });
 
         canvas.setComponentPopupMenu(contextMenu);
+        
+        disableInExportMode.add(undoItem);
+        disableInExportMode.add(redoItem);
+        disableInExportMode.add(resizeItem);
+        disableInExportMode.add(cropItem);
+        disableInExportMode.add(manageProfilesItem);
+        disableInExportMode.add(rot90cw);
+        disableInExportMode.add(rot90ccw);
+        disableInExportMode.add(rot180);
+        disableInExportMode.add(flipH);
+        disableInExportMode.add(flipV);
     }
 
     private void setupGlobalShortcuts() {
@@ -214,6 +255,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
 
         // 1. Phím tắt UNDO (Ctrl + Z)
         keyBindingHelper(im,am,KeyEvent.VK_Z, shortcutMask, "UndoAction", e -> {
+            if (exportFocusMode) return;
             System.out.println("Thực hiện Undo!");
             if (appState.getHistoryManager().canUndo()) {
                 appState.getHistoryManager().undo();
@@ -223,6 +265,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
 
         // 2. Phím tắt REDO (Ctrl + Y)
         keyBindingHelper(im,am,KeyEvent.VK_Y, shortcutMask, "RedoAction", e -> {
+            if (exportFocusMode) return;
             System.out.println("Thực hiện Redo!");
             if(appState.getHistoryManager().canRedo()) {
                 appState.getHistoryManager().redo();
@@ -236,15 +279,16 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         });
 
         keyBindingHelper(im,am, new int[]{KeyEvent.VK_C, KeyEvent.VK_S}, 0, "StickToolAction", e -> {
-            canvas.setActiveTool(tool.stickTool);
+            if (!exportFocusMode) canvas.setActiveTool(tool.stickTool);
         });
 
         keyBindingHelper(im,am,new int[]{KeyEvent.VK_V,KeyEvent.VK_G}, 0, "GridToolAction", e -> {
-            canvas.setActiveTool(tool.gridTool);
+            if (!exportFocusMode) canvas.setActiveTool(tool.gridTool);
         });
 
         // Phím 'P' cho Point/Pen Tool
         keyBindingHelper(im,am, new int[]{KeyEvent.VK_P, KeyEvent.VK_B}, 0, "PointToolActionP", e -> {
+            if (exportFocusMode) return;
             tool.p2pTool.clearCompletedLines();
             canvas.setActiveTool(tool.p2pTool);
         });
@@ -847,6 +891,13 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             new ui.dialogs.SettingsDialog(this, appState).setVisible(true);
         });
         editMenu.add(settingsItem);
+        
+        disableInExportMode.add(undoItem);
+        disableInExportMode.add(redoItem);
+        disableInExportMode.add(openItem);
+        disableInExportMode.add(exportImageItem);
+        disableInExportMode.add(exportPointData);
+        disableInExportMode.add(savePointOnly);
 
         // View Menu
         JMenu viewMenu = new JMenu("View");
@@ -932,6 +983,9 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         menuBar.add(helpMenu);
 
         setJMenuBar(menuBar);
+        
+        disableInExportMode.add(imageMenu);
+        disableInExportMode.add(settingsItem);
     }
 
     private void openZoomWindow() {
@@ -1044,8 +1098,10 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         
         // Listen to history changes
         appState.getHistoryManager().addListener((canUndo, canRedo, isModified) -> {
-            undoBtn.setEnabled(canUndo);
-            redoBtn.setEnabled(canRedo);
+            if (!exportFocusMode) {
+                undoBtn.setEnabled(canUndo);
+                redoBtn.setEnabled(canRedo);
+            }
         });
         
         toolBar.add(undoBtn);
@@ -1098,10 +1154,17 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             if ("activeTool".equals(evt.getPropertyName())) {
                 tools.Tool activeTool = canvas.getActiveTool();
                 handBtn.setEnabled(!(activeTool instanceof tools.HandTool));
-                stickBtn.setEnabled(!(activeTool instanceof tools.StickTool));
-                p2pBtn.setEnabled(!(activeTool instanceof tools.P2PTool));
-                gridBtn.setEnabled(!(activeTool instanceof tools.GridTool));
-                cropBtn.setEnabled(!(activeTool instanceof tools.CropTool));
+                if (exportFocusMode) {
+                    stickBtn.setEnabled(false);
+                    p2pBtn.setEnabled(false);
+                    gridBtn.setEnabled(false);
+                    cropBtn.setEnabled(false);
+                } else {
+                    stickBtn.setEnabled(!(activeTool instanceof tools.StickTool));
+                    p2pBtn.setEnabled(!(activeTool instanceof tools.P2PTool));
+                    gridBtn.setEnabled(!(activeTool instanceof tools.GridTool));
+                    cropBtn.setEnabled(!(activeTool instanceof tools.CropTool));
+                }
                 // Zoom is toggleable, so always enabled
             }
         });
@@ -1151,6 +1214,20 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         toolBar.add(Box.createHorizontalStrut(10));
 
         add(toolBar, BorderLayout.NORTH);
+        
+        disableInExportMode.add(stickBtn);
+        disableInExportMode.add(p2pBtn);
+        disableInExportMode.add(gridBtn);
+        disableInExportMode.add(cropBtn);
+        disableInExportMode.add(undoBtn);
+        disableInExportMode.add(redoBtn);
+        disableInExportMode.add(openBtn);
+        disableInExportMode.add(exportBtn);
+        disableInExportMode.add(saveTicksBtn);
+        disableInExportMode.add(colorBtn);
+        disableInExportMode.add(saveBtn);
+        disableInExportMode.add(exportExcelBtn);
+        disableInExportMode.add(settingsBtn);
     }
 
     private void initColorPlate(JToolBar toolBar, JButton colorBtn) {
