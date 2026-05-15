@@ -13,6 +13,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.Hashtable;
 import java.util.Locale;
+import com.formdev.flatlaf.extras.FlatSVGIcon;
 
 public class ExportPointMapDialog extends JDialog {
     private final ImageCanvas canvas;
@@ -27,7 +28,8 @@ public class ExportPointMapDialog extends JDialog {
     private JLabel dpiLabel;
     private JLabel resultSizeLabel;
     private JComboBox<String> formatComboBox;
-    private JCheckBox overrideScaleCb;
+    private JToggleButton lockBtn;
+    private JLabel warningLabel;
     private JCheckBox printTitleCb;
     private JTextField titleField;
     private JFileChooser chooser;
@@ -79,19 +81,42 @@ public class ExportPointMapDialog extends JDialog {
         gbc.gridx = 1;
         mainPanel.add(heightField, gbc);
 
-        // Override Scale
+        // Lock Button
+        lockBtn = new JToggleButton(new FlatSVGIcon("icons/ic_lock.svg", 16, 16));
+        lockBtn.setSelectedIcon(new FlatSVGIcon("icons/ic_unlock.svg", 16, 16));
+        lockBtn.setToolTipText("Unlock to set custom size");
+        lockBtn.setPreferredSize(new Dimension(30, 30));
+        lockBtn.setContentAreaFilled(false);
+        lockBtn.setBorderPainted(false);
+        lockBtn.setFocusPainted(false);
+        lockBtn.setOpaque(false);
+        lockBtn.setSelected(false); // Default: locked
+
+        gbc.gridx = 2; gbc.gridy = 0;
+        gbc.gridheight = 2;
+        gbc.fill = GridBagConstraints.VERTICAL;
+        mainPanel.add(lockBtn, gbc);
+
+        // Reset gbc
+        gbc.gridheight = 1;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Warning Label
+        warningLabel = new JLabel("Warning: Custom size breaks physical 1:1 scale");
+        warningLabel.setForeground(Color.RED);
+        warningLabel.setFont(warningLabel.getFont().deriveFont(Font.ITALIC, 11f));
+        warningLabel.setVisible(false); // Hidden when locked
+        
         gbc.gridx = 0; gbc.gridy = 2;
-        gbc.gridwidth = 2;
-        overrideScaleCb = new JCheckBox("Custom size (Warning: Breaks physical 1:1 scale)");
-        overrideScaleCb.setForeground(Color.RED);
-        overrideScaleCb.setSelected(false);
-        mainPanel.add(overrideScaleCb, gbc);
+        gbc.gridwidth = 3;
+        mainPanel.add(warningLabel, gbc);
         
         widthField.setEnabled(false);
         heightField.setEnabled(false);
 
         // Map Title Checkbox
-        gbc.gridy = 3;
+        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridwidth = 2;
         printTitleCb = new JCheckBox("Print Map Title");
         printTitleCb.setSelected(true);
         mainPanel.add(printTitleCb, gbc);
@@ -195,11 +220,12 @@ public class ExportPointMapDialog extends JDialog {
             updateInfo();
         });
 
-        overrideScaleCb.addActionListener(e -> {
-            boolean custom = overrideScaleCb.isSelected();
-            widthField.setEnabled(custom);
-            heightField.setEnabled(custom);
-            if (!custom) {
+        lockBtn.addActionListener(e -> {
+            boolean unlocked = lockBtn.isSelected();
+            widthField.setEnabled(unlocked);
+            heightField.setEnabled(unlocked);
+            warningLabel.setVisible(unlocked);
+            if (!unlocked) {
                 // reset to strictly locked scale
                 double initialWidthCm = originalWidth * appState.getScale();
                 double rW = round(initialWidthCm);
