@@ -26,7 +26,10 @@ public class ExportPointMapDialog extends JDialog {
     private JSlider dpiSlider;
     private JLabel dpiLabel;
     private JLabel resultSizeLabel;
-    private JComboBox<String> formatComboBox; // NEW: JComboBox for format
+    private JComboBox<String> formatComboBox;
+    private JCheckBox overrideScaleCb;
+    private JCheckBox printTitleCb;
+    private JTextField titleField;
     private JFileChooser chooser;
 
     private boolean isUpdating = false;
@@ -48,7 +51,7 @@ public class ExportPointMapDialog extends JDialog {
         this.originalAspectRatio = (double) originalWidth / originalHeight;
 
         initComponents();
-        setSize(400, 450); // Increased height slightly to accommodate the new combobox
+        setSize(420, 550); // Increased height to accommodate new fields
         setLocationRelativeTo(owner);
     }
 
@@ -76,8 +79,40 @@ public class ExportPointMapDialog extends JDialog {
         gbc.gridx = 1;
         mainPanel.add(heightField, gbc);
 
-        // 2. Format Selection Section (NEW)
+        // Override Scale
         gbc.gridx = 0; gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        overrideScaleCb = new JCheckBox("Custom size (Warning: Breaks physical 1:1 scale)");
+        overrideScaleCb.setForeground(Color.RED);
+        overrideScaleCb.setSelected(false);
+        mainPanel.add(overrideScaleCb, gbc);
+        
+        widthField.setEnabled(false);
+        heightField.setEnabled(false);
+
+        // Map Title Checkbox
+        gbc.gridy = 3;
+        printTitleCb = new JCheckBox("Print Map Title");
+        printTitleCb.setSelected(true);
+        mainPanel.add(printTitleCb, gbc);
+
+        // Map Title Field
+        gbc.gridy = 4;
+        gbc.gridwidth = 1;
+        mainPanel.add(new JLabel("Title:"), gbc);
+        
+        titleField = new JTextField();
+        String currentFile = appState.getFilePath();
+        if (currentFile != null && !currentFile.isEmpty()) {
+            titleField.setText(new File(currentFile).getName());
+        } else {
+            titleField.setText("Point_Map");
+        }
+        gbc.gridx = 1;
+        mainPanel.add(titleField, gbc);
+
+        // 2. Format Selection Section
+        gbc.gridx = 0; gbc.gridy = 5;
         mainPanel.add(new JLabel("Export Format:"), gbc);
 
         formatComboBox = new JComboBox<>(new String[]{"PDF Document (*.pdf)", "PNG Image (*.png)"});
@@ -85,7 +120,7 @@ public class ExportPointMapDialog extends JDialog {
         mainPanel.add(formatComboBox, gbc);
 
         // 3. DPI Section
-        gbc.gridx = 0; gbc.gridy = 3;
+        gbc.gridx = 0; gbc.gridy = 6;
         gbc.gridwidth = 2;
         mainPanel.add(new JLabel("Select Export DPI:"), gbc);
 
@@ -102,18 +137,18 @@ public class ExportPointMapDialog extends JDialog {
         dpiSlider.setLabelTable(labelTable);
         dpiSlider.setPaintLabels(true);
 
-        gbc.gridy = 4;
+        gbc.gridy = 7;
         mainPanel.add(dpiSlider, gbc);
 
         dpiLabel = new JLabel("Current DPI: 300");
         dpiLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        gbc.gridy = 5;
+        gbc.gridy = 8;
         mainPanel.add(dpiLabel, gbc);
 
         // 4. Result Info Section
         resultSizeLabel = new JLabel("Result size: 0 x 0 px");
         resultSizeLabel.setFont(new Font("SansSerif", Font.ITALIC, 11));
-        gbc.gridy = 6;
+        gbc.gridy = 9;
         mainPanel.add(resultSizeLabel, gbc);
 
         add(mainPanel, BorderLayout.CENTER);
@@ -159,6 +194,22 @@ public class ExportPointMapDialog extends JDialog {
             dpiLabel.setText("Current DPI: " + dpiSlider.getValue());
             updateInfo();
         });
+
+        overrideScaleCb.addActionListener(e -> {
+            boolean custom = overrideScaleCb.isSelected();
+            widthField.setEnabled(custom);
+            heightField.setEnabled(custom);
+            if (!custom) {
+                // reset to strictly locked scale
+                double initialWidthCm = originalWidth * appState.getScale();
+                double rW = round(initialWidthCm);
+                String strWcm = rW - (int)rW == 0 ? String.valueOf((int)rW) : String.format(Locale.US, "%.2f", rW);
+                widthField.setText(strWcm);
+                updateHeightFromWidth();
+            }
+        });
+
+        printTitleCb.addActionListener(e -> titleField.setEnabled(printTitleCb.isSelected()));
     }
 
     private void updateHeightFromWidth() {
@@ -231,8 +282,10 @@ public class ExportPointMapDialog extends JDialog {
                     file = new File(absolutePath + extension);
                 }
                 
+                String title = printTitleCb.isSelected() ? titleField.getText() : null;
+
                 // Use a modified SavePointMapWorker that takes these parameters
-                SavePointMapWorker worker = new SavePointMapWorker(canvas, file, wCm, dpi);
+                SavePointMapWorker worker = new SavePointMapWorker(canvas, file, wCm, dpi, title);
                 worker.execute();
                 appState.setLastOpenedDir(file.getParent());
                 dispose();

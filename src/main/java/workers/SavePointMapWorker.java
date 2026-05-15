@@ -30,6 +30,7 @@ public class SavePointMapWorker extends SwingWorker<Void, Void> {
     private double targetWidthCm;
     private int targetDpi = 300;
     private boolean useTargetParams = false;
+    private String mapTitle;
 
     public SavePointMapWorker(ImageCanvas canvas, File outputFile) {
         this.canvas = canvas;
@@ -44,11 +45,12 @@ public class SavePointMapWorker extends SwingWorker<Void, Void> {
         }
     }
 
-    public SavePointMapWorker(ImageCanvas canvas, File outputFile, double targetWidthCm, int targetDpi) {
+    public SavePointMapWorker(ImageCanvas canvas, File outputFile, double targetWidthCm, int targetDpi, String mapTitle) {
         this(canvas, outputFile);
         this.targetWidthCm = targetWidthCm;
         this.targetDpi = targetDpi;
         this.useTargetParams = true;
+        this.mapTitle = mapTitle;
     }
 
     private static final double CM_PER_INCH = 2.54;
@@ -111,6 +113,62 @@ public class SavePointMapWorker extends SwingWorker<Void, Void> {
             // Create a temporary SPoint for rendering at the new resolution
             SPoint sp = new SPoint(p.id, scaledX, scaledY, p.c);
             RenderUtils.drawPointMarker(g2d, sp, exportScale);
+        }
+        
+        // ==========================================
+        // --- VẼ CALIBRATION MARKERS VÀ TITLE ---
+        // ==========================================
+        g2d.setColor(Color.BLACK);
+        g2d.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        
+        // 1. Vẽ Corner Markers (4 góc chữ L, nét 1cm, dài 4cm)
+        int strokeWidthPx = (int) Math.round(1.0 * pixelsPerCm);
+        int armLengthPx = (int) Math.round(4.0 * pixelsPerCm);
+        
+        // Top-Left
+        g2d.fillRect(0, 0, armLengthPx, strokeWidthPx); // Horizontal
+        g2d.fillRect(0, 0, strokeWidthPx, armLengthPx); // Vertical
+        // Top-Right
+        g2d.fillRect(exportWidth - armLengthPx, 0, armLengthPx, strokeWidthPx);
+        g2d.fillRect(exportWidth - strokeWidthPx, 0, strokeWidthPx, armLengthPx);
+        // Bottom-Left
+        g2d.fillRect(0, exportHeight - strokeWidthPx, armLengthPx, strokeWidthPx);
+        g2d.fillRect(0, exportHeight - armLengthPx, strokeWidthPx, armLengthPx);
+        // Bottom-Right
+        g2d.fillRect(exportWidth - armLengthPx, exportHeight - strokeWidthPx, armLengthPx, strokeWidthPx);
+        g2d.fillRect(exportWidth - strokeWidthPx, exportHeight - armLengthPx, strokeWidthPx, armLengthPx);
+
+        // 2. Vẽ Calibration Square (2x2 cm ở góc dưới trái)
+        int squareSizePx = (int) Math.round(2.0 * pixelsPerCm);
+        int squareOffsetPx = (int) Math.round(2.0 * pixelsPerCm);
+        int sqX = squareOffsetPx;
+        int sqY = exportHeight - squareOffsetPx - squareSizePx;
+        
+        g2d.setStroke(new BasicStroke((float)(0.05 * pixelsPerCm))); // Nét rỗng, mảnh (khoảng 0.5mm)
+        g2d.drawRect(sqX, sqY, squareSizePx, squareSizePx);
+        
+        // Vạch chia 1cm (ở giữa các cạnh)
+        int midX = sqX + squareSizePx / 2;
+        int midY = sqY + squareSizePx / 2;
+        int tickLen = (int) Math.round(0.2 * pixelsPerCm);
+        g2d.drawLine(midX, sqY - tickLen/2, midX, sqY + tickLen/2); // Top
+        g2d.drawLine(midX, sqY + squareSizePx - tickLen/2, midX, sqY + squareSizePx + tickLen/2); // Bottom
+        g2d.drawLine(sqX - tickLen/2, midY, sqX + tickLen/2, midY); // Left
+        g2d.drawLine(sqX + squareSizePx - tickLen/2, midY, sqX + squareSizePx + tickLen/2, midY); // Right
+
+        // Nhãn "2x2 cm" (bên phải hình vuông)
+        int fontSize12Px = (int) Math.round(12.0 * currentDpi / 72.0);
+        g2d.setFont(new Font("Arial", Font.PLAIN, fontSize12Px));
+        int labelX = sqX + squareSizePx + (int) Math.round(0.2 * pixelsPerCm);
+        int labelY = sqY + squareSizePx; // Căn đáy nhãn bằng với đáy hình vuông
+        g2d.drawString("2x2 cm", labelX, labelY);
+
+        // 3. Vẽ Map Title (nếu có)
+        if (mapTitle != null && !mapTitle.trim().isEmpty()) {
+            g2d.setFont(new Font("Monospaced", Font.PLAIN, fontSize12Px));
+            int titleX = armLengthPx + (int) Math.round(0.5 * pixelsPerCm); // Nằm bên phải góc chữ L dưới cùng bên trái 0.5cm
+            int titleY = exportHeight - (int) Math.round(0.5 * pixelsPerCm); // Cách mép dưới 0.5cm
+            g2d.drawString(mapTitle, titleX, titleY);
         }
         
         g2d.dispose();
