@@ -134,6 +134,29 @@ public class SavePointMapWorker extends SwingWorker<Void, Void> {
         // Bottom-Left
         g2d.fillRect(0, exportHeight - strokeWidthPx, armLengthPx, strokeWidthPx);
         g2d.fillRect(0, exportHeight - armLengthPx, strokeWidthPx, armLengthPx);
+        
+        // Punch out text inside Bottom-Left arm to be truly transparent in PNG
+        int fontSize12Px = (int) Math.round(12.0 * currentDpi / 72.0);
+        int textFontSizePx = (int) Math.round(10.0 * currentDpi / 72.0);
+        Composite originalComposite = g2d.getComposite();
+        g2d.setComposite(AlphaComposite.getInstance(AlphaComposite.DST_OUT));
+        
+        g2d.setFont(new Font("Arial", Font.PLAIN, textFontSizePx));
+        String sizeText = Math.round(widthCm * 10) + " x " + Math.round(heightCm * 10) + " mm";
+        
+        FontMetrics fm = g2d.getFontMetrics();
+        int textAscent = fm.getAscent();
+        int textDescent = fm.getDescent();
+        int textW = fm.stringWidth(sizeText);
+        int armCenterY = exportHeight - strokeWidthPx / 2;
+        int textY = armCenterY + (textAscent - textDescent) / 2;
+        int textX = armLengthPx / 2 - textW / 2;
+        
+        g2d.drawString(sizeText, textX, textY);
+        
+        // Restore composite
+        g2d.setComposite(originalComposite);
+        
         // Bottom-Right
         g2d.fillRect(exportWidth - armLengthPx, exportHeight - strokeWidthPx, armLengthPx, strokeWidthPx);
         g2d.fillRect(exportWidth - strokeWidthPx, exportHeight - armLengthPx, strokeWidthPx, armLengthPx);
@@ -157,7 +180,6 @@ public class SavePointMapWorker extends SwingWorker<Void, Void> {
         g2d.drawLine(sqX + squareSizePx - tickLen/2, midY, sqX + squareSizePx + tickLen/2, midY); // Right
 
         // Nhãn "2x2 cm" (bên phải hình vuông)
-        int fontSize12Px = (int) Math.round(12.0 * currentDpi / 72.0);
         g2d.setFont(new Font("Arial", Font.PLAIN, fontSize12Px));
         int labelX = sqX + squareSizePx + (int) Math.round(0.2 * pixelsPerCm);
         int labelY = sqY + squareSizePx; // Căn đáy nhãn bằng với đáy hình vuông

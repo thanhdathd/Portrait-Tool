@@ -148,7 +148,9 @@ public class ExportPointMapDialog extends JDialog {
         titleField = new JTextField();
         String currentFile = appState.getFilePath();
         if (currentFile != null && !currentFile.isEmpty()) {
-            titleField.setText(new File(currentFile).getName());
+            String name = new File(currentFile).getName();
+            name = name.substring(0, name.lastIndexOf('.'));
+            titleField.setText(name);
         } else {
             titleField.setText("Point_Map");
         }

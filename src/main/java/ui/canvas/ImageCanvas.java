@@ -632,15 +632,40 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         g2d.fillRect(width - armLengthPx, 0, armLengthPx, strokeWidthPx);
         g2d.fillRect(width - strokeWidthPx, 0, strokeWidthPx, armLengthPx);
         // Bottom-Left
-        g2d.fillRect(0, height - strokeWidthPx, armLengthPx, strokeWidthPx);
         g2d.fillRect(0, height - armLengthPx, strokeWidthPx, armLengthPx);
+        g2d.fillRect(0, height - strokeWidthPx, armLengthPx, strokeWidthPx);
+
+        // Punch out text inside Bottom-Left arm (using white to simulate transparency on canvas)
+        g2d.setColor(Color.WHITE);
+        int textFontSizePx = Math.round((10.0f / 72.0f * 2.54f) * pxPerCm);
+        g2d.setFont(new Font("Arial", Font.PLAIN, textFontSizePx));
+        
+        // Calculate original width/height in cm
+        double wCm = effScale * width;
+        double hCm = effScale * height;
+        String sizeText = Math.round(wCm * 10) + " x " + Math.round(hCm * 10) + " mm";
+        
+        FontMetrics fm = g2d.getFontMetrics();
+        int textAscent = fm.getAscent();
+        int textDescent = fm.getDescent();
+        int textW = fm.stringWidth(sizeText);
+        int armCenterY = height - strokeWidthPx / 2;
+        int textY = armCenterY + (textAscent - textDescent) / 2;
+//        int paddingPx = Math.round(0.2f * pxPerCm);
+        int textX = armLengthPx / 2 - textW / 2;
+        
+        g2d.drawString(sizeText, textX, textY);
+        
+        // Restore black color for the rest
+        g2d.setColor(Color.BLACK);
+        
         // Bottom-Right
         g2d.fillRect(width - armLengthPx, height - strokeWidthPx, armLengthPx, strokeWidthPx);
         g2d.fillRect(width - strokeWidthPx, height - armLengthPx, strokeWidthPx, armLengthPx);
 
         // 2. Calibration Square (2x2 cm)
         int squareSizePx = Math.round(2.0f * pxPerCm);
-        int squareOffsetPx = Math.round(5.0f * pxPerCm);
+        int squareOffsetPx = Math.round(2.0f * pxPerCm);
         int sqX = squareOffsetPx;
         int sqY = height - squareOffsetPx - squareSizePx;
         
