@@ -13,6 +13,7 @@ public class CommandData {
         DELETE_POINT,
         ADD_GRID,
         DELETE_GRID,
+        EDIT_GRID,
         CROP,
         ROTATE,
         FLIP,
@@ -22,8 +23,9 @@ public class CommandData {
 
     public CommandType type;
 
-        // Tham số cho các lệnh liên quan đến Point (ADD_POINT, DELETE_POINT)
+        // Tham số cho các lệnh liên quan đến Point (ADD_POINT, DELETE_POINT) và Grid
         public SPoint point;
+        public SPoint newPoint; // Dùng cho lệnh EDIT_GRID
 
         // Tham số cho lệnh CROP
         public Integer cropX;

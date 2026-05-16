@@ -402,7 +402,25 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     cmd = new StickCommand(appState.getCanvasState(), ui.getCanvas(), d.point.copy());
                     break;
                 case ADD_GRID:
-                    cmd = new GridCommand(appState.getCanvasState(), ui.getCanvas(), d.point.copy());
+                    cmd = new GridCommand(appState.getCanvasState(), ui.getCanvas(), d.point.copy(), core.history.GridCommand.Action.ADD, null, null);
+                    break;
+                case DELETE_GRID:
+                case EDIT_GRID:
+                    // Find the existing grid reference from CanvasState that matches old properties
+                    userpackage.SPoint existingGrid = null;
+                    for (userpackage.SPoint g : appState.getCanvasState().getGrids()) {
+                        if (g.X == d.point.X && g.Y == d.point.Y && g.id == d.point.id && g.c.equals(d.point.c)) {
+                            existingGrid = g;
+                            break;
+                        }
+                    }
+                    if (existingGrid != null) {
+                        if (d.type == CommandData.CommandType.DELETE_GRID) {
+                            cmd = new GridCommand(appState.getCanvasState(), ui.getCanvas(), existingGrid, core.history.GridCommand.Action.DELETE, d.point.copy(), null);
+                        } else {
+                            cmd = new GridCommand(appState.getCanvasState(), ui.getCanvas(), existingGrid, core.history.GridCommand.Action.EDIT, d.point.copy(), d.newPoint != null ? d.newPoint.copy() : null);
+                        }
+                    }
                     break;
                 case CROP:
                     // Recreate cropped image

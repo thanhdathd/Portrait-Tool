@@ -134,7 +134,47 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         scrollPane.getHorizontalScrollBar().setUnitIncrement(16);
         disableScrollByArrowKey(scrollPane);
         
-        add(scrollPane, BorderLayout.CENTER);
+        JPanel overlayContainer = new JPanel(new BorderLayout()) {
+            @Override
+            public boolean contains(int x, int y) {
+                for (Component c : getComponents()) {
+                    if (c.getBounds().contains(x, y) && c.isVisible()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+        overlayContainer.setOpaque(false);
+        
+        ui.components.PropertyPanel propertyPanel = new ui.components.PropertyPanel(appState, canvas);
+        JPanel rightWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10)) {
+            @Override
+            public boolean contains(int x, int y) {
+                for (Component c : getComponents()) {
+                    if (c.getBounds().contains(x, y) && c.isVisible()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+        rightWrapper.setOpaque(false);
+        rightWrapper.add(propertyPanel);
+        overlayContainer.add(rightWrapper, BorderLayout.EAST);
+        
+        JPanel centerWrapper = new JPanel() {
+            @Override
+            public boolean isOptimizedDrawingEnabled() {
+                // Must return false for OverlayLayout to properly paint overlapping components
+                return false;
+            }
+        };
+        centerWrapper.setLayout(new OverlayLayout(centerWrapper));
+        centerWrapper.add(overlayContainer);
+        centerWrapper.add(scrollPane);
+        
+        add(centerWrapper, BorderLayout.CENTER);
         
         recoveryProgressBar = new JProgressBar(0, 100);
         recoveryProgressBar.setVisible(false);
@@ -314,6 +354,16 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         });
         keyBindingHelper(im,am,KeyEvent.VK_M, 0, "OpenZoomWindow", e -> {
             openZoomWindow();
+        });
+
+        // Phím Delete để xóa lưới đang được chọn
+        keyBindingHelper(im,am,KeyEvent.VK_DELETE, 0, "DeleteSelectedGrid", e -> {
+            userpackage.SPoint grid = appState.getCanvasState().getSelectedGrid();
+            if (grid != null) {
+                core.history.GridCommand cmd = new core.history.GridCommand(appState.getCanvasState(), canvas, grid, core.history.GridCommand.Action.DELETE, grid.copy(), null);
+                appState.getHistoryManager().push(cmd);
+                cmd.execute();
+            }
         });
     }
 
@@ -1158,6 +1208,9 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         JButton gridBtn = createSVGIconButton("ic_grid.svg", "Draw Grid",24,24, lineColor);
         gridBtn.addActionListener(e -> canvas.setActiveTool(tool.gridTool));
 
+        JButton selectBtn = createSVGIconButton("ic_select.svg", "Select Tool", 24, 24, lineColor);
+        selectBtn.addActionListener(e -> canvas.setActiveTool(tool.selectTool));
+
         JButton cropBtn = createSVGIconButton(
                 "ic_crop.svg",
                 "Crop Image",
@@ -1198,8 +1251,15 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                     stickBtn.setEnabled(!(activeTool instanceof tools.StickTool));
                     p2pBtn.setEnabled(!(activeTool instanceof tools.P2PTool));
                     gridBtn.setEnabled(!(activeTool instanceof tools.GridTool));
+                    selectBtn.setEnabled(!(activeTool instanceof tools.SelectTool));
                     cropBtn.setEnabled(!(activeTool instanceof tools.CropTool));
                 }
+                
+                // Deselect grid if switching to a tool other than Hand, Zoom, or Select
+                if (!(activeTool instanceof tools.HandTool) && !(activeTool instanceof tools.ZoomCanvasTool) && !(activeTool instanceof tools.SelectTool)) {
+                    appState.getCanvasState().setSelectedGrid(null);
+                }
+                
                 // Zoom is toggleable, so always enabled
             }
         });
@@ -1208,6 +1268,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         toolBar.add(stickBtn);
         toolBar.add(p2pBtn);
         toolBar.add(gridBtn);
+        toolBar.add(selectBtn);
         toolBar.add(cropBtn);
         toolBar.add(zoomBtn);
         toolBar.add(zoomActualSize);

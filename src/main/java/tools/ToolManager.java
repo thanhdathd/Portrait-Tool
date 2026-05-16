@@ -7,6 +7,7 @@ public class ToolManager {
     public StickTool stickTool;
     public P2PTool p2pTool;
     public GridTool gridTool;
+    public SelectTool selectTool;
 
     private static ToolManager toolManager = null;
 
@@ -15,6 +16,7 @@ public class ToolManager {
         this.stickTool = new StickTool();
         this.p2pTool = new P2PTool();
         this.gridTool = new GridTool();
+        this.selectTool = new SelectTool();
     }
 
     public static ToolManager initializeTools() {

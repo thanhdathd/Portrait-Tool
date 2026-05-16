@@ -211,13 +211,28 @@ public class RenderUtils {
     public static void drawGrids(Graphics2D g2d, float zoom, AppState appState, int imageWidth, int imageHeight) {
         Stroke oldStroke = g2d.getStroke();
         float strokeWidth = 1.0f / zoom;
+        float selectedStrokeWidth = 3.0f / zoom; // Thicker for selected grid
         float[] dash = new float[]{2.0f / zoom, 4.0f / zoom};
-        g2d.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, dash, 0));
+        
+        SPoint selectedGrid = appState.getCanvasState().getSelectedGrid();
+
         for (SPoint grid : appState.getCanvasState().getGrids()) {
+            if (grid == selectedGrid) {
+                g2d.setStroke(new BasicStroke(selectedStrokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, dash, 0));
+            } else {
+                g2d.setStroke(new BasicStroke(strokeWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_BEVEL, 0, dash, 0));
+            }
+            
             g2d.setColor(grid.c);
             int gridSize = grid.id;
             int xR = grid.X;
             int yR = grid.Y;
+            if(grid == selectedGrid) {
+                Stroke old = g2d.getStroke();
+                g2d.setStroke(new BasicStroke(0.5f));
+                g2d.drawOval(xR-10, yR - 10, 20, 20);
+                g2d.setStroke(old);
+            }
 
             for (int x = xR; x < imageWidth; x += gridSize) {
                 g2d.drawLine(x, 0, x, imageHeight);

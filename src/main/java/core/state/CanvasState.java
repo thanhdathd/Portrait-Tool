@@ -12,7 +12,9 @@ public class CanvasState {
     
     private final List<SPoint> stickyPoints;
     private final List<SPoint> grids;
-    Consumer<Integer> pointChangeListener;
+    private SPoint selectedGrid;
+    private Consumer<Integer> pointChangeListener;
+    private Consumer<SPoint> gridSelectionListener;
     
     // Properties to allow free-floating small images on the canvas
     private int imageOffsetX = 0;
@@ -25,6 +27,21 @@ public class CanvasState {
 
     public void addStickyPointChangeListener(Consumer<Integer> listener) {
         this.pointChangeListener = listener;
+    }
+
+    public void setGridSelectionListener(Consumer<SPoint> listener) {
+        this.gridSelectionListener = listener;
+    }
+
+    public SPoint getSelectedGrid() {
+        return selectedGrid;
+    }
+
+    public void setSelectedGrid(SPoint selectedGrid) {
+        this.selectedGrid = selectedGrid;
+        if (gridSelectionListener != null) {
+            gridSelectionListener.accept(selectedGrid);
+        }
     }
 
     public int getImageOffsetX() {
@@ -82,7 +99,8 @@ public class CanvasState {
     public void clearAll() {
         stickyPoints.clear();
         grids.clear();
-        pointChangeListener.accept(stickyPoints.size());
+        setSelectedGrid(null);
+        if (pointChangeListener != null) pointChangeListener.accept(stickyPoints.size());
     }
 
     // --- Export Live Preview Properties ---

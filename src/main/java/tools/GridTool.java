@@ -87,6 +87,13 @@ public class GridTool implements Tool {
             // Ưu tiên sử dụng điểm Snapped, nếu không có thì lấy tọa độ chuột tự do
             int finalX = (snappedImagePos != null) ? snappedImagePos.x : rawImagePos.x;
             int finalY = (snappedImagePos != null) ? snappedImagePos.y : rawImagePos.y;
+            
+            // Ngăn chặn việc vẽ đè (duplicate) grid tại cùng một vị trí với cùng thông số
+            for (SPoint existing : appState.getCanvasState().getGrids()) {
+                if (existing.X == finalX && existing.Y == finalY && existing.id == pixelSize) {
+                    return; // Đã có grid tại đây, bỏ qua để tránh click đúp sinh ra nhiều grid chồng lên nhau
+                }
+            }
 
             SPoint gridData = new SPoint(pixelSize, finalX, finalY, appState.getBrushColor());
             GridCommand command = new GridCommand(appState.getCanvasState(), canvas, gridData);
