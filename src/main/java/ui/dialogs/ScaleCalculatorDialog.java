@@ -65,5 +65,6 @@ public class ScaleCalculatorDialog extends JDialog {
         this.pack();
         this.setLocationRelativeTo(owner); // Hiển thị ngay giữa dialog cha
         this.setResizable(false);
+        this.getRootPane().setDefaultButton(applyBtn);
     }
 }
