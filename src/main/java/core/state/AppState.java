@@ -35,7 +35,7 @@ public class AppState {
     private float scale = 1.0f;
     private MouseMode mouseMode = MouseMode.DRAG;
     private boolean cmUnit = false;
-    private boolean viLang = false;
+    private String languageCode = "en";
     private boolean round = false;
     private int windowX, windowY, windowWidth, windowHeight;
     private String filePath = "Untitled-00.jpg";
@@ -177,12 +177,12 @@ public class AppState {
         this.cmUnit = cmUnit;
     }
 
-    public boolean isViLang() {
-        return viLang;
+    public String getLanguageCode() {
+        return languageCode;
     }
 
-    public void setViLang(boolean viLang) {
-        this.viLang = viLang;
+    public void setLanguageCode(String languageCode) {
+        this.languageCode = languageCode;
     }
 
     public boolean isRound() {

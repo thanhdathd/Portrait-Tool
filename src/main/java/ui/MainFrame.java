@@ -78,6 +78,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         this.canvas.setMainFrame(this);
         configManager = new ConfigManager();
         configManager.load(appState);
+        core.i18n.LanguageManager.setLanguage(appState.getLanguageCode());
         tool = ToolManager.initializeTools();
         autoSaveManager = new core.state.AutoSaveManager(canvas);
         autoSaveManager.setSaveStatusListener(new core.state.AutoSaveManager.SaveStatusListener() {
@@ -151,13 +152,15 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         // Auto recovery check
         SwingUtilities.invokeLater(this::checkForRecovery);
         
+        retranslateUI();
         autoOpenFile();
     }
 
     private void initContextMenu() {
         JPopupMenu contextMenu = new JPopupMenu();
 
-        JMenuItem undoItem = new JMenuItem("Undo");
+        JMenuItem undoItem = new JMenuItem();
+        setI18nText(undoItem, "menu.context.undo");
         undoItem.setAccelerator(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Z, java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         undoItem.addActionListener(e -> {
             if (appState.getHistoryManager().canUndo()) {
@@ -166,7 +169,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             }
         });
 
-        JMenuItem redoItem = new JMenuItem("Redo");
+        JMenuItem redoItem = new JMenuItem();
+        setI18nText(redoItem, "menu.context.redo");
         redoItem.setAccelerator(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Y, java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         redoItem.addActionListener(e -> {
             if (appState.getHistoryManager().canRedo()) {
@@ -179,39 +183,47 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         contextMenu.add(redoItem);
         contextMenu.addSeparator();
 
-        JMenuItem resizeItem = new JMenuItem("Resize...");
+        JMenuItem resizeItem = new JMenuItem();
+        setI18nText(resizeItem, "menu.context.resize");
         resizeItem.addActionListener(e -> performOpenResize());
         contextMenu.add(resizeItem);
 
-        JMenuItem cropItem = new JMenuItem("Crop...");
+        JMenuItem cropItem = new JMenuItem();
+        setI18nText(cropItem, "menu.context.crop");
         cropItem.addActionListener(e -> canvas.setActiveTool(new tools.CropTool(configManager)));
         contextMenu.add(cropItem);
 
-        JMenuItem manageProfilesItem = new JMenuItem("Manage Crop Profiles...");
+        JMenuItem manageProfilesItem = new JMenuItem();
+        setI18nText(manageProfilesItem, "menu.context.manageProfiles");
         manageProfilesItem.addActionListener(e -> new ui.dialogs.ManageProfilesDialog(this, configManager).setVisible(true));
         contextMenu.add(manageProfilesItem);
 
         contextMenu.addSeparator();
 
-        JMenuItem rot90cw = new JMenuItem("Rotate 90 CW");
+        JMenuItem rot90cw = new JMenuItem();
+        setI18nText(rot90cw, "menu.context.rot90cw");
         rot90cw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CW));
         contextMenu.add(rot90cw);
 
-        JMenuItem rot90ccw = new JMenuItem("Rotate 90 CCW");
+        JMenuItem rot90ccw = new JMenuItem();
+        setI18nText(rot90ccw, "menu.context.rot90ccw");
         rot90ccw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CCW));
         contextMenu.add(rot90ccw);
 
-        JMenuItem rot180 = new JMenuItem("Rotate 180");
+        JMenuItem rot180 = new JMenuItem();
+        setI18nText(rot180, "menu.context.rot180");
         rot180.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_180));
         contextMenu.add(rot180);
 
         contextMenu.addSeparator();
 
-        JMenuItem flipH = new JMenuItem("Flip Horizontal");
+        JMenuItem flipH = new JMenuItem();
+        setI18nText(flipH, "menu.context.flipH");
         flipH.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_H));
         contextMenu.add(flipH);
 
-        JMenuItem flipV = new JMenuItem("Flip Vertical");
+        JMenuItem flipV = new JMenuItem();
+        setI18nText(flipV, "menu.context.flipV");
         flipV.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_V));
         contextMenu.add(flipV);
 
@@ -819,18 +831,22 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         JMenuBar menuBar = new JMenuBar();
 
         // File Menu
-        JMenu fileMenu = new JMenu("File");
+        JMenu fileMenu = new JMenu();
+        setI18nText(fileMenu, "menu.file");
         fileMenu.setMnemonic(KeyEvent.VK_F);
         
-        JMenuItem openItem = new JMenuItem("Open");
+        JMenuItem openItem = new JMenuItem();
+        setI18nText(openItem, "menu.file.openImage");
         openItem.addActionListener(e -> attemptOpenFile());
         
-        JMenuItem saveItem = new JMenuItem("Save Project (.pdw)");
+        JMenuItem saveItem = new JMenuItem();
+        setI18nText(saveItem, "menu.file.saveProject");
         saveItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         saveItem.setToolTipText("Save the full project for future editing");
         saveItem.addActionListener(e -> performSavePDWFile());
         
-        JMenu exportMenu = new JMenu("Export");
+        JMenu exportMenu = new JMenu();
+        exportMenu.setText("Export"); // TODO: Add to properties
         
         JMenuItem exportImageItem = new JMenuItem("Export as PNG...");
         exportImageItem.addActionListener(e -> performSavePNGFile());
@@ -850,7 +866,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         exportMenu.add(savePointOnly);
         exportMenu.add(savePointMapItem);
 
-        JMenuItem exitItem = new JMenuItem("Exit");
+        JMenuItem exitItem = new JMenuItem();
+        setI18nText(exitItem, "menu.file.exit");
         exitItem.addActionListener(e -> attemptClose());
 
         fileMenu.add(openItem);
@@ -861,10 +878,12 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         fileMenu.add(exitItem);
 
         // Edit Menu
-        JMenu editMenu = new JMenu("Edit");
+        JMenu editMenu = new JMenu();
+        editMenu.setText("Edit");
         editMenu.setMnemonic(KeyEvent.VK_E);
         
-        JMenuItem undoItem = new JMenuItem("Undo");
+        JMenuItem undoItem = new JMenuItem();
+        setI18nText(undoItem, "menu.context.undo");
         undoItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         undoItem.addActionListener(e -> {
             if (appState.getHistoryManager().canUndo()) {
@@ -873,7 +892,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             }
         });
 
-        JMenuItem redoItem = new JMenuItem("Redo");
+        JMenuItem redoItem = new JMenuItem();
+        setI18nText(redoItem, "menu.context.redo");
         redoItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         redoItem.addActionListener(e -> {
             if (appState.getHistoryManager().canRedo()) {
@@ -886,7 +906,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         editMenu.add(redoItem);
         editMenu.addSeparator();
         
-        JMenuItem settingsItem = new JMenuItem("Settings...");
+        JMenuItem settingsItem = new JMenuItem();
+        setI18nText(settingsItem, "menu.file.settings");
         settingsItem.addActionListener(e -> {
             new ui.dialogs.SettingsDialog(this, appState).setVisible(true);
         });
@@ -900,7 +921,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         disableInExportMode.add(savePointOnly);
 
         // View Menu
-        JMenu viewMenu = new JMenu("View");
+        JMenu viewMenu = new JMenu();
+        setI18nText(viewMenu, "menu.view");
         viewMenu.setMnemonic(KeyEvent.VK_V);
         
         JMenuItem zoomItem = new JMenuItem("Toggle Zoom/Measure Calipers");
@@ -910,7 +932,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         });
         viewMenu.add(zoomItem);
 
-        showPointMapItem = new JCheckBoxMenuItem("Show Point Map");
+        showPointMapItem = new JCheckBoxMenuItem();
+        setI18nText(showPointMapItem, "menu.view.showPointMap");
         showPointMapItem.setEnabled(false);
         showPointMapItem.setSelected(appState.isShowPointMap());
         showPointMapItem.addActionListener(e -> {
@@ -920,59 +943,71 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         viewMenu.add(showPointMapItem);
 
         // Help Menu
-        JMenu helpMenu = new JMenu("Help");
+        JMenu helpMenu = new JMenu();
+        setI18nText(helpMenu, "menu.help");
         helpMenu.setMnemonic(KeyEvent.VK_H);
-        JMenuItem aboutItem = new JMenuItem("About");
+        JMenuItem aboutItem = new JMenuItem();
+        setI18nText(aboutItem, "menu.help.about");
         aboutItem.addActionListener(e -> JOptionPane.showMessageDialog(this, 
             "Portrai-Tool Modernized\nA Swing-based Image Processing Tool", "About", JOptionPane.INFORMATION_MESSAGE));
             
-        JMenuItem keyAssistItem = new JMenuItem("Key Assist");
+        JMenuItem keyAssistItem = new JMenuItem();
+        setI18nText(keyAssistItem, "menu.help.keyAssist");
         keyAssistItem.addActionListener(e -> new ui.dialogs.ShortcutAssistanceDialog(this).setVisible(true));
             
         helpMenu.add(keyAssistItem);
         helpMenu.add(aboutItem);
 
         // Image Menu
-        JMenu imageMenu = new JMenu("Image");
+        JMenu imageMenu = new JMenu();
+        imageMenu.setText("Image");
         imageMenu.setMnemonic(KeyEvent.VK_I);
         
         JMenuItem filterItem = new JMenuItem("Filters...");
         filterItem.addActionListener(e -> performOpenFilter());
         imageMenu.add(filterItem);
 
-        JMenuItem resizeItem = new JMenuItem("Resize...");
+        JMenuItem resizeItem = new JMenuItem();
+        setI18nText(resizeItem, "menu.context.resize");
         resizeItem.addActionListener(e -> performOpenResize());
         imageMenu.add(resizeItem);
 
-        JMenuItem cropItemMenu = new JMenuItem("Crop...");
+        JMenuItem cropItemMenu = new JMenuItem();
+        setI18nText(cropItemMenu, "menu.context.crop");
         cropItemMenu.addActionListener(e -> canvas.setActiveTool(new tools.CropTool(configManager)));
         imageMenu.add(cropItemMenu);
 
-        JMenuItem manageProfilesMenu = new JMenuItem("Manage Crop Profiles...");
+        JMenuItem manageProfilesMenu = new JMenuItem();
+        setI18nText(manageProfilesMenu, "menu.context.manageProfiles");
         manageProfilesMenu.addActionListener(e -> new ui.dialogs.ManageProfilesDialog(this, configManager).setVisible(true));
         imageMenu.add(manageProfilesMenu);
 
         imageMenu.addSeparator();
 
-        JMenuItem rot90cw = new JMenuItem("Rotate 90 CW");
+        JMenuItem rot90cw = new JMenuItem();
+        setI18nText(rot90cw, "menu.context.rot90cw");
         rot90cw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CW));
         imageMenu.add(rot90cw);
 
-        JMenuItem rot90ccw = new JMenuItem("Rotate 90 CCW");
+        JMenuItem rot90ccw = new JMenuItem();
+        setI18nText(rot90ccw, "menu.context.rot90ccw");
         rot90ccw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CCW));
         imageMenu.add(rot90ccw);
 
-        JMenuItem rot180 = new JMenuItem("Rotate 180");
+        JMenuItem rot180 = new JMenuItem();
+        setI18nText(rot180, "menu.context.rot180");
         rot180.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_180));
         imageMenu.add(rot180);
 
         imageMenu.addSeparator();
 
-        JMenuItem flipH = new JMenuItem("Flip Horizontal");
+        JMenuItem flipH = new JMenuItem();
+        setI18nText(flipH, "menu.context.flipH");
         flipH.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_H));
         imageMenu.add(flipH);
 
-        JMenuItem flipV = new JMenuItem("Flip Vertical");
+        JMenuItem flipV = new JMenuItem();
+        setI18nText(flipV, "menu.context.flipV");
         flipV.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_V));
         imageMenu.add(flipV);
 
@@ -1315,5 +1350,54 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     @Override
     public ui.canvas.ImageCanvas getCanvas() {
         return canvas;
+    }
+
+    public void retranslateUI() {
+        applyI18n(this.getRootPane());
+        if (canvas.getComponentPopupMenu() != null) {
+            applyI18n((JComponent) canvas.getComponentPopupMenu());
+        }
+        if (this.getJMenuBar() != null) {
+            applyI18n(this.getJMenuBar());
+        }
+    }
+
+    private void applyI18n(JComponent c) {
+        String textKey = (String) c.getClientProperty("i18n.text");
+        if (textKey != null) {
+            if (c instanceof AbstractButton) {
+                ((AbstractButton) c).setText(core.i18n.LanguageManager.getString(textKey));
+            } else if (c instanceof JLabel) {
+                ((JLabel) c).setText(core.i18n.LanguageManager.getString(textKey));
+            }
+        }
+        
+        String tooltipKey = (String) c.getClientProperty("i18n.tooltip");
+        if (tooltipKey != null) {
+            c.setToolTipText(core.i18n.LanguageManager.getString(tooltipKey));
+        }
+
+        for (Component child : c.getComponents()) {
+            if (child instanceof JComponent) {
+                applyI18n((JComponent) child);
+            }
+        }
+        if (c instanceof JMenu) {
+            for (Component child : ((JMenu) c).getMenuComponents()) {
+                if (child instanceof JComponent) {
+                    applyI18n((JComponent) child);
+                }
+            }
+        }
+    }
+
+    private void setI18nText(AbstractButton btn, String key) {
+        btn.putClientProperty("i18n.text", key);
+        btn.setText(core.i18n.LanguageManager.getString(key));
+    }
+    
+    private void setI18nTooltip(JComponent c, String key) {
+        c.putClientProperty("i18n.tooltip", key);
+        c.setToolTipText(core.i18n.LanguageManager.getString(key));
     }
 }

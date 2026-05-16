@@ -153,7 +153,7 @@ public class SettingsDialog extends JDialog {
         formPanel.add(checkerPanel, "gapx 2");
 
         formPanel.add(new JLabel("Language:"));
-        languageCombo = new JComboBox<>(new String[]{"English", "Vietnamese"});
+        languageCombo = new JComboBox<>(new String[]{"English", "Tiếng Việt", "中文 (简体)"});
         formPanel.add(languageCombo);
 
         formPanel.add(new JLabel("Auto Save:"), "gap top 10");
@@ -202,7 +202,14 @@ public class SettingsDialog extends JDialog {
         
         roundCheck.setSelected(appState.isRound());
         showHelpCheck.setSelected(appState.isShowCropHelp());
-        languageCombo.setSelectedIndex(appState.isViLang() ? 1 : 0);
+        String lc = appState.getLanguageCode();
+        if ("vi".equals(lc)) {
+            languageCombo.setSelectedIndex(1);
+        } else if ("zh".equals(lc)) {
+            languageCombo.setSelectedIndex(2);
+        } else {
+            languageCombo.setSelectedIndex(0);
+        }
         autoSaveCheck.setSelected(appState.isAutoSaveEnabled());
         autoSaveIntervalSpinner.setValue(appState.getAutoSaveInterval());
 
@@ -235,7 +242,17 @@ public class SettingsDialog extends JDialog {
             appState.setCmUnit(cmRadio.isSelected());
             appState.setRound(roundCheck.isSelected());
             appState.setShowCropHelp(showHelpCheck.isSelected());
-            appState.setViLang(languageCombo.getSelectedIndex() == 1);
+            
+            int langIdx = languageCombo.getSelectedIndex();
+            String code = "en";
+            if (langIdx == 1) code = "vi";
+            else if (langIdx == 2) code = "zh";
+            appState.setLanguageCode(code);
+            core.i18n.LanguageManager.setLanguage(code);
+            if (getOwner() instanceof ui.MainFrame) {
+                ((ui.MainFrame) getOwner()).retranslateUI();
+            }
+            
             appState.setAutoSaveEnabled(autoSaveCheck.isSelected());
             appState.setAutoSaveInterval((Integer) autoSaveIntervalSpinner.getValue());
 

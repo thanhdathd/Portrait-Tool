@@ -47,8 +47,8 @@ public class ConfigManager {
             appState.setCmUnit(Boolean.parseBoolean(cmUnit));
             String scale =  props.getProperty("scale", "1.0");
             appState.setScale(Float.parseFloat(scale));
-            String vLang =  props.getProperty("viLang", "false");
-            appState.setViLang(Boolean.parseBoolean(vLang));
+            String langCode =  props.getProperty("languageCode", "en");
+            appState.setLanguageCode(langCode);
             String round =  props.getProperty("round", "false");
             appState.setRound(Boolean.parseBoolean(round));
             String showHelp =  props.getProperty("showHelp", "false");
@@ -103,7 +103,7 @@ public class ConfigManager {
         props.setProperty("gridInCm", String.valueOf(appState.isGridInCm()));
         props.setProperty("scale", String.valueOf(appState.getScale()));
         props.setProperty("cmUnit", String.valueOf(appState.isCmUnit()));
-        props.setProperty("viLang", String.valueOf(appState.isViLang()));
+        props.setProperty("languageCode", appState.getLanguageCode());
         props.setProperty("round", String.valueOf(appState.isRound()));
         props.setProperty("showHelp", String.valueOf(appState.isShowCropHelp()));
         props.setProperty("checkerSize", String.valueOf(appState.getCheckerSize()));
