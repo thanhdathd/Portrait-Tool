@@ -49,6 +49,12 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
     private MainFrame mainFrame;
     public static final int CANVAS_PADDING = 80;
 
+    // Arrow-key point movement debounce
+    private SPoint arrowMovePointRef   = null;  // point being moved by arrow keys
+    private SPoint arrowMoveOldState   = null;  // captured before the first key press in a sequence
+    private javax.swing.Timer arrowDebounceTimer = null;
+    private static final int ARROW_DEBOUNCE_MS = 400;
+
     public ImageCanvas(AppState appState) {
         this.appState = appState;
         this.appState.getCanvasState().setImageOffsetX(CANVAS_PADDING);
@@ -171,8 +177,10 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         am.put("pressUP", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                appState.setLabelDirection(Direction.NORTH);
-                if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+                if (!handleArrowMovePoint(0, -1)) {
+                    appState.setLabelDirection(Direction.NORTH);
+                    if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+                }
             }
         });
 
@@ -180,8 +188,10 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         am.put("pressDown", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                appState.setLabelDirection(Direction.SOUTH);
-                if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+                if (!handleArrowMovePoint(0, 1)) {
+                    appState.setLabelDirection(Direction.SOUTH);
+                    if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+                }
             }
         });
 
@@ -189,8 +199,10 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         am.put("pressLeft", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                appState.setLabelDirection(Direction.WEST);
-                if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+                if (!handleArrowMovePoint(-1, 0)) {
+                    appState.setLabelDirection(Direction.WEST);
+                    if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+                }
             }
         });
 
@@ -198,8 +210,10 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         am.put("pressRight", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                appState.setLabelDirection(Direction.EAST);
-                if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+                if (!handleArrowMovePoint(1, 0)) {
+                    appState.setLabelDirection(Direction.EAST);
+                    if(zoomWindow != null && zoomWindow.isVisible()) {zoomWindow.repaint();}
+                }
             }
         });
 
@@ -789,4 +803,59 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
     public void setLivePreviewFilterActive(boolean livePreviewFilterActive) {
         isLivePreviewFilterActive = livePreviewFilterActive;
     }
+
+    /**
+     * Di chuyển point đang được chọn theo hướng (dx, dy).
+     * Sử dụng debounce timer để chỉ push 1 StickCommand vào history sau khi user dừng nhấn phím.
+     *
+     * @return true nếu đã xử lý (có selectedPoint), false nếu không để fallback sang hành vi cũ
+     */
+    private boolean handleArrowMovePoint(int dx, int dy) {
+        // Chỉ xử lý khi tool hiện tại là SelectTool
+        if (!(activeTool instanceof tools.SelectTool)) return false;
+
+        SPoint p = appState.getCanvasState().getSelectedPoint();
+        if (p == null) return false;
+
+        // Nếu đây là lần đầu trong chuỗi nhấn phím (timer chưa chạy)
+        // thì chụp trạng thái ban đầu để dùng cho oldState của StickCommand
+        if (arrowDebounceTimer == null || !arrowDebounceTimer.isRunning()
+                || arrowMovePointRef != p) {
+            arrowMovePointRef = p;
+            arrowMoveOldState = p.copy(); // snapshot trước khi bắt đầu chuỗi di chuyển
+        }
+
+        // Di chuyển ngay lập tức để cho visual feedback mượt
+        p.X += dx;
+        p.Y += dy;
+        repaint();
+        // Re-fire listener để PointPropertyPanel cập nhật XY fields (tránh stale values)
+        appState.getCanvasState().setSelectedPoint(p);
+
+        // Reset/start debounce timer
+        if (arrowDebounceTimer != null) {
+            arrowDebounceTimer.stop();
+        }
+        final SPoint capturedOldState = arrowMoveOldState;
+        arrowDebounceTimer = new javax.swing.Timer(ARROW_DEBOUNCE_MS, evt -> {
+            // Khi timer kích hoạt (user đã dừng nhấn), push command vào history
+            SPoint current = appState.getCanvasState().getSelectedPoint();
+            if (current != null && current == arrowMovePointRef) {
+                SPoint newState = current.copy();
+                core.history.StickCommand cmd = new core.history.StickCommand(
+                        appState.getCanvasState(), this, current,
+                        core.history.StickCommand.Action.EDIT,
+                        capturedOldState, newState);
+                appState.getHistoryManager().push(cmd);
+            }
+            arrowDebounceTimer = null;
+            arrowMovePointRef = null;
+            arrowMoveOldState = null;
+        });
+        arrowDebounceTimer.setRepeats(false);
+        arrowDebounceTimer.start();
+
+        return true;
+    }
 }
+

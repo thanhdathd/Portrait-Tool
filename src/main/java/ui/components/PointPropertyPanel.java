@@ -100,7 +100,8 @@ public class PointPropertyPanel extends JPanel {
         angleLabel = new JLabel("Angle:");
         angleLabel.setFont(new Font("SansSerif", Font.PLAIN, 10));
         anglePanel.add(angleLabel, BorderLayout.WEST);
-        angleSpinner = new JSpinner(new SpinnerNumberModel(0, 0, 359, 1));
+        // Unbounded model: cho phép nhập số âm và > 360, sẽ được normalize về [0, 359]
+        angleSpinner = new JSpinner(new SpinnerNumberModel(0, null, null, 1));
         angleSpinner.setFont(new Font("SansSerif", Font.PLAIN, 10));
         anglePanel.add(angleSpinner, BorderLayout.CENTER);
         add(anglePanel);
@@ -112,7 +113,8 @@ public class PointPropertyPanel extends JPanel {
         gapLabel = new JLabel("Gap:");
         gapLabel.setFont(new Font("SansSerif", Font.PLAIN, 10));
         gapPanel.add(gapLabel, BorderLayout.WEST);
-        gapSpinner = new JSpinner(new SpinnerNumberModel(30, 1, 999, 1));
+        // Clamp gap tới [10, 50]
+        gapSpinner = new JSpinner(new SpinnerNumberModel(30, 10, 50, 1));
         gapSpinner.setFont(new Font("SansSerif", Font.PLAIN, 10));
         gapPanel.add(gapSpinner, BorderLayout.CENTER);
         add(gapPanel);
@@ -150,8 +152,30 @@ public class PointPropertyPanel extends JPanel {
             applyChangesToPoint();
         });
 
-        angleSpinner.addChangeListener(e -> applyChangesToPoint());
-        gapSpinner.addChangeListener(e -> applyChangesToPoint());
+        angleSpinner.addChangeListener(e -> {
+            if (isUpdatingUI) return;
+            // Normalize angle về [0, 359] ngay khi user thay đổi
+            int raw = ((Number) angleSpinner.getValue()).intValue();
+            int normalized = ((raw % 360) + 360) % 360;
+            if (normalized != raw) {
+                isUpdatingUI = true;
+                angleSpinner.setValue(normalized);
+                isUpdatingUI = false;
+            }
+            applyChangesToPoint();
+        });
+        gapSpinner.addChangeListener(e -> {
+            if (isUpdatingUI) return;
+            // Clamp gap về [10, 50]
+            int raw = ((Number) gapSpinner.getValue()).intValue();
+            int clamped = Math.max(10, Math.min(50, raw));
+            if (clamped != raw) {
+                isUpdatingUI = true;
+                gapSpinner.setValue(clamped);
+                isUpdatingUI = false;
+            }
+            applyChangesToPoint();
+        });
 
         // Consume mouse events so they don't fall through to canvas
         addMouseListener(new java.awt.event.MouseAdapter() {});
@@ -190,8 +214,8 @@ public class PointPropertyPanel extends JPanel {
         gapSpinner.setVisible(p.isCustomPlacement);
 
         if (p.isCustomPlacement) {
-            angleSpinner.setValue(p.customAngle);
-            gapSpinner.setValue(Math.max(1, p.customGap));
+            angleSpinner.setValue(((p.customAngle % 360) + 360) % 360);
+            gapSpinner.setValue(Math.max(10, Math.min(50, p.customGap)));
         } else {
             // Default from appState when first enabling custom
             angleSpinner.setValue(appState.getCustomAngle());
@@ -217,8 +241,9 @@ public class PointPropertyPanel extends JPanel {
             int newY = Integer.parseInt(yField.getText().trim());
             Direction newDir = Direction.valueOf((String) dirCombo.getSelectedItem());
             boolean newCustom = customCheck.isSelected();
-            int newAngle = (Integer) angleSpinner.getValue();
-            int newGap   = (Integer) gapSpinner.getValue();
+            int rawAngle = ((Number) angleSpinner.getValue()).intValue();
+            int newAngle = ((rawAngle % 360) + 360) % 360; // Normalize về [0, 359]
+            int newGap   = Math.max(10, Math.min(50, ((Number) gapSpinner.getValue()).intValue()));
 
             // Check if anything changed
             boolean changed = newX != p.X || newY != p.Y

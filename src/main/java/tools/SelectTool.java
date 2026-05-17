@@ -15,7 +15,7 @@ import java.util.Random;
 
 public class SelectTool implements Tool {
 
-    private static final int SELECT_TOLERANCE_PX = 5; // Pixels on screen
+    private static final int SELECT_TOLERANCE_PX = 10; // Pixels on screen
     private final Random random = new Random();
 
     @Override
