@@ -1,8 +1,7 @@
 package core.state;
 
 import userpackage.SPoint;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.function.Consumer;
 
 /**
@@ -13,10 +12,12 @@ public class CanvasState {
     private final List<SPoint> stickyPoints;
     private final List<SPoint> grids;
     private SPoint selectedGrid;
-    private SPoint selectedPoint;
+
+    // Multi-selection: ordered set of selected points
+    private final LinkedHashSet<SPoint> selectedPoints = new LinkedHashSet<>();
     private Consumer<Integer> pointChangeListener;
     private Consumer<SPoint> gridSelectionListener;
-    private Consumer<SPoint> pointSelectionListener;
+    private Consumer<Set<SPoint>> pointSelectionListener;
     
     // Properties to allow free-floating small images on the canvas
     private int imageOffsetX = 0;
@@ -35,23 +36,14 @@ public class CanvasState {
         this.gridSelectionListener = listener;
     }
 
-    public void setPointSelectionListener(Consumer<SPoint> listener) {
+    public void setPointSelectionListener(Consumer<Set<SPoint>> listener) {
         this.pointSelectionListener = listener;
     }
 
+    // ---- Grid selection ----
+
     public SPoint getSelectedGrid() {
         return selectedGrid;
-    }
-
-    public SPoint getSelectedPoint() {
-        return selectedPoint;
-    }
-
-    public void setSelectedPoint(SPoint point) {
-        this.selectedPoint = point;
-        if (pointSelectionListener != null) {
-            pointSelectionListener.accept(point);
-        }
     }
 
     public void setSelectedGrid(SPoint selectedGrid) {
@@ -61,38 +53,89 @@ public class CanvasState {
         }
     }
 
-    public int getImageOffsetX() {
-        return imageOffsetX;
+    // ---- Point selection ----
+
+    /** Returns an unmodifiable view of the current selected points set. */
+    public Set<SPoint> getSelectedPoints() {
+        return Collections.unmodifiableSet(selectedPoints);
     }
 
-    public void setImageOffsetX(int imageOffsetX) {
-        this.imageOffsetX = imageOffsetX;
+    /**
+     * Backward-compat: returns the last selected point (most recently added),
+     * or null if nothing is selected.
+     */
+    public SPoint getSelectedPoint() {
+        if (selectedPoints.isEmpty()) return null;
+        SPoint last = null;
+        for (SPoint p : selectedPoints) last = p;
+        return last;
     }
 
-    public int getImageOffsetY() {
-        return imageOffsetY;
+    /**
+     * Single-select: replace current selection with exactly one point.
+     * Backward-compat equivalent of the old setSelectedPoint().
+     */
+    public void setSelectedPoint(SPoint point) {
+        selectedPoints.clear();
+        if (point != null) selectedPoints.add(point);
+        firePointSelectionChanged();
     }
 
-    public void setImageOffsetY(int imageOffsetY) {
-        this.imageOffsetY = imageOffsetY;
+    /** Replace current selection with a set of points. */
+    public void setSelectedPoints(Set<SPoint> points) {
+        selectedPoints.clear();
+        if (points != null) selectedPoints.addAll(points);
+        firePointSelectionChanged();
     }
 
-    public List<SPoint> getStickyPoints() {
-        return stickyPoints;
+    /** Add a point to the current selection. */
+    public void addToSelection(SPoint point) {
+        if (point != null) {
+            selectedPoints.add(point);
+            firePointSelectionChanged();
+        }
     }
+
+    /** Remove a point from the current selection. */
+    public void removeFromSelection(SPoint point) {
+        if (point != null && selectedPoints.remove(point)) {
+            firePointSelectionChanged();
+        }
+    }
+
+    /** Clear the entire point selection. */
+    public void clearPointSelection() {
+        if (!selectedPoints.isEmpty()) {
+            selectedPoints.clear();
+            firePointSelectionChanged();
+        }
+    }
+
+    private void firePointSelectionChanged() {
+        if (pointSelectionListener != null) {
+            pointSelectionListener.accept(Collections.unmodifiableSet(selectedPoints));
+        }
+    }
+
+    // ---- Offset ----
+
+    public int getImageOffsetX() { return imageOffsetX; }
+    public void setImageOffsetX(int imageOffsetX) { this.imageOffsetX = imageOffsetX; }
+    public int getImageOffsetY() { return imageOffsetY; }
+    public void setImageOffsetY(int imageOffsetY) { this.imageOffsetY = imageOffsetY; }
+
+    // ---- Sticky points ----
+
+    public List<SPoint> getStickyPoints() { return stickyPoints; }
 
     public void addStickyPoint(SPoint p) {
         stickyPoints.add(p);
-        if (pointChangeListener != null) {
-            pointChangeListener.accept(stickyPoints.size());
-        }
+        if (pointChangeListener != null) pointChangeListener.accept(stickyPoints.size());
     }
 
     public void removeStickyPoint(SPoint p) {
         stickyPoints.remove(p);
-        if (pointChangeListener != null) {
-            pointChangeListener.accept(stickyPoints.size());
-        }
+        if (pointChangeListener != null) pointChangeListener.accept(stickyPoints.size());
     }
     
     public void removeLastStickyPoint() {
@@ -101,24 +144,20 @@ public class CanvasState {
         }
     }
 
-    public List<SPoint> getGrids() {
-        return grids;
-    }
+    // ---- Grids ----
 
-    public void addGrid(SPoint grid) {
-        grids.add(grid);
-    }
+    public List<SPoint> getGrids() { return grids; }
 
-    public void removeGrid(SPoint grid) {
-        grids.remove(grid);
-    }
+    public void addGrid(SPoint grid) { grids.add(grid); }
+
+    public void removeGrid(SPoint grid) { grids.remove(grid); }
 
     public void clearAll() {
         stickyPoints.clear();
         grids.clear();
         setSelectedGrid(null);
-        setSelectedPoint(null);
-        if (pointChangeListener != null) pointChangeListener.accept(stickyPoints.size());
+        clearPointSelection();
+        if (pointChangeListener != null) pointChangeListener.accept(0);
     }
 
     // --- Export Live Preview Properties ---

@@ -23,6 +23,9 @@ public class ImageLoadWorker extends SwingWorker<BufferedImage, Void> {
 
     @Override
     protected BufferedImage doInBackground() throws Exception {
+        if (file.getName().toLowerCase().endsWith(".pdw")) {
+            return core.state.ProjectFileManager.loadProject(file).image;
+        }
         return ImageIO.read(file);
     }
 

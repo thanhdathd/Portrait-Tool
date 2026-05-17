@@ -478,6 +478,44 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     nextImage = core.image.ImageProcessor.applyFilter(currentImage, d.filterProps);
                     cmd = new core.history.FilterCommand(ui.getCanvas(), currentImage, nextImage, d.filterProps);
                     break;
+                case BATCH_DELETE_POINTS: {
+                    // Tìm live refs trong CanvasState khớp với từng point snapshot
+                    java.util.List<userpackage.SPoint> targets = new java.util.ArrayList<>();
+                    if (d.points != null) {
+                        for (userpackage.SPoint snap : d.points) {
+                            for (userpackage.SPoint live : appState.getCanvasState().getStickyPoints()) {
+                                if (live.X == snap.X && live.Y == snap.Y && live.id == snap.id) {
+                                    targets.add(live);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!targets.isEmpty()) {
+                        cmd = new core.history.BatchStickCommand(
+                                appState.getCanvasState(), ui.getCanvas(), targets);
+                    }
+                    break;
+                }
+                case BATCH_EDIT_POINTS_COLOR: {
+                    // Tìm live refs và tạo BatchStickCommand đổi màu
+                    java.util.List<userpackage.SPoint> targets = new java.util.ArrayList<>();
+                    if (d.points != null) {
+                        for (userpackage.SPoint snap : d.points) {
+                            for (userpackage.SPoint live : appState.getCanvasState().getStickyPoints()) {
+                                if (live.X == snap.X && live.Y == snap.Y && live.id == snap.id) {
+                                    targets.add(live);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!targets.isEmpty() && d.batchColor != null) {
+                        cmd = new core.history.BatchStickCommand(
+                                appState.getCanvasState(), ui.getCanvas(), targets, d.batchColor);
+                    }
+                    break;
+                }
             }
             
             if (cmd != null) {

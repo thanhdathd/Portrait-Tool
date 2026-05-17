@@ -576,7 +576,7 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         // 3. Draw Sticky Points
         if (!appState.getCanvasState().isExportPreviewActive()) {
             RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels,
-                    appState.getCanvasState().getSelectedPoint());
+                    appState.getCanvasState().getSelectedPoints());
         }
         
         // 4. Draw Grids
@@ -813,6 +813,10 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
     private boolean handleArrowMovePoint(int dx, int dy) {
         // Chỉ xử lý khi tool hiện tại là SelectTool
         if (!(activeTool instanceof tools.SelectTool)) return false;
+
+        // Disable multi-move: chỉ cho phép move khi chọn đúng 1 point
+        java.util.Set<userpackage.SPoint> sel = appState.getCanvasState().getSelectedPoints();
+        if (sel.size() != 1) return sel.size() > 1; // consume event but don't move
 
         SPoint p = appState.getCanvasState().getSelectedPoint();
         if (p == null) return false;

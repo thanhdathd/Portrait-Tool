@@ -369,12 +369,21 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
 
         // Phím Delete để xóa đối tượng đang được chọn (Point ưu tiên hơn Grid)
         keyBindingHelper(im,am,KeyEvent.VK_DELETE, 0, "DeleteSelectedObject", e -> {
-            userpackage.SPoint point = appState.getCanvasState().getSelectedPoint();
-            if (point != null) {
-                core.history.StickCommand cmd = new core.history.StickCommand(
-                        appState.getCanvasState(), canvas, point,
-                        core.history.StickCommand.Action.DELETE, point.copy(), null);
-                appState.getHistoryManager().push(cmd);
+            // Xóa các point đang được chọn (ưu tiên point trước grid)
+            java.util.Set<userpackage.SPoint> selPoints = appState.getCanvasState().getSelectedPoints();
+            if (!selPoints.isEmpty()) {
+                if (selPoints.size() == 1) {
+                    userpackage.SPoint p = selPoints.iterator().next();
+                    core.history.StickCommand cmd = new core.history.StickCommand(
+                            appState.getCanvasState(), canvas, p,
+                            core.history.StickCommand.Action.DELETE, p.copy(), null);
+                    appState.getHistoryManager().push(cmd);
+                } else {
+                    java.util.List<userpackage.SPoint> targets = new java.util.ArrayList<>(selPoints);
+                    core.history.BatchStickCommand cmd = new core.history.BatchStickCommand(
+                            appState.getCanvasState(), canvas, targets);
+                    appState.getHistoryManager().push(cmd);
+                }
                 return;
             }
             userpackage.SPoint grid = appState.getCanvasState().getSelectedGrid();
@@ -627,6 +636,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             appState.getHistoryManager().markAsClean();
             
             setTitle(file.getAbsolutePath() + " (Project) - " + project.image.getWidth() + "x" + project.image.getHeight());
+            
+            autoSaveManager.initShadowSession(file);
             
             // Notify AutoSave that we are clean
             autoSaveManager.onManualSave();

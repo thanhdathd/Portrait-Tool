@@ -12,6 +12,8 @@ public class CommandData {
         ADD_POINT,
         DELETE_POINT,
         EDIT_POINT,
+        BATCH_DELETE_POINTS,
+        BATCH_EDIT_POINTS_COLOR,
         ADD_GRID,
         DELETE_GRID,
         EDIT_GRID,
@@ -26,7 +28,12 @@ public class CommandData {
 
         // Tham số cho các lệnh liên quan đến Point (ADD_POINT, DELETE_POINT) và Grid
         public SPoint point;
-        public SPoint newPoint; // Dùng cho lệnh EDIT_GRID
+        public SPoint newPoint; // Dùng cho lệnh EDIT_GRID / EDIT_POINT
+
+        // Tham số cho batch point commands
+        public java.util.List<SPoint> points;  // danh sách point cho BATCH_DELETE / BATCH_EDIT_COLOR
+        public java.awt.Color batchColor;       // màu mới cho BATCH_EDIT_POINTS_COLOR
+        public java.util.List<java.awt.Color> oldColors; // màu cũ từng point (cho undo)
 
         // Tham số cho lệnh CROP
         public Integer cropX;
