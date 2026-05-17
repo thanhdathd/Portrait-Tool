@@ -214,6 +214,9 @@ public class RenderUtils {
                 g2d.setTransform(dotAt);
             }
             g2d.setStroke(oldStroke);
+            // Khôi phục hints về trạng thái mặc định để không rò rỉ sang các bước vẽ sau
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
+            g2d.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_NORMALIZE);
         }
 
         // layer 3: vẽ selection ring quanh điểm được chọn
@@ -225,6 +228,8 @@ public class RenderUtils {
             int r = 10; // radius in image coords
             g2d.drawOval(selectedPoint.X - r, selectedPoint.Y - r, r * 2, r * 2);
             g2d.setStroke(oldStroke);
+            // Khôi phục hints về trạng thái mặc định để không rò rỉ sang drawGrids
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         }
     }
 
