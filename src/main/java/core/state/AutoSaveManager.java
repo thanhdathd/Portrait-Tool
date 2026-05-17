@@ -181,6 +181,10 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
             data.undoStack = new ArrayList<>(appState.getHistoryManager().getPersistentUndoStack());
             data.redoStack = new ArrayList<>(appState.getHistoryManager().getPersistentRedoStack());
 
+            // Capture Project Initial State (for .pdw files)
+            data.initialPoints = appState.getInitialPoints();
+            data.initialGrids = appState.getInitialGrids();
+
             File finalFile = new File(autosaveDir, AUTOSAVE_FILE);
             File tempFile = new File(autosaveDir, AUTOSAVE_FILE + ".tmp");
 
@@ -347,6 +351,22 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
 
                     // Replay
                     appState.getCanvasState().clearAll();
+
+                    // Restore Initial Project State (Points and Grids) if it was a project file
+                    if (data.initialPoints != null) {
+                        for (userpackage.SPoint p : data.initialPoints) {
+                            appState.getCanvasState().addStickyPoint(p);
+                        }
+                    }
+                    if (data.initialGrids != null) {
+                        for (userpackage.SPoint g : data.initialGrids) {
+                            appState.getCanvasState().addGrid(g);
+                        }
+                    }
+                    // Keep them in AppState so future auto-saves still have them
+                    appState.setInitialPoints(data.initialPoints);
+                    appState.setInitialGrids(data.initialGrids);
+
                     ui.updateProgress(40, "Reconstructing undo stack...");
                     Deque<Command> undo = reconstructStack(ui, data.undoStack, image, true);
                     

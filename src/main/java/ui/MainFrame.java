@@ -592,6 +592,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             appState.getHistoryManager().clearAll();
             appState.getHistoryManager().markAsClean();
             appState.getCanvasState().clearAll();
+            appState.setInitialPoints(null);
+            appState.setInitialGrids(null);
             autoSaveManager.initShadowSession(file);
         }, ex -> {
             JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -630,6 +632,10 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                     appState.getCanvasState().addGrid(p);
                 }
             }
+            
+            // Set initial points/grids in AppState for project persistence
+            appState.setInitialPoints(project.data.stickyPoints);
+            appState.setInitialGrids(project.data.grids);
             
             // 4. Reset History
             appState.getHistoryManager().clearAll();

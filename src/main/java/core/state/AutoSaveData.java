@@ -24,6 +24,10 @@ public class AutoSaveData {
     public List<CommandData> undoStack;
     public List<CommandData> redoStack;
 
+    // Project Initial State (only populated if active file is a .pdw project)
+    public List<SPoint> initialPoints;
+    public List<SPoint> initialGrids;
+
     public AutoSaveData() {
         this.timestamp = System.currentTimeMillis();
     }

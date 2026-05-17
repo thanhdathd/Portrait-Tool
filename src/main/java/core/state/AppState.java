@@ -62,6 +62,10 @@ public class AppState {
     private int autoSaveInterval = 1; // Minutes
     private core.history.HistoryMemoryLevel historyMemoryLevel = core.history.HistoryMemoryLevel.MEDIUM;
 
+    // Persisted initial project points & grids for autosave recovery
+    private List<userpackage.SPoint> initialPoints = null;
+    private List<userpackage.SPoint> initialGrids = null;
+
     public AppState() {
         this.historyManager = new HistoryManager(historyMemoryLevel.getRamBudgetBytes());
         this.canvasState = new CanvasState();
@@ -119,6 +123,22 @@ public class AppState {
 
     public CanvasState getCanvasState() {
         return canvasState;
+    }
+
+    public List<userpackage.SPoint> getInitialPoints() {
+        return initialPoints;
+    }
+
+    public void setInitialPoints(List<userpackage.SPoint> initialPoints) {
+        this.initialPoints = initialPoints;
+    }
+
+    public List<userpackage.SPoint> getInitialGrids() {
+        return initialGrids;
+    }
+
+    public void setInitialGrids(List<userpackage.SPoint> initialGrids) {
+        this.initialGrids = initialGrids;
     }
 
     public boolean isFloating() {
