@@ -561,7 +561,8 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         
         // 3. Draw Sticky Points
         if (!appState.getCanvasState().isExportPreviewActive()) {
-            RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels);
+            RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels,
+                    appState.getCanvasState().getSelectedPoint());
         }
         
         // 4. Draw Grids

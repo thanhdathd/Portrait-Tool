@@ -401,6 +401,28 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                 case ADD_POINT:
                     cmd = new StickCommand(appState.getCanvasState(), ui.getCanvas(), d.point.copy());
                     break;
+                case DELETE_POINT:
+                case EDIT_POINT: {
+                    // Find existing point reference matching old state
+                    userpackage.SPoint existingPoint = null;
+                    for (userpackage.SPoint p : appState.getCanvasState().getStickyPoints()) {
+                        if (p.X == d.point.X && p.Y == d.point.Y && p.id == d.point.id) {
+                            existingPoint = p;
+                            break;
+                        }
+                    }
+                    if (existingPoint != null) {
+                        if (d.type == CommandData.CommandType.DELETE_POINT) {
+                            cmd = new StickCommand(appState.getCanvasState(), ui.getCanvas(), existingPoint,
+                                    StickCommand.Action.DELETE, d.point.copy(), null);
+                        } else {
+                            cmd = new StickCommand(appState.getCanvasState(), ui.getCanvas(), existingPoint,
+                                    StickCommand.Action.EDIT, d.point.copy(),
+                                    d.newPoint != null ? d.newPoint.copy() : null);
+                        }
+                    }
+                    break;
+                }
                 case ADD_GRID:
                     cmd = new GridCommand(appState.getCanvasState(), ui.getCanvas(), d.point.copy(), core.history.GridCommand.Action.ADD, null, null);
                     break;

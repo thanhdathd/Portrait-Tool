@@ -50,7 +50,58 @@ public class RenderUtils {
         }
     }
 
+    /**
+     * Overload without selected point — backward compatible.
+     */
     public static void drawStickyPoints(Graphics2D g2d, List<SPoint> points, boolean drawLabels) {
+        drawStickyPoints(g2d, points, drawLabels, null);
+    }
+
+    /**
+     * Computes the label bounding box for a point in image (local) coordinates.
+     * Origin is at (p.X, p.Y). Result is in image (untransformed) coordinates.
+     */
+    public static Rectangle getLabelBounds(SPoint p, FontMetrics fm) {
+        String text = String.valueOf(p.id);
+        int textWidth = fm.stringWidth(text);
+        int textAscent = fm.getAscent();
+        int gap = 10;
+        int lx, ly, lw, lh;
+        if (p.isCustomPlacement) {
+            double radians = Math.toRadians(p.customAngle);
+            int lpX = (int) Math.round(p.customGap * Math.cos(radians));
+            int lpY = (int) Math.round(-p.customGap * Math.sin(radians));
+            lx = calculateCustomBaselineX(lpX, p.customAngle, textWidth);
+            int y;
+            if (p.customAngle >= 213 && p.customAngle <= 327) {
+                y = lpY + (int)(textAscent * 0.9) - 1;
+            } else {
+                y = lpY - 1;
+            }
+            lx += p.X;
+            ly = p.Y + y - textAscent;
+            lw = textWidth + 2;
+            lh = textAscent + 2;
+        } else {
+            int x, y;
+            if (p.dr == Direction.EAST) {
+                x = gap + 2; y = textAscent / 2 + 4;
+            } else if (p.dr == Direction.WEST) {
+                x = -textWidth - gap; y = textAscent / 2 + 4;
+            } else if (p.dr == Direction.SOUTH) {
+                x = -textWidth / 2; y = textAscent + gap - 2;
+            } else { // NORTH
+                x = -textWidth / 2; y = -gap;
+            }
+            lx = p.X + x - 1;
+            ly = p.Y + y - textAscent;
+            lw = textWidth + 2;
+            lh = textAscent + 2;
+        }
+        return new Rectangle(lx, ly, lw, lh);
+    }
+
+    public static void drawStickyPoints(Graphics2D g2d, List<SPoint> points, boolean drawLabels, SPoint selectedPoint) {
         // 1. LẤY VÙNG HIỂN THỊ (VIEWPORT CLIP)
         // Rectangle này chính là khung hình chữ nhật trên ảnh gốc đang được show ra
         Rectangle clip = g2d.getClipBounds();
@@ -159,10 +210,20 @@ public class RenderUtils {
                 g2d.setColor(new Color(line[0]));
                 AffineTransform dotAt = g2d.getTransform();
                 g2d.translate(line[1], line[2]);
-//                    g2d.drawLine(anchorX, anchorY, stop.x, stop.y);
                 g2d.draw(new Line2D.Double(line[3], line[4], line[5], line[6]));
                 g2d.setTransform(dotAt);
             }
+            g2d.setStroke(oldStroke);
+        }
+
+        // layer 3: vẽ selection ring quanh điểm được chọn
+        if (selectedPoint != null && points.contains(selectedPoint)) {
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Stroke oldStroke = g2d.getStroke();
+            g2d.setStroke(new BasicStroke(0.5f));
+            g2d.setColor(new Color(0, 120, 215)); // Blue selection ring
+            int r = 10; // radius in image coords
+            g2d.drawOval(selectedPoint.X - r, selectedPoint.Y - r, r * 2, r * 2);
             g2d.setStroke(oldStroke);
         }
     }

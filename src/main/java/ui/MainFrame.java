@@ -148,7 +148,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         overlayContainer.setOpaque(false);
         
         ui.components.PropertyPanel propertyPanel = new ui.components.PropertyPanel(appState, canvas);
-        JPanel rightWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10)) {
+        ui.components.PointPropertyPanel pointPropertyPanel = new ui.components.PointPropertyPanel(appState, canvas);
+        JPanel rightWrapper = new JPanel() {
             @Override
             public boolean contains(int x, int y) {
                 for (Component c : getComponents()) {
@@ -159,9 +160,19 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 return false;
             }
         };
+        rightWrapper.setLayout(new BoxLayout(rightWrapper, BoxLayout.Y_AXIS));
         rightWrapper.setOpaque(false);
-        rightWrapper.add(propertyPanel);
-        overlayContainer.add(rightWrapper, BorderLayout.EAST);
+        // Wrap in a FlowLayout-like container aligned to top-right with padding
+        JPanel rightPadded = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        rightPadded.setOpaque(false);
+        JPanel pointStack = new JPanel();
+        pointStack.setLayout(new BoxLayout(pointStack, BoxLayout.Y_AXIS));
+        pointStack.setOpaque(false);
+        pointStack.add(pointPropertyPanel);
+        pointStack.add(Box.createRigidArea(new Dimension(0, 5)));
+        pointStack.add(propertyPanel);
+        rightPadded.add(pointStack);
+        overlayContainer.add(rightPadded, BorderLayout.EAST);
         
         JPanel centerWrapper = new JPanel() {
             @Override
@@ -356,13 +367,22 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             openZoomWindow();
         });
 
-        // Phím Delete để xóa lưới đang được chọn
-        keyBindingHelper(im,am,KeyEvent.VK_DELETE, 0, "DeleteSelectedGrid", e -> {
+        // Phím Delete để xóa đối tượng đang được chọn (Point ưu tiên hơn Grid)
+        keyBindingHelper(im,am,KeyEvent.VK_DELETE, 0, "DeleteSelectedObject", e -> {
+            userpackage.SPoint point = appState.getCanvasState().getSelectedPoint();
+            if (point != null) {
+                core.history.StickCommand cmd = new core.history.StickCommand(
+                        appState.getCanvasState(), canvas, point,
+                        core.history.StickCommand.Action.DELETE, point.copy(), null);
+                appState.getHistoryManager().push(cmd);
+                return;
+            }
             userpackage.SPoint grid = appState.getCanvasState().getSelectedGrid();
             if (grid != null) {
-                core.history.GridCommand cmd = new core.history.GridCommand(appState.getCanvasState(), canvas, grid, core.history.GridCommand.Action.DELETE, grid.copy(), null);
+                core.history.GridCommand cmd = new core.history.GridCommand(
+                        appState.getCanvasState(), canvas, grid,
+                        core.history.GridCommand.Action.DELETE, grid.copy(), null);
                 appState.getHistoryManager().push(cmd);
-                cmd.execute();
             }
         });
     }

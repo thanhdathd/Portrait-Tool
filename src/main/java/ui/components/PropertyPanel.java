@@ -39,7 +39,7 @@ public class PropertyPanel extends JPanel {
         setOpaque(false); // Important for transparent backgrounds in Swing
         
         // Define maximum width
-        Dimension maxDim = new Dimension(80, 200);
+        Dimension maxDim = new Dimension(140, 200);
         setMaximumSize(maxDim);
         
         // --- Header ---
@@ -53,7 +53,7 @@ public class PropertyPanel extends JPanel {
         JPanel colorPanel = new JPanel(new BorderLayout());
         colorPanel.setOpaque(false);
         colorBtn = new JButton();
-        colorBtn.setPreferredSize(new Dimension(60, 20));
+        colorBtn.setPreferredSize(new Dimension(100, 20));
         colorBtn.addActionListener(e -> changeColor());
         colorPanel.add(colorBtn, BorderLayout.CENTER);
         add(colorPanel);
@@ -87,6 +87,7 @@ public class PropertyPanel extends JPanel {
         
         unitCombo = new JComboBox<>(new String[]{"px", "cm"});
         unitCombo.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        unitCombo.setPreferredSize(new Dimension(55, 20));
         // Mặc định unit là từ appState
         if (appState.isCmUnit() || appState.isGridInCm()) {
             unitCombo.setSelectedIndex(1);

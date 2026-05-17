@@ -11,6 +11,7 @@ public class CommandData {
     public enum CommandType {
         ADD_POINT,
         DELETE_POINT,
+        EDIT_POINT,
         ADD_GRID,
         DELETE_GRID,
         EDIT_GRID,
