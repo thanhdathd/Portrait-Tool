@@ -578,6 +578,9 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
             RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels,
                     appState.getCanvasState().getSelectedPoints());
         }
+
+        // Draw Lines
+        RenderUtils.drawLines(g2d, appState.getCanvasState().getLines(), appState.getCanvasState().getSelectedLine(), zoom);
         
         // 4. Draw Grids
         int width = backgroundImage != null ? backgroundImage.getWidth() : (this.getWidth() > 0 ? this.getWidth() : 800);

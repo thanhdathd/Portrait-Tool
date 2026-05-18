@@ -41,6 +41,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     private JMenuItem savePointMapItem;
     private JCheckBoxMenuItem showPointMapItem;
     private SaveStatusIcon saveStatusIcon;
+    private JComboBox<Integer> strokeWidthComboBox;
     private final core.state.AutoSaveManager autoSaveManager;
     private JProgressBar recoveryProgressBar;
     private final java.util.List<JComponent> disableInExportMode = new java.util.ArrayList<>();
@@ -149,6 +150,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         
         ui.components.PropertyPanel propertyPanel = new ui.components.PropertyPanel(appState, canvas);
         ui.components.PointPropertyPanel pointPropertyPanel = new ui.components.PointPropertyPanel(appState, canvas);
+        ui.components.LinePropertyPanel linePropertyPanel = new ui.components.LinePropertyPanel(appState, canvas);
         JPanel rightWrapper = new JPanel() {
             @Override
             public boolean contains(int x, int y) {
@@ -171,6 +173,8 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         pointStack.add(pointPropertyPanel);
         pointStack.add(Box.createRigidArea(new Dimension(0, 5)));
         pointStack.add(propertyPanel);
+        pointStack.add(Box.createRigidArea(new Dimension(0, 5)));
+        pointStack.add(linePropertyPanel);
         rightPadded.add(pointStack);
         overlayContainer.add(rightPadded, BorderLayout.EAST);
         
@@ -353,6 +357,11 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             if (!exportFocusMode) canvas.setActiveTool(tool.gridTool);
         });
 
+        // Phím 'L' cho LineTool
+        keyBindingHelper(im, am, KeyEvent.VK_L, 0, "LineToolAction", e -> {
+            if (!exportFocusMode) canvas.setActiveTool(tool.lineTool);
+        });
+
         // Phím 'P' cho Point/Pen Tool
         keyBindingHelper(im,am, new int[]{KeyEvent.VK_P, KeyEvent.VK_B}, 0, "PointToolActionP", e -> {
             if (exportFocusMode) return;
@@ -371,9 +380,9 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             openZoomWindow();
         });
 
-        // Phím Delete để xóa đối tượng đang được chọn (Point ưu tiên hơn Grid)
+        // Phím Delete để xóa đối tượng đang được chọn (Point ưu tiên hơn Line, Line ưu tiên hơn Grid)
         keyBindingHelper(im,am,KeyEvent.VK_DELETE, 0, "DeleteSelectedObject", e -> {
-            // Xóa các point đang được chọn (ưu tiên point trước grid)
+            // Xóa các point đang được chọn (ưu tiên point trước line, line trước grid)
             java.util.Set<userpackage.SPoint> selPoints = appState.getCanvasState().getSelectedPoints();
             if (!selPoints.isEmpty()) {
                 if (selPoints.size() == 1) {
@@ -390,6 +399,17 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 }
                 return;
             }
+            
+            // Xóa line đang được chọn
+            userpackage.SLine line = appState.getCanvasState().getSelectedLine();
+            if (line != null) {
+                core.history.LineCommand cmd = new core.history.LineCommand(
+                        appState.getCanvasState(), canvas, line,
+                        core.history.LineCommand.Action.DELETE, line.copy(), null);
+                appState.getHistoryManager().push(cmd);
+                return;
+            }
+
             userpackage.SPoint grid = appState.getCanvasState().getSelectedGrid();
             if (grid != null) {
                 core.history.GridCommand cmd = new core.history.GridCommand(
@@ -598,6 +618,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             appState.getCanvasState().clearAll();
             appState.setInitialPoints(null);
             appState.setInitialGrids(null);
+            appState.setInitialLines(null);
             autoSaveManager.initShadowSession(file);
         }, ex -> {
             JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -636,10 +657,16 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                     appState.getCanvasState().addGrid(p);
                 }
             }
+            if (project.data.lines != null) {
+                for (userpackage.SLine l : project.data.lines) {
+                    appState.getCanvasState().getLines().add(l);
+                }
+            }
             
-            // Set initial points/grids in AppState for project persistence
+            // Set initial points/grids/lines in AppState for project persistence
             appState.setInitialPoints(project.data.stickyPoints);
             appState.setInitialGrids(project.data.grids);
+            appState.setInitialLines(project.data.lines);
             
             // 4. Reset History
             appState.getHistoryManager().clearAll();
@@ -1252,6 +1279,9 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         JButton selectBtn = createSVGIconButton("ic_select.svg", "Select Tool", 24, 24, lineColor);
         selectBtn.addActionListener(e -> canvas.setActiveTool(tool.selectTool));
 
+        JButton lineBtn = createSVGIconButton("ic_line.svg", "Draw Line Tool (L)", 24, 24, lineColor);
+        lineBtn.addActionListener(e -> canvas.setActiveTool(tool.lineTool));
+
         JButton cropBtn = createSVGIconButton(
                 "ic_crop.svg",
                 "Crop Image",
@@ -1278,6 +1308,44 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             canvas.repaint();
         });
         
+        // JComboBox for Stroke Width (Line Tool)
+        strokeWidthComboBox = new JComboBox<>(new Integer[]{1, 2, 3, 5, 8, 13});
+        strokeWidthComboBox.setSelectedItem(appState.getActiveLineStrokeWidth());
+        strokeWidthComboBox.setVisible(false);
+        strokeWidthComboBox.setMaximumSize(new Dimension(100, 30));
+        strokeWidthComboBox.setToolTipText("Line Stroke Width");
+        strokeWidthComboBox.setRenderer(new ListCellRenderer<Integer>() {
+            @Override
+            public Component getListCellRendererComponent(JList<? extends Integer> list, Integer value, int index, boolean isSelected, boolean cellHasFocus) {
+                int thickness = (value != null) ? value : 2;
+                JPanel panel = new JPanel() {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        super.paintComponent(g);
+                        Graphics2D g2 = (Graphics2D) g;
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.setColor(appState.getBrushColor());
+                        g2.setStroke(new BasicStroke(thickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        int y = getHeight() / 2;
+                        g2.drawLine(10, y, getWidth() - 10, y);
+                    }
+                };
+                panel.setPreferredSize(new Dimension(80, 24));
+                if (isSelected) {
+                    panel.setBackground(list.getSelectionBackground());
+                } else {
+                    panel.setBackground(list.getBackground());
+                }
+                return panel;
+            }
+        });
+        strokeWidthComboBox.addActionListener(evt -> {
+            Integer sel = (Integer) strokeWidthComboBox.getSelectedItem();
+            if (sel != null) {
+                appState.setActiveLineStrokeWidth(sel);
+            }
+        });
+
         // Listen to active tool changes
         canvas.addPropertyChangeListener(evt -> {
             if ("activeTool".equals(evt.getPropertyName())) {
@@ -1287,15 +1355,22 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                     stickBtn.setEnabled(false);
                     p2pBtn.setEnabled(false);
                     gridBtn.setEnabled(false);
+                    lineBtn.setEnabled(false);
                     cropBtn.setEnabled(false);
                 } else {
                     stickBtn.setEnabled(!(activeTool instanceof tools.StickTool));
                     p2pBtn.setEnabled(!(activeTool instanceof tools.P2PTool));
                     gridBtn.setEnabled(!(activeTool instanceof tools.GridTool));
                     selectBtn.setEnabled(!(activeTool instanceof tools.SelectTool));
+                    lineBtn.setEnabled(!(activeTool instanceof tools.LineTool));
                     cropBtn.setEnabled(!(activeTool instanceof tools.CropTool));
                 }
                 
+                // Toggle Stroke Width Dropdown visibility
+                strokeWidthComboBox.setVisible(activeTool instanceof tools.LineTool);
+                strokeWidthComboBox.revalidate();
+                strokeWidthComboBox.repaint();
+
                 // Deselect grid if switching to a tool other than Hand, Zoom, or Select
                 if (!(activeTool instanceof tools.HandTool) && !(activeTool instanceof tools.ZoomCanvasTool) && !(activeTool instanceof tools.SelectTool)) {
                     appState.getCanvasState().setSelectedGrid(null);
@@ -1310,6 +1385,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         toolBar.add(p2pBtn);
         toolBar.add(gridBtn);
         toolBar.add(selectBtn);
+        toolBar.add(lineBtn);
         toolBar.add(cropBtn);
         toolBar.add(zoomBtn);
         toolBar.add(zoomActualSize);
@@ -1342,6 +1418,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             }
         });
         toolBar.add(colorBtn);
+        toolBar.add(strokeWidthComboBox);
         toolBar.addSeparator();
         initColorPlate(toolBar, colorBtn);
 

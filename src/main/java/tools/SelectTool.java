@@ -1,9 +1,11 @@
 package tools;
 
+import core.history.LineCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
 import ui.canvas.RenderUtils;
 import userpackage.SPoint;
+import userpackage.SLine;
 
 import java.awt.*;
 import java.awt.event.InputEvent;
@@ -23,12 +25,101 @@ public class SelectTool implements Tool {
     private Point dragCurrent = null;
     private boolean isDragging = false;
 
+    // Handle interaction state (image coords)
+    private int activeHandleIndex = -1; // -1: none, 0: start, 1: end, 2: center
+    private SLine draggingLine = null;
+    private SLine originalDraggingLineState = null;
+    private Point startPointOffset = null;
+    private Point endPointOffset = null;
+
+    // Perpendicular segment distance utility
+    private double getDistanceToSegment(Point p, Point a, Point b) {
+        double l2 = a.distanceSq(b);
+        if (l2 == 0) return p.distance(a);
+        double t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        double projX = a.x + t * (b.x - a.x);
+        double projY = a.y + t * (b.y - a.y);
+        return p.distance(projX, projY);
+    }
+
     @Override
-    public void onMouseMoved(MouseEvent e, AppState appState, ImageCanvas canvas) {}
+    public void onMouseMoved(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        // Cursor feedback when hovering active selected line handles
+        SLine selectedLine = appState.getCanvasState().getSelectedLine();
+        if (selectedLine != null) {
+            float zoom = appState.getCurrentZoom();
+            int ox = appState.getCanvasState().getImageOffsetX();
+            int oy = appState.getCanvasState().getImageOffsetY();
+
+            Point mouseLoc = new Point(
+                Math.round((float)(e.getX() - ox) / zoom),
+                Math.round((float)(e.getY() - oy) / zoom)
+            );
+
+            Point midPoint = new Point(
+                (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
+                (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
+            );
+
+            double screenRadius = 15.0 / zoom; // 30px active zone
+
+            if (mouseLoc.distance(selectedLine.startPoint) <= screenRadius ||
+                mouseLoc.distance(selectedLine.endPoint) <= screenRadius ||
+                mouseLoc.distance(midPoint) <= screenRadius) {
+                canvas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                return;
+            }
+        }
+        canvas.setCursor(Cursor.getDefaultCursor());
+    }
 
     @Override
     public void onMousePressed(MouseEvent e, AppState appState, ImageCanvas canvas) {
         if (e.getButton() == MouseEvent.BUTTON1) {
+            float zoom = appState.getCurrentZoom();
+            int ox = appState.getCanvasState().getImageOffsetX();
+            int oy = appState.getCanvasState().getImageOffsetY();
+
+            // 1. Check handles on active selected line
+            SLine selectedLine = appState.getCanvasState().getSelectedLine();
+            if (selectedLine != null) {
+                Point pMouse = new Point(
+                    Math.round((float)(e.getX() - ox) / zoom),
+                    Math.round((float)(e.getY() - oy) / zoom)
+                );
+
+                Point midPoint = new Point(
+                    (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
+                    (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
+                );
+
+                double screenRadius = 15.0 / zoom; // 30px grab zone diameter on screen
+
+                if (pMouse.distance(selectedLine.startPoint) <= screenRadius) {
+                    activeHandleIndex = 0;
+                    draggingLine = selectedLine;
+                    originalDraggingLineState = selectedLine.copy();
+                    canvas.repaint();
+                    return;
+                } else if (pMouse.distance(selectedLine.endPoint) <= screenRadius) {
+                    activeHandleIndex = 1;
+                    draggingLine = selectedLine;
+                    originalDraggingLineState = selectedLine.copy();
+                    canvas.repaint();
+                    return;
+                } else if (pMouse.distance(midPoint) <= screenRadius) {
+                    activeHandleIndex = 2;
+                    draggingLine = selectedLine;
+                    originalDraggingLineState = selectedLine.copy();
+                    startPointOffset = new Point(selectedLine.startPoint.x - pMouse.x, selectedLine.startPoint.y - pMouse.y);
+                    endPointOffset = new Point(selectedLine.endPoint.x - pMouse.x, selectedLine.endPoint.y - pMouse.y);
+                    canvas.repaint();
+                    return;
+                }
+            }
+
+            // Normal drag init
             dragStart   = e.getPoint();
             dragCurrent = e.getPoint();
             isDragging  = false;
@@ -37,6 +128,49 @@ public class SelectTool implements Tool {
 
     @Override
     public void onMouseDragged(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        float zoom = appState.getCurrentZoom();
+        int ox = appState.getCanvasState().getImageOffsetX();
+        int oy = appState.getCanvasState().getImageOffsetY();
+
+        if (draggingLine != null && activeHandleIndex != -1) {
+            int dragX = Math.round((float)(e.getX() - ox) / zoom);
+            int dragY = Math.round((float)(e.getY() - oy) / zoom);
+
+            java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+            if (img != null) {
+                dragX = Math.max(0, Math.min(img.getWidth() - 1, dragX));
+                dragY = Math.max(0, Math.min(img.getHeight() - 1, dragY));
+            }
+
+            if (activeHandleIndex == 0) {
+                draggingLine.startPoint.setLocation(dragX, dragY);
+            } else if (activeHandleIndex == 1) {
+                draggingLine.endPoint.setLocation(dragX, dragY);
+            } else if (activeHandleIndex == 2) {
+                int newStartX = dragX + startPointOffset.x;
+                int newStartY = dragY + startPointOffset.y;
+                int newEndX = dragX + endPointOffset.x;
+                int newEndY = dragY + endPointOffset.y;
+
+                if (img != null) {
+                    int w = img.getWidth() - 1;
+                    int h = img.getHeight() - 1;
+                    if (newStartX >= 0 && newStartX <= w &&
+                        newStartY >= 0 && newStartY <= h &&
+                        newEndX >= 0 && newEndX <= w &&
+                        newEndY >= 0 && newEndY <= h) {
+                        draggingLine.startPoint.setLocation(newStartX, newStartY);
+                        draggingLine.endPoint.setLocation(newEndX, newEndY);
+                    }
+                } else {
+                    draggingLine.startPoint.setLocation(newStartX, newStartY);
+                    draggingLine.endPoint.setLocation(newEndX, newEndY);
+                }
+            }
+            canvas.repaint();
+            return;
+        }
+
         if (dragStart == null) return;
         dragCurrent = e.getPoint();
         double dist = dragStart.distance(dragCurrent);
@@ -48,6 +182,27 @@ public class SelectTool implements Tool {
 
     @Override
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        if (draggingLine != null && originalDraggingLineState != null) {
+            boolean moved = !draggingLine.startPoint.equals(originalDraggingLineState.startPoint) ||
+                            !draggingLine.endPoint.equals(originalDraggingLineState.endPoint);
+            if (moved) {
+                LineCommand cmd = new LineCommand(
+                    appState.getCanvasState(),
+                    canvas,
+                    draggingLine,
+                    LineCommand.Action.EDIT,
+                    originalDraggingLineState,
+                    draggingLine.copy()
+                );
+                appState.getHistoryManager().push(cmd);
+            }
+            draggingLine = null;
+            originalDraggingLineState = null;
+            activeHandleIndex = -1;
+            canvas.repaint();
+            return;
+        }
+
         if (e.getButton() != MouseEvent.BUTTON1) return;
 
         if (isDragging && dragStart != null && dragCurrent != null) {
@@ -92,12 +247,13 @@ public class SelectTool implements Tool {
         }
 
         appState.getCanvasState().setSelectedGrid(null);
+        appState.getCanvasState().setSelectedLine(null);
         appState.getCanvasState().setSelectedPoints(matched);
         canvas.repaint();
     }
 
     // ------------------------------------------------------------------
-    // CLICK RELEASE: single/shift/ctrl click
+    // CLICK RELEASE: single/shift/ctrl click (Priority: Point > Line > Grid)
     // ------------------------------------------------------------------
     private void handleClickRelease(MouseEvent e, AppState appState, ImageCanvas canvas) {
         boolean isShift = (e.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) != 0;
@@ -111,7 +267,7 @@ public class SelectTool implements Tool {
         float ix = (cx - offsetX) / zoom;
         float iy = (cy - offsetY) / zoom;
 
-        // ---- Hit-test sticky points ----
+        // ---- 1. Hit-test sticky points (Highest Priority) ----
         Font labelFont = new Font("SansSerif", Font.BOLD, 12);
         FontMetrics fm = canvas.getFontMetrics(labelFont);
 
@@ -141,26 +297,22 @@ public class SelectTool implements Tool {
             Set<SPoint> currentSelected = appState.getCanvasState().getSelectedPoints();
 
             if (isCtrl) {
-                // Ctrl+click: bỏ chọn point đã selected (chỉ tác dụng nếu trong selection)
                 for (SPoint p : pointCandidates) {
                     if (currentSelected.contains(p)) {
                         appState.getCanvasState().removeFromSelection(p);
                     }
                 }
-                // Không deselect grid
             } else if (isShift) {
-                // Shift+click: thêm point chưa selected vào danh sách
                 appState.getCanvasState().setSelectedGrid(null);
+                appState.getCanvasState().setSelectedLine(null);
                 for (SPoint p : pointCandidates) {
                     if (!currentSelected.contains(p)) {
                         appState.getCanvasState().addToSelection(p);
                     }
                 }
             } else {
-                // Click thường: single-select với cycle logic
                 SPoint toSelect;
                 if (pointCandidates.size() > 1) {
-                    // Nếu có nhiều candidates, ưu tiên point chưa được selected
                     List<SPoint> unselected = new ArrayList<>();
                     for (SPoint p : pointCandidates) {
                         if (!currentSelected.contains(p)) unselected.add(p);
@@ -168,7 +320,6 @@ public class SelectTool implements Tool {
                     if (!unselected.isEmpty()) {
                         toSelect = unselected.get(random.nextInt(unselected.size()));
                     } else {
-                        // Tất cả đã selected: cycle sang point khác
                         SPoint last = appState.getCanvasState().getSelectedPoint();
                         List<SPoint> others = new ArrayList<>(pointCandidates);
                         others.remove(last);
@@ -178,20 +329,49 @@ public class SelectTool implements Tool {
                     toSelect = pointCandidates.get(0);
                 }
                 appState.getCanvasState().setSelectedGrid(null);
-                appState.getCanvasState().setSelectedPoint(toSelect); // single-select (replaces set)
+                appState.getCanvasState().setSelectedLine(null);
+                appState.getCanvasState().setSelectedPoint(toSelect);
             }
             canvas.repaint();
             return;
         }
 
-        // ---- If no point hit: handle grid or deselect ----
-        if (isShift || isCtrl) {
-            // Shift/Ctrl on empty area — không deselect
+        // ---- 2. Hit-test lines (Medium Priority) ----
+        Point clickLoc = new Point(Math.round(ix), Math.round(iy));
+        List<SLine> lineCandidates = new ArrayList<>();
+        double selectTolerance = 10.0 / zoom; // 10px screen space tolerance
+
+        for (SLine l : appState.getCanvasState().getLines()) {
+            if (getDistanceToSegment(clickLoc, l.startPoint, l.endPoint) <= selectTolerance) {
+                lineCandidates.add(l);
+            }
+        }
+
+        if (!lineCandidates.isEmpty()) {
+            SLine currentSelectedLine = appState.getCanvasState().getSelectedLine();
+            SLine toSelect;
+            if (lineCandidates.size() > 1 && lineCandidates.contains(currentSelectedLine)) {
+                List<SLine> others = new ArrayList<>(lineCandidates);
+                others.remove(currentSelectedLine);
+                toSelect = others.get(random.nextInt(others.size()));
+            } else {
+                toSelect = lineCandidates.get(random.nextInt(lineCandidates.size()));
+            }
+
+            appState.getCanvasState().setSelectedGrid(null);
+            appState.getCanvasState().clearPointSelection();
+            appState.getCanvasState().setSelectedLine(toSelect);
             canvas.repaint();
             return;
         }
 
-        // ---- Hit-test grids ----
+        // Shift/Ctrl on empty area - don't clear selections
+        if (isShift || isCtrl) {
+            canvas.repaint();
+            return;
+        }
+
+        // ---- 3. Hit-test grids (Lowest Priority) ----
         List<SPoint> gridCandidates = new ArrayList<>();
         SPoint currentSelectedGrid  = appState.getCanvasState().getSelectedGrid();
 
@@ -222,10 +402,12 @@ public class SelectTool implements Tool {
                 toSelect = gridCandidates.get(random.nextInt(gridCandidates.size()));
             }
             appState.getCanvasState().clearPointSelection();
+            appState.getCanvasState().setSelectedLine(null);
             appState.getCanvasState().setSelectedGrid(toSelect);
         } else {
-            // Click vào vùng trống — deselect tất cả
+            // Click on empty canvas - clear everything
             appState.getCanvasState().setSelectedGrid(null);
+            appState.getCanvasState().setSelectedLine(null);
             appState.getCanvasState().clearPointSelection();
         }
 
@@ -234,14 +416,8 @@ public class SelectTool implements Tool {
 
     @Override
     public void onPaint(Graphics2D g2d, AppState appState, ImageCanvas canvas) {
-        // Vẽ drag rectangle preview (trong screen coords)
+        // Draw drag rectangle preview
         if (isDragging && dragStart != null && dragCurrent != null) {
-            // g2d tại đây đã được transform (translate+scale). Cần vẽ ở screen coords.
-            // Ta không có quyền truy cập g2d gốc, nên ta dùng g2d hiện tại nhưng cần lưu ý
-            // rằng g2d trong onPaint đã được transform theo image coords.
-            // Để vẽ trong screen coords, ta restore transform tạm thời.
-            // Thực tế onPaint nhận g2d đã được apply zoom+offset của ImageCanvas.
-            // Ta vẽ rect dưới dạng image coords bằng cách convert lại.
             int offsetX = appState.getCanvasState().getImageOffsetX();
             int offsetY = appState.getCanvasState().getImageOffsetY();
             float zoom  = appState.getCurrentZoom();
@@ -262,7 +438,7 @@ public class SelectTool implements Tool {
         }
     }
 
-    // Simple 2D rect helper (avoid java.awt.geom import issues)
+    // Simple 2D rect helper
     private static class Rectangle2D {
         final float x, y, w, h;
         Rectangle2D(float x, float y, float w, float h) { this.x = x; this.y = y; this.w = w; this.h = h; }

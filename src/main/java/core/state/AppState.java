@@ -65,6 +65,8 @@ public class AppState {
     // Persisted initial project points & grids for autosave recovery
     private List<userpackage.SPoint> initialPoints = null;
     private List<userpackage.SPoint> initialGrids = null;
+    private List<userpackage.SLine> initialLines = null;
+    private int activeLineStrokeWidth = 2;
 
     public AppState() {
         this.historyManager = new HistoryManager(historyMemoryLevel.getRamBudgetBytes());
@@ -139,6 +141,22 @@ public class AppState {
 
     public void setInitialGrids(List<userpackage.SPoint> initialGrids) {
         this.initialGrids = initialGrids;
+    }
+
+    public List<userpackage.SLine> getInitialLines() {
+        return initialLines;
+    }
+
+    public void setInitialLines(List<userpackage.SLine> initialLines) {
+        this.initialLines = initialLines;
+    }
+
+    public int getActiveLineStrokeWidth() {
+        return activeLineStrokeWidth;
+    }
+
+    public void setActiveLineStrokeWidth(int w) {
+        this.activeLineStrokeWidth = w;
     }
 
     public boolean isFloating() {

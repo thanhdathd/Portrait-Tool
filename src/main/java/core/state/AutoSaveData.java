@@ -1,5 +1,6 @@
 package core.state;
 
+import userpackage.SLine;
 import userpackage.SPoint;
 import java.awt.Color;
 import java.util.List;
@@ -27,6 +28,7 @@ public class AutoSaveData {
     // Project Initial State (only populated if active file is a .pdw project)
     public List<SPoint> initialPoints;
     public List<SPoint> initialGrids;
+    public List<SLine> initialLines;
 
     public AutoSaveData() {
         this.timestamp = System.currentTimeMillis();

@@ -13,6 +13,11 @@ public class CanvasState {
     private final List<SPoint> grids;
     private SPoint selectedGrid;
 
+    // Line support
+    private final List<userpackage.SLine> lines = new ArrayList<>();
+    private userpackage.SLine selectedLine = null;
+    private Consumer<userpackage.SLine> lineSelectionListener;
+
     // Multi-selection: ordered set of selected points
     private final LinkedHashSet<SPoint> selectedPoints = new LinkedHashSet<>();
     private Consumer<Integer> pointChangeListener;
@@ -155,9 +160,32 @@ public class CanvasState {
     public void clearAll() {
         stickyPoints.clear();
         grids.clear();
+        lines.clear();
         setSelectedGrid(null);
+        setSelectedLine(null);
         clearPointSelection();
         if (pointChangeListener != null) pointChangeListener.accept(0);
+    }
+
+    // ---- Lines ----
+
+    public List<userpackage.SLine> getLines() {
+        return lines;
+    }
+
+    public userpackage.SLine getSelectedLine() {
+        return selectedLine;
+    }
+
+    public void setSelectedLine(userpackage.SLine line) {
+        this.selectedLine = line;
+        if (lineSelectionListener != null) {
+            lineSelectionListener.accept(line);
+        }
+    }
+
+    public void setLineSelectionListener(java.util.function.Consumer<userpackage.SLine> listener) {
+        this.lineSelectionListener = listener;
     }
 
     // --- Export Live Preview Properties ---

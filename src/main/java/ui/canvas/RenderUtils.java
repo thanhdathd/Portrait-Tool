@@ -283,4 +283,62 @@ public class RenderUtils {
         }
         g2d.setStroke(oldStroke);
     }
+
+    public static void drawLines(Graphics2D g2d, List<userpackage.SLine> lines, userpackage.SLine selectedLine, float zoom) {
+        if (lines == null || lines.isEmpty()) return;
+
+        Stroke oldStroke = g2d.getStroke();
+        Color oldColor = g2d.getColor();
+        Object oldAntialiasing = g2d.getRenderingHint(RenderingHints.KEY_ANTIALIASING);
+
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        for (userpackage.SLine line : lines) {
+            // Draw segment line
+            g2d.setColor(line.strokeColor);
+            g2d.setStroke(new BasicStroke(line.strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2d.drawLine(line.startPoint.x, line.startPoint.y, line.endPoint.x, line.endPoint.y);
+
+            // Draw handles if selected
+            if (line == selectedLine) {
+                // Radius of handle: 5px on screen
+                float r = 5.0f / zoom;
+                float d = 10.0f / zoom;
+
+                float x1 = line.startPoint.x;
+                float y1 = line.startPoint.y;
+                float x2 = line.endPoint.x;
+                float y2 = line.endPoint.y;
+                float xm = (x1 + x2) / 2.0f;
+                float ym = (y1 + y2) / 2.0f;
+
+                Color handleColor = Color.decode("#229fff");
+                g2d.setStroke(new BasicStroke(1.0f / zoom));
+
+                // Start point handle
+                g2d.setColor(handleColor);
+                g2d.fill(new java.awt.geom.Ellipse2D.Float(x1 - r, y1 - r, d, d));
+                g2d.setColor(Color.WHITE);
+                g2d.draw(new java.awt.geom.Ellipse2D.Float(x1 - r, y1 - r, d, d));
+
+                // End point handle
+                g2d.setColor(handleColor);
+                g2d.fill(new java.awt.geom.Ellipse2D.Float(x2 - r, y2 - r, d, d));
+                g2d.setColor(Color.WHITE);
+                g2d.draw(new java.awt.geom.Ellipse2D.Float(x2 - r, y2 - r, d, d));
+
+                // Midpoint handle
+                g2d.setColor(handleColor);
+                g2d.fill(new java.awt.geom.Ellipse2D.Float(xm - r, ym - r, d, d));
+                g2d.setColor(Color.WHITE);
+                g2d.draw(new java.awt.geom.Ellipse2D.Float(xm - r, ym - r, d, d));
+            }
+        }
+
+        g2d.setStroke(oldStroke);
+        g2d.setColor(oldColor);
+        if (oldAntialiasing != null) {
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, oldAntialiasing);
+        }
+    }
 }

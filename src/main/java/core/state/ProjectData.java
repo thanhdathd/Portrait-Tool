@@ -21,6 +21,7 @@ public class ProjectData {
     // Static data points
     public List<SPoint> stickyPoints;
     public List<SPoint> grids;
+    public List<userpackage.SLine> lines;
 
     public ProjectData() {
         this.timestamp = System.currentTimeMillis();

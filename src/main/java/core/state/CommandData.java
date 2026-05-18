@@ -21,7 +21,10 @@ public class CommandData {
         ROTATE,
         FLIP,
         FILTER,
-        RESIZE
+        RESIZE,
+        ADD_LINE,
+        DELETE_LINE,
+        EDIT_LINE
     }
 
     public CommandType type;
@@ -29,6 +32,10 @@ public class CommandData {
         // Tham số cho các lệnh liên quan đến Point (ADD_POINT, DELETE_POINT) và Grid
         public SPoint point;
         public SPoint newPoint; // Dùng cho lệnh EDIT_GRID / EDIT_POINT
+
+        // Tham số cho lệnh Line
+        public userpackage.SLine line;
+        public userpackage.SLine newLine;
 
         // Tham số cho batch point commands
         public java.util.List<SPoint> points;  // danh sách point cho BATCH_DELETE / BATCH_EDIT_COLOR

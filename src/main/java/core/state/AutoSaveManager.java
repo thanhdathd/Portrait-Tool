@@ -187,6 +187,7 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
             // Capture Project Initial State (for .pdw files)
             data.initialPoints = appState.getInitialPoints();
             data.initialGrids = appState.getInitialGrids();
+            data.initialLines = appState.getInitialLines();
 
             File finalFile = new File(autosaveDir, AUTOSAVE_FILE);
             File tempFile = new File(autosaveDir, AUTOSAVE_FILE + ".tmp");
@@ -422,7 +423,7 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     // Replay
                     appState.getCanvasState().clearAll();
 
-                    // Restore Initial Project State (Points and Grids) if it was a project file
+                    // Restore Initial Project State (Points, Grids, and Lines) if it was a project file
                     if (data.initialPoints != null) {
                         for (userpackage.SPoint p : data.initialPoints) {
                             appState.getCanvasState().addStickyPoint(p);
@@ -433,9 +434,15 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                             appState.getCanvasState().addGrid(g);
                         }
                     }
+                    if (data.initialLines != null) {
+                        for (userpackage.SLine l : data.initialLines) {
+                            appState.getCanvasState().getLines().add(l);
+                        }
+                    }
                     // Keep them in AppState so future auto-saves still have them
                     appState.setInitialPoints(data.initialPoints);
                     appState.setInitialGrids(data.initialGrids);
+                    appState.setInitialLines(data.initialLines);
 
                     ui.updateProgress(40, "Reconstructing undo stack...");
                     Deque<Command> undo = reconstructStack(ui, data.undoStack, image, true);
@@ -534,6 +541,27 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                         }
                     }
                     break;
+                case ADD_LINE:
+                    cmd = new core.history.LineCommand(appState.getCanvasState(), ui.getCanvas(), d.line.copy(), core.history.LineCommand.Action.ADD, null, null);
+                    break;
+                case DELETE_LINE:
+                case EDIT_LINE: {
+                    userpackage.SLine existingLine = null;
+                    for (userpackage.SLine l : appState.getCanvasState().getLines()) {
+                        if (l.id == d.line.id) {
+                            existingLine = l;
+                            break;
+                        }
+                    }
+                    if (existingLine != null) {
+                        if (d.type == CommandData.CommandType.DELETE_LINE) {
+                            cmd = new core.history.LineCommand(appState.getCanvasState(), ui.getCanvas(), existingLine, core.history.LineCommand.Action.DELETE, d.line.copy(), null);
+                        } else {
+                            cmd = new core.history.LineCommand(appState.getCanvasState(), ui.getCanvas(), existingLine, core.history.LineCommand.Action.EDIT, d.line.copy(), d.newLine != null ? d.newLine.copy() : null);
+                        }
+                    }
+                    break;
+                }
                 case CROP:
                     // Recreate cropped image
                     nextImage = new java.awt.image.BufferedImage(d.cropW, d.cropH, currentImage.getType() == 0 ? java.awt.image.BufferedImage.TYPE_INT_ARGB : currentImage.getType());
