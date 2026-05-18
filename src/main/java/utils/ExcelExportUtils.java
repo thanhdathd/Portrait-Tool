@@ -152,7 +152,6 @@ public class ExcelExportUtils {
                 ws.value(row, 17, index);
 
                 String progressPercent = String.format("MROUND((R%2$d/%1$d), 0.0005)",size, row+1);
-                System.out.println(progressPercent);
                 ws.formula(row, 16, progressPercent);
 
                 row++;
