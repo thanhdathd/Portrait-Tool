@@ -96,6 +96,9 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
 
         // Listen for History changes
         appState.getHistoryManager().addListener(this);
+
+        // Sweep orphaned shadow files at startup
+        sweepOrphanedShadowFiles();
     }
 
     @Override
@@ -221,24 +224,88 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
     }
 
     /**
+     * Sweeps and deletes any orphaned shadow files in the shadow cache directory that
+     * do not belong to the active autosave session.
+     */
+    private void sweepOrphanedShadowFiles() {
+        copyExecutor.execute(() -> {
+            try {
+                String activeShadowPath = null;
+                File autosaveFile = getAutoSaveFile();
+                if (autosaveFile != null && autosaveFile.exists()) {
+                    try {
+                        AutoSaveData data = loadAutoSave(autosaveFile);
+                        if (data != null) {
+                            activeShadowPath = data.shadowPath;
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Failed to read active autosave for sweeping: " + e.getMessage());
+                    }
+                }
+
+                File[] files = shadowCacheDir.listFiles();
+                if (files != null) {
+                    for (File file : files) {
+                        if (file.isFile()) {
+                            if (activeShadowPath == null || !file.getAbsolutePath().equalsIgnoreCase(activeShadowPath)) {
+                                if (file.delete()) {
+                                    System.out.println("Swept orphaned shadow file: " + file.getAbsolutePath());
+                                } else {
+                                    System.err.println("Failed to sweep orphaned shadow file: " + file.getAbsolutePath());
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Error during shadow cache sweeping: " + e.getMessage());
+            }
+        });
+    }
+
+    /**
      * Deletes the autosave file and shadow copy, resetting session state.
      */
     public void cleanupSession() {
-        // Delete .pdt file
         File f = getAutoSaveFile();
+        String shadowToDelete = null;
+
+        // 1. Read shadow path from the autosave file before deleting it
         if (f != null && f.exists()) {
-            f.delete();
+            try {
+                AutoSaveData data = loadAutoSave(f);
+                if (data != null) {
+                    shadowToDelete = data.shadowPath;
+                }
+            } catch (Exception e) {
+                System.err.println("Could not read autosave file for shadow path cleanup: " + e.getMessage());
+            }
         }
 
-        // Delete shadow copy
-        String shadowPath = appState.getShadowPath();
-        if (shadowPath != null) {
-            File shadowFile = new File(shadowPath);
+        // 2. Fallback or prioritize AppState's record
+        if (appState.getShadowPath() != null) {
+            shadowToDelete = appState.getShadowPath();
+        }
+
+        // 3. Delete shadow copy
+        if (shadowToDelete != null) {
+            File shadowFile = new File(shadowToDelete);
             if (shadowFile.exists()) {
-                shadowFile.delete();
+                if (shadowFile.delete()) {
+                    System.out.println("Cleaned up shadow copy: " + shadowToDelete);
+                } else {
+                    System.err.println("Failed to delete shadow copy: " + shadowToDelete);
+                }
             }
             appState.setShadowPath(null);
             appState.setOriginalHash(null);
+        }
+
+        // 4. Delete .pdt file
+        if (f != null && f.exists()) {
+            if (f.delete()) {
+                System.out.println("Cleaned up autosave file: " + f.getAbsolutePath());
+            }
         }
 
         onManualSave();
@@ -253,6 +320,9 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
      */
     public void initShadowSession(File originalFile) {
         if (originalFile == null || !originalFile.exists()) return;
+
+        // Clean up previous active autosave session and its shadow copy
+        cleanupSession();
 
         copyExecutor.execute(() -> {
             try {

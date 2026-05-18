@@ -200,11 +200,15 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         // Default tool
         canvas.setActiveTool(new tools.HandTool());
         
-        // Auto recovery check
-        SwingUtilities.invokeLater(this::checkForRecovery);
-        
         retranslateUI();
-        autoOpenFile();
+
+        // Auto recovery check and load sequentially
+        SwingUtilities.invokeLater(() -> {
+            checkForRecovery();
+            if (autoSaveManager.getAutoSaveFile() == null) {
+                autoOpenFile();
+            }
+        });
     }
 
     private void initContextMenu() {
