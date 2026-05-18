@@ -761,6 +761,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 data.brushColor = appState.getBrushColor();
                 data.stickyPoints = new java.util.ArrayList<>(appState.getCanvasState().getStickyPoints());
                 data.grids = new java.util.ArrayList<>(appState.getCanvasState().getGrids());
+                data.lines = new java.util.ArrayList<>(appState.getCanvasState().getLines());
                 
                 core.state.ProjectFileManager.saveProject(file, canvas.getBackgroundImage(), data);
 

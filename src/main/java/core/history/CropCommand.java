@@ -12,6 +12,18 @@ import java.util.Iterator;
 import java.util.List;
 
 public class CropCommand implements Command {
+    private static class LineStateBackup {
+        userpackage.SLine line;
+        java.awt.Point originalStart;
+        java.awt.Point originalEnd;
+        
+        LineStateBackup(userpackage.SLine line) {
+            this.line = line;
+            this.originalStart = new java.awt.Point(line.startPoint);
+            this.originalEnd = new java.awt.Point(line.endPoint);
+        }
+    }
+
     private final ImageCanvas canvas;
     private final CanvasState canvasState;
     private final BufferedImage oldImage;
@@ -20,6 +32,8 @@ public class CropCommand implements Command {
     
     private final List<SPoint> removedPoints = new ArrayList<>();
     private final List<SPoint> removedGrids = new ArrayList<>();
+    private final List<userpackage.SLine> removedLines = new ArrayList<>();
+    private final List<LineStateBackup> editedLinesBackups = new ArrayList<>();
     
     private final int targetVisualX;
     private final int targetVisualY;
@@ -34,6 +48,11 @@ public class CropCommand implements Command {
         this.canvasState = canvasState;
         this.oldImage = oldImage;
         this.cropBounds = cropBounds;
+        
+        // Backup all line states
+        for (userpackage.SLine l : canvasState.getLines()) {
+            this.editedLinesBackups.add(new LineStateBackup(l));
+        }
         
         // Deep copy the cropped region, natively supporting out-of-bounds crops
         int type = oldImage.getType() == 0 ? BufferedImage.TYPE_INT_ARGB : oldImage.getType();
@@ -60,9 +79,15 @@ public class CropCommand implements Command {
         
         removedPoints.clear();
         removedGrids.clear();
+        removedLines.clear();
         
         processPointsExecute(canvasState.getStickyPoints(), removedPoints);
         processPointsExecute(canvasState.getGrids(), removedGrids);
+        processLinesExecute(canvasState.getLines(), removedLines);
+
+        if (canvasState.getSelectedLine() != null && !canvasState.getLines().contains(canvasState.getSelectedLine())) {
+            canvasState.setSelectedLine(null);
+        }
         
         applyVisualOffset(targetVisualX, targetVisualY, newImage);
     }
@@ -73,6 +98,15 @@ public class CropCommand implements Command {
         
         processPointsUndo(canvasState.getStickyPoints(), removedPoints);
         processPointsUndo(canvasState.getGrids(), removedGrids);
+        
+        // Restore all lines perfectly from backups
+        canvasState.getLines().clear();
+        for (LineStateBackup backup : editedLinesBackups) {
+            backup.line.startPoint.setLocation(backup.originalStart);
+            backup.line.endPoint.setLocation(backup.originalEnd);
+            canvasState.getLines().add(backup.line);
+        }
+        removedLines.clear();
         
         applyVisualOffset(oldVisualX, oldVisualY, oldImage);
     }
@@ -170,5 +204,110 @@ public class CropCommand implements Command {
     @Override
     public String toString() {
         return "Crop command";
+    }
+
+    // Bit codes for regions
+    private static final int INSIDE = 0; // 0000
+    private static final int LEFT = 1;   // 0001
+    private static final int RIGHT = 2;  // 0010
+    private static final int BOTTOM = 4; // 0100
+    private static final int TOP = 8;    // 1000
+
+    private int computeOutCode(double x, double y, double xmax, double ymax) {
+        int code = INSIDE;
+        if (x < 0) code |= LEFT;
+        else if (x >= xmax) code |= RIGHT;
+        if (y < 0) code |= TOP;
+        else if (y >= ymax) code |= BOTTOM;
+        return code;
+    }
+
+    private boolean clipLine(java.awt.Point p1, java.awt.Point p2, double xmax, double ymax) {
+        double x1 = p1.x;
+        double y1 = p1.y;
+        double x2 = p2.x;
+        double y2 = p2.y;
+
+        int code1 = computeOutCode(x1, y1, xmax, ymax);
+        int code2 = computeOutCode(x2, y2, xmax, ymax);
+        boolean accept = false;
+
+        while (true) {
+            if ((code1 | code2) == 0) {
+                // Both points inside
+                accept = true;
+                break;
+            } else if ((code1 & code2) != 0) {
+                // Both points share an outside region -> completely outside
+                break;
+            } else {
+                // Some segment is outside, select the point that is outside
+                int codeOut = (code1 != 0) ? code1 : code2;
+                double x = 0, y = 0;
+
+                // Find intersection point
+                if ((codeOut & TOP) != 0) {
+                    // Point is above clip rectangle
+                    x = x1 + (x2 - x1) * (0 - y1) / (y2 - y1);
+                    y = 0;
+                } else if ((codeOut & BOTTOM) != 0) {
+                    // Point is below clip rectangle
+                    x = x1 + (x2 - x1) * (ymax - 1 - y1) / (y2 - y1);
+                    y = ymax - 1;
+                } else if ((codeOut & RIGHT) != 0) {
+                    // Point is to the right of clip rectangle
+                    y = y1 + (y2 - y1) * (xmax - 1 - x1) / (x2 - x1);
+                    x = xmax - 1;
+                } else if ((codeOut & LEFT) != 0) {
+                    // Point is to the left of clip rectangle
+                    y = y1 + (y2 - y1) * (0 - x1) / (x2 - x1);
+                    x = 0;
+                }
+
+                // Push intersection point into segment and recalculate outcode
+                if (codeOut == code1) {
+                    x1 = x;
+                    y1 = y;
+                    code1 = computeOutCode(x1, y1, xmax, ymax);
+                } else {
+                    x2 = x;
+                    y2 = y;
+                    code2 = computeOutCode(x2, y2, xmax, ymax);
+                }
+            }
+        }
+
+        if (accept) {
+            p1.setLocation(Math.round((float) x1), Math.round((float) y1));
+            p2.setLocation(Math.round((float) x2), Math.round((float) y2));
+            return true;
+        }
+        return false;
+    }
+
+    private void processLinesExecute(List<userpackage.SLine> lines, List<userpackage.SLine> removedList) {
+        Iterator<userpackage.SLine> it = lines.iterator();
+        while (it.hasNext()) {
+            userpackage.SLine l = it.next();
+            // 1. Shift
+            l.startPoint.x -= cropBounds.x;
+            l.startPoint.y -= cropBounds.y;
+            l.endPoint.x -= cropBounds.x;
+            l.endPoint.y -= cropBounds.y;
+            
+            // 2. Clip
+            boolean keeps = clipLine(l.startPoint, l.endPoint, cropBounds.width, cropBounds.height);
+            if (keeps) {
+                // If it's too short (less than 2px) after clipping, remove it
+                if (l.startPoint.distance(l.endPoint) < 2.0) {
+                    keeps = false;
+                }
+            }
+            
+            if (!keeps) {
+                removedList.add(l);
+                it.remove();
+            }
+        }
     }
 }
