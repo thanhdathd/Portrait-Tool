@@ -71,6 +71,7 @@ public class BatchStickCommand implements Command {
                 for (SPoint p : targets) {
                     p.c = newColor;
                 }
+                canvasState.notifyPointSelectionChanged();
                 break;
         }
         if (canvas != null) canvas.repaint();
@@ -90,6 +91,7 @@ public class BatchStickCommand implements Command {
                 for (int i = 0; i < targets.size(); i++) {
                     targets.get(i).c = snapshots.get(i).c;
                 }
+                canvasState.notifyPointSelectionChanged();
                 break;
         }
         if (canvas != null) canvas.repaint();

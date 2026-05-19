@@ -1,6 +1,7 @@
 package tools;
 
 import core.history.LineCommand;
+import core.history.StickCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
 import ui.canvas.RenderUtils;
@@ -36,6 +37,10 @@ public class SelectTool implements Tool {
     private final List<core.history.BatchLineCommand.LineStatePair> draggingPairs = new ArrayList<>();
     private Point dragStartMouse = null;
 
+    // Point dragging state
+    private SPoint draggingPoint = null;
+    private SPoint originalDraggingPointState = null;
+
     // Perpendicular segment distance utility
     private double getDistanceToSegment(Point p, Point a, Point b) {
         double l2 = a.distanceSq(b);
@@ -49,6 +54,30 @@ public class SelectTool implements Tool {
 
     @Override
     public void onMouseMoved(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        Set<SPoint> selectedPoints = appState.getCanvasState().getSelectedPoints();
+        if (selectedPoints.size() == 1) {
+            float zoom = appState.getCurrentZoom();
+            int ox = appState.getCanvasState().getImageOffsetX();
+            int oy = appState.getCanvasState().getImageOffsetY();
+
+            float ix = (e.getX() - ox) / zoom;
+            float iy = (e.getY() - oy) / zoom;
+
+            SPoint selectedPoint = selectedPoints.iterator().next();
+            float dx = (selectedPoint.X - ix) * zoom;
+            float dy = (selectedPoint.Y - iy) * zoom;
+            float distScreen = (float) Math.sqrt(dx * dx + dy * dy);
+
+            Font labelFont = new Font("SansSerif", Font.BOLD, 12);
+            FontMetrics fm = canvas.getFontMetrics(labelFont);
+            Rectangle labelBounds = RenderUtils.getLabelBounds(selectedPoint, fm);
+
+            if (distScreen <= SELECT_TOLERANCE_PX || labelBounds.contains(ix, iy)) {
+                canvas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                return;
+            }
+        }
+
         Set<SLine> selectedLines = appState.getCanvasState().getSelectedLines();
         if (!selectedLines.isEmpty()) {
             float zoom = appState.getCurrentZoom();
@@ -98,6 +127,28 @@ public class SelectTool implements Tool {
             float zoom = appState.getCurrentZoom();
             int ox = appState.getCanvasState().getImageOffsetX();
             int oy = appState.getCanvasState().getImageOffsetY();
+
+            Set<SPoint> selectedPoints = appState.getCanvasState().getSelectedPoints();
+            if (selectedPoints.size() == 1) {
+                float ix = (e.getX() - ox) / zoom;
+                float iy = (e.getY() - oy) / zoom;
+                SPoint selectedPoint = selectedPoints.iterator().next();
+
+                float dx = (selectedPoint.X - ix) * zoom;
+                float dy = (selectedPoint.Y - iy) * zoom;
+                float distScreen = (float) Math.sqrt(dx * dx + dy * dy);
+
+                Font labelFont = new Font("SansSerif", Font.BOLD, 12);
+                FontMetrics fm = canvas.getFontMetrics(labelFont);
+                Rectangle labelBounds = RenderUtils.getLabelBounds(selectedPoint, fm);
+
+                if (distScreen <= SELECT_TOLERANCE_PX || labelBounds.contains(ix, iy)) {
+                    draggingPoint = selectedPoint;
+                    originalDraggingPointState = selectedPoint.copy();
+                    canvas.repaint();
+                    return;
+                }
+            }
 
             Set<SLine> selectedLines = appState.getCanvasState().getSelectedLines();
             if (!selectedLines.isEmpty()) {
@@ -168,6 +219,23 @@ public class SelectTool implements Tool {
         float zoom = appState.getCurrentZoom();
         int ox = appState.getCanvasState().getImageOffsetX();
         int oy = appState.getCanvasState().getImageOffsetY();
+
+        if (draggingPoint != null) {
+            int dragX = Math.round((float)(e.getX() - ox) / zoom);
+            int dragY = Math.round((float)(e.getY() - oy) / zoom);
+
+            java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+            if (img != null) {
+                dragX = Math.max(0, Math.min(img.getWidth() - 1, dragX));
+                dragY = Math.max(0, Math.min(img.getHeight() - 1, dragY));
+            }
+
+            draggingPoint.X = dragX;
+            draggingPoint.Y = dragY;
+            appState.getCanvasState().notifyPointSelectionChanged();
+            canvas.repaint();
+            return;
+        }
 
         if (activeHandleIndex == 3 && dragStartMouse != null && !draggingPairs.isEmpty()) {
             int mouseX = Math.round((float)(e.getX() - ox) / zoom);
@@ -240,6 +308,26 @@ public class SelectTool implements Tool {
 
     @Override
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        if (draggingPoint != null && originalDraggingPointState != null) {
+            boolean moved = draggingPoint.X != originalDraggingPointState.X ||
+                            draggingPoint.Y != originalDraggingPointState.Y;
+            if (moved) {
+                StickCommand cmd = new StickCommand(
+                    appState.getCanvasState(),
+                    canvas,
+                    draggingPoint,
+                    StickCommand.Action.EDIT,
+                    originalDraggingPointState,
+                    draggingPoint.copy()
+                );
+                appState.getHistoryManager().push(cmd);
+            }
+            draggingPoint = null;
+            originalDraggingPointState = null;
+            canvas.repaint();
+            return;
+        }
+
         if (activeHandleIndex == 3 && !draggingPairs.isEmpty()) {
             boolean moved = false;
             List<core.history.BatchLineCommand.LineStatePair> finalPairs = new ArrayList<>();

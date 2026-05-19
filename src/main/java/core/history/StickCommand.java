@@ -57,6 +57,7 @@ public class StickCommand implements Command {
                 }
                 break;
         }
+        canvasState.notifyPointSelectionChanged();
         if (canvas != null) canvas.repaint();
     }
 
@@ -85,6 +86,7 @@ public class StickCommand implements Command {
                 }
                 break;
         }
+        canvasState.notifyPointSelectionChanged();
         if (canvas != null) canvas.repaint();
     }
 

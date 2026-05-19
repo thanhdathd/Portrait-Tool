@@ -122,6 +122,10 @@ public class CanvasState {
         }
     }
 
+    public void notifyPointSelectionChanged() {
+        firePointSelectionChanged();
+    }
+
     // ---- Offset ----
 
     public int getImageOffsetX() { return imageOffsetX; }
