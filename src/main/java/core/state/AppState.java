@@ -54,6 +54,17 @@ public class AppState {
     private final Map<String, List<PropertyChangeListener>> watchedKeys = new HashMap<>();
     private Rectangle zoomWindowBounds = null;
     private boolean customLabelMode = false;
+    private static final Color[] XOR_COLORS = {
+        Color.WHITE, Color.BLACK,
+        Color.YELLOW, Color.CYAN, Color.MAGENTA,
+        Color.GREEN, Color.RED
+    };
+    private static final String[] XOR_COLOR_NAMES = {
+        "WHITE", "BLACK",
+        "YELLOW", "CYAN", "MAGENTA",
+        "GREEN", "RED"
+    };
+    private int xorColorIndex = 0;
     private int customGap = 20;   // Giới hạn 8 - 50
     private int customAngle = 40; // Độ (0 - 359), tăng theo chiều CCW (ngược chiều kim đồng hồ)
     private int checkerSize = 40;
@@ -401,5 +412,17 @@ public class AppState {
 
     public void setShowPointMap(boolean showPointMap) {
         this.showPointMap = showPointMap;
+    }
+
+    public Color getXorColor() {
+        return XOR_COLORS[xorColorIndex];
+    }
+
+    public String getXorColorName() {
+        return XOR_COLOR_NAMES[xorColorIndex];
+    }
+
+    public void cycleXorColor() {
+        xorColorIndex = (xorColorIndex + 1) % XOR_COLORS.length;
     }
 }

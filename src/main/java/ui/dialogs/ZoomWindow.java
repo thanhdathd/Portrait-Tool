@@ -67,9 +67,10 @@ public class ZoomWindow extends JDialog {
         });
     }
 
-    private void updateTitle() {
-        // Hiển thị phần trăm zoom (ví dụ: "Zoom: 200%")
-        setTitle(String.format("Zoom:%.0f%%          X:%d, Y:%d", zoomRate * 100, mousePosition.x, mousePosition.y));
+    public void updateTitle() {
+        // Hiển thị phần trăm zoom (ví dụ: "Zoom: 200%") và màu XOR
+        setTitle(String.format("Zoom:%.0f%%          X:%d, Y:%d          XOR:%s", 
+                zoomRate * 100, mousePosition.x, mousePosition.y, appState.getXorColorName()));
     }
     
     public void updateImage(BufferedImage image) {
@@ -156,7 +157,7 @@ public class ZoomWindow extends JDialog {
             int gap = appState.getCustomGap();
             int angle = appState.getCustomAngle();
 
-            g2.setXORMode(Color.WHITE); // Dùng màu nổi bật cho Radar
+            g2.setXORMode(appState.getXorColor()); // Dùng màu nổi bật cho Radar
 //            g2.setColor(Color.white);
             // Thủ thuật: Giữ nét vẽ luôn mỏng 1 pixel trên màn hình bất chấp độ Zoom
             Stroke oldStroke = g2.getStroke();
@@ -228,7 +229,7 @@ public class ZoomWindow extends JDialog {
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
 
-        g2.setXORMode(Color.CYAN);
+        g2.setXORMode(appState.getXorColor());
         g2.setStroke(new BasicStroke(1.0f));  // Luôn dùng 1.0f khi vẽ XOR
 
         g2.drawOval(cx - 14, cy - 14, 28, 28);

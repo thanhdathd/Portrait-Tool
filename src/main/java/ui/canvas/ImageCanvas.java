@@ -249,6 +249,20 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
             }
         });
 
+        // Nút X: Chuyển đổi màu nền XOR
+        im.put(KeyStroke.getKeyStroke('x'), "cycleXorColor");
+        im.put(KeyStroke.getKeyStroke('X'), "cycleXorColor");
+        am.put("cycleXorColor", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (zoomWindow != null && zoomWindow.isVisible()) {
+                    appState.cycleXorColor();
+                    zoomWindow.updateTitle();
+                    zoomWindow.repaint();
+                }
+            }
+        });
+
 // Nút [ và ]: Giảm/Tăng Gap
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_OPEN_BRACKET, 0), "decreaseGap");
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_MINUS, 0), "decreaseGap");
