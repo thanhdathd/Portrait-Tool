@@ -360,6 +360,7 @@ public class AppState {
 
     public boolean isCustomLabelMode() { return customLabelMode; }
     public void toggleCustomLabelMode() { this.customLabelMode = !this.customLabelMode; }
+    public void setCustomLabelMode(boolean customLabelMode) { this.customLabelMode = customLabelMode; }
 
     public int getCustomGap() { return customGap; }
     public void setCustomGap(int gap) {

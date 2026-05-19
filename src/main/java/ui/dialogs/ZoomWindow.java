@@ -280,4 +280,15 @@ public class ZoomWindow extends JDialog {
         updateTitle();
         repaint();
     }
+
+    @Override
+    public void setVisible(boolean visible) {
+        super.setVisible(visible);
+        if (!visible) {
+            appState.setCustomLabelMode(false);
+            if (getOwner() instanceof ui.MainFrame mf) {
+                mf.getCanvas().repaint();
+            }
+        }
+    }
 }

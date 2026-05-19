@@ -47,6 +47,10 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     private final java.util.List<JComponent> disableInExportMode = new java.util.ArrayList<>();
     private boolean exportFocusMode = false;
 
+    public boolean isExportFocusMode() {
+        return exportFocusMode;
+    }
+
     public void setExportFocusMode(boolean active) {
         this.exportFocusMode = active;
         for (JComponent c : disableInExportMode) {
@@ -1277,7 +1281,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         JButton gridBtn = createSVGIconButton("ic_grid.svg", "Draw Grid",24,24, lineColor);
         gridBtn.addActionListener(e -> canvas.setActiveTool(tool.gridTool));
 
-        JButton selectBtn = createSVGIconButton("ic_select.svg", "Select Tool", 24, 24, lineColor);
+        JButton selectBtn = createSVGIconButton("ic_select.svg", "Select Tool (A)", 24, 24, lineColor);
         selectBtn.addActionListener(e -> canvas.setActiveTool(tool.selectTool));
 
         JButton lineBtn = createSVGIconButton("ic_line.svg", "Draw Line Tool (L)", 24, 24, lineColor);

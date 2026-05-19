@@ -228,6 +228,23 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
                 if(zoomWindow != null && zoomWindow.isVisible()) {
                     appState.toggleCustomLabelMode();
                     zoomWindow.repaint(); // Ép ZoomWindow vẽ lại ngay
+                    repaint();
+                } else {
+                    if (mainFrame != null && mainFrame.isExportFocusMode()) return;
+                    setActiveTool(tools.ToolManager.initializeTools().selectTool);
+                }
+            }
+        });
+
+        // Phím ESC: Tắt chế độ custom label placement khi zoom window đang hiển thị
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "disableCustomPlacementEsc");
+        am.put("disableCustomPlacementEsc", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (zoomWindow != null && zoomWindow.isVisible()) {
+                    appState.setCustomLabelMode(false);
+                    zoomWindow.repaint();
+                    repaint();
                 }
             }
         });
