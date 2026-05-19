@@ -405,12 +405,23 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             }
             
             // Xóa line đang được chọn
-            userpackage.SLine line = appState.getCanvasState().getSelectedLine();
-            if (line != null) {
-                core.history.LineCommand cmd = new core.history.LineCommand(
-                        appState.getCanvasState(), canvas, line,
-                        core.history.LineCommand.Action.DELETE, line.copy(), null);
-                appState.getHistoryManager().push(cmd);
+            java.util.Set<userpackage.SLine> selLines = appState.getCanvasState().getSelectedLines();
+            if (!selLines.isEmpty()) {
+                if (selLines.size() == 1) {
+                    userpackage.SLine line = selLines.iterator().next();
+                    core.history.LineCommand cmd = new core.history.LineCommand(
+                            appState.getCanvasState(), canvas, line,
+                            core.history.LineCommand.Action.DELETE, line.copy(), null);
+                    appState.getHistoryManager().push(cmd);
+                } else {
+                    java.util.List<core.history.BatchLineCommand.LineStatePair> pairs = new java.util.ArrayList<>();
+                    for (userpackage.SLine l : selLines) {
+                        pairs.add(new core.history.BatchLineCommand.LineStatePair(l, l.copy(), null));
+                    }
+                    core.history.BatchLineCommand cmd = new core.history.BatchLineCommand(
+                            appState.getCanvasState(), canvas, core.history.BatchLineCommand.Action.DELETE, pairs);
+                    appState.getHistoryManager().push(cmd);
+                }
                 return;
             }
 
