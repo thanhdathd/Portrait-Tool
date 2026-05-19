@@ -163,10 +163,12 @@ public class ResizeDialog extends JDialog {
         }
     }
 
-    public class ResizeProps {
+    public static class ResizeProps {
         public int  width;
         public int height;
         public int hint;
+
+        public ResizeProps() {}
 
         public ResizeProps(int width, int height, int hint) {
             this.width = width;

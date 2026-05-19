@@ -38,6 +38,27 @@ public class ResizeCommand implements Command {
         }
     }
 
+    private static class LineSnapshot {
+        final userpackage.SLine line;
+        final int oldStartX;
+        final int oldStartY;
+        final int oldEndX;
+        final int oldEndY;
+
+        LineSnapshot(userpackage.SLine line) {
+            this.line = line;
+            this.oldStartX = line.startPoint.x;
+            this.oldStartY = line.startPoint.y;
+            this.oldEndX = line.endPoint.x;
+            this.oldEndY = line.endPoint.y;
+        }
+
+        void restore() {
+            line.startPoint.setLocation(oldStartX, oldStartY);
+            line.endPoint.setLocation(oldEndX, oldEndY);
+        }
+    }
+
     public ResizeCommand(ImageCanvas canvas, CanvasState canvasState,
                          BufferedImage oldImage, BufferedImage newImage, ResizeDialog.ResizeProps props) {
         this.canvas = canvas;
@@ -48,6 +69,8 @@ public class ResizeCommand implements Command {
         this.scaleX = (double) newImage.getWidth() / oldImage.getWidth();
         this.scaleY = (double) newImage.getHeight() / oldImage.getHeight();
     }
+
+    private final List<LineSnapshot> undoLines = new ArrayList<>();
 
     @Override
     public void execute() {
@@ -66,6 +89,13 @@ public class ResizeCommand implements Command {
             p.X = (int) Math.round(p.X * scaleX);
             p.Y = (int) Math.round(p.Y * scaleY);
         }
+
+        undoLines.clear();
+        for (userpackage.SLine l : canvasState.getLines()) {
+            undoLines.add(new LineSnapshot(l));
+            l.startPoint.setLocation((int) Math.round(l.startPoint.x * scaleX), (int) Math.round(l.startPoint.y * scaleY));
+            l.endPoint.setLocation((int) Math.round(l.endPoint.x * scaleX), (int) Math.round(l.endPoint.y * scaleY));
+        }
     }
 
     @Override
@@ -76,6 +106,9 @@ public class ResizeCommand implements Command {
         }
         for (PointSnapshot ps : undoGrids) {
             ps.restore();
+        }
+        for (LineSnapshot ls : undoLines) {
+            ls.restore();
         }
     }
 

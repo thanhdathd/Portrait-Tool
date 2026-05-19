@@ -43,6 +43,27 @@ public class TransformCommand implements Command {
         }
     }
 
+    private static class LineSnapshot {
+        final userpackage.SLine line;
+        final int oldStartX;
+        final int oldStartY;
+        final int oldEndX;
+        final int oldEndY;
+
+        LineSnapshot(userpackage.SLine line) {
+            this.line = line;
+            this.oldStartX = line.startPoint.x;
+            this.oldStartY = line.startPoint.y;
+            this.oldEndX = line.endPoint.x;
+            this.oldEndY = line.endPoint.y;
+        }
+
+        void restore() {
+            line.startPoint.setLocation(oldStartX, oldStartY);
+            line.endPoint.setLocation(oldEndX, oldEndY);
+        }
+    }
+
     public TransformCommand(ImageCanvas canvas, CanvasState canvasState, BufferedImage oldImage, BufferedImage newImage, TransformType type) {
         this.canvas = canvas;
         this.canvasState = canvasState;
@@ -50,6 +71,8 @@ public class TransformCommand implements Command {
         this.newImage = newImage;
         this.type = type;
     }
+
+    private final List<LineSnapshot> undoLines = new ArrayList<>();
 
     @Override
     public void execute() {
@@ -63,9 +86,14 @@ public class TransformCommand implements Command {
         for (SPoint p : canvasState.getGrids()) {
             undoGrids.add(new PointSnapshot(p));
         }
+        undoLines.clear();
+        for (userpackage.SLine l : canvasState.getLines()) {
+            undoLines.add(new LineSnapshot(l));
+        }
         
         transformPoints(canvasState.getStickyPoints(), oldImage.getWidth(), oldImage.getHeight());
         transformPoints(canvasState.getGrids(), oldImage.getWidth(), oldImage.getHeight());
+        transformLines(canvasState.getLines(), oldImage.getWidth(), oldImage.getHeight());
     }
 
     @Override
@@ -76,6 +104,9 @@ public class TransformCommand implements Command {
         }
         for (PointSnapshot ps : undoGrids) {
             ps.restore();
+        }
+        for (LineSnapshot ls : undoLines) {
+            ls.restore();
         }
     }
 
@@ -125,6 +156,36 @@ public class TransformCommand implements Command {
                     if (p.dr == Direction.NORTH) p.dr = Direction.SOUTH;
                     else if (p.dr == Direction.SOUTH) p.dr = Direction.NORTH;
                     p.customAngle = (360 - p.customAngle) % 360;
+            }
+        }
+    }
+
+    private void transformLines(List<userpackage.SLine> lines, int w, int h) {
+        for (userpackage.SLine l : lines) {
+            int sx = l.startPoint.x;
+            int sy = l.startPoint.y;
+            int ex = l.endPoint.x;
+            int ey = l.endPoint.y;
+            switch (type) {
+                case ROTATE_90_CW:
+                    l.startPoint.setLocation(h - 1 - sy, sx);
+                    l.endPoint.setLocation(h - 1 - ey, ex);
+                    break;
+                case ROTATE_90_CCW:
+                    l.startPoint.setLocation(sy, w - 1 - sx);
+                    l.endPoint.setLocation(ey, w - 1 - ex);
+                    break;
+                case ROTATE_180:
+                    l.startPoint.setLocation(w - 1 - sx, h - 1 - sy);
+                    l.endPoint.setLocation(w - 1 - ex, h - 1 - ey);
+                    break;
+                case FLIP_H:
+                    l.startPoint.setLocation(w - 1 - sx, sy);
+                    l.endPoint.setLocation(w - 1 - ex, ey);
+                    break;
+                case FLIP_V:
+                    l.startPoint.setLocation(sx, h - 1 - sy);
+                    l.endPoint.setLocation(ex, h - 1 - ey);
                     break;
             }
         }
