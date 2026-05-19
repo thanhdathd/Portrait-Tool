@@ -21,11 +21,14 @@ public class LineTool implements Tool {
     private Point startPointOffset = null;
     private Point endPointOffset = null;
 
+    // Handle drag tracking for batch editing
+    private final java.util.List<core.history.BatchLineCommand.LineStatePair> draggingPairs = new java.util.ArrayList<>();
+    private Point dragStartMouse = null;
+
     @Override
     public void onMouseMoved(MouseEvent e, AppState appState, ImageCanvas canvas) {
-        // Cursor feedback when hovering active selected line handles
-        SLine selectedLine = appState.getCanvasState().getSelectedLine();
-        if (selectedLine != null) {
+        java.util.Set<SLine> selectedLines = appState.getCanvasState().getSelectedLines();
+        if (!selectedLines.isEmpty()) {
             float zoom = appState.getCurrentZoom();
             int ox = appState.getCanvasState().getImageOffsetX();
             int oy = appState.getCanvasState().getImageOffsetY();
@@ -35,18 +38,33 @@ public class LineTool implements Tool {
                 Math.round((float)(e.getY() - oy) / zoom)
             );
 
-            Point midPoint = new Point(
-                (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
-                (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
-            );
-
             double screenRadius = 15.0 / zoom; // 30px active zone
 
-            if (mouseLoc.distance(selectedLine.startPoint) <= screenRadius ||
-                mouseLoc.distance(selectedLine.endPoint) <= screenRadius ||
-                mouseLoc.distance(midPoint) <= screenRadius) {
-                canvas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                return;
+            if (selectedLines.size() == 1) {
+                SLine selectedLine = selectedLines.iterator().next();
+                Point midPoint = new Point(
+                    (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
+                    (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
+                );
+
+                if (mouseLoc.distance(selectedLine.startPoint) <= screenRadius ||
+                    mouseLoc.distance(selectedLine.endPoint) <= screenRadius ||
+                    mouseLoc.distance(midPoint) <= screenRadius) {
+                    canvas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    return;
+                }
+            } else {
+                // Only allow midpoint handle drag in multi-select
+                for (SLine selectedLine : selectedLines) {
+                    Point midPoint = new Point(
+                        (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
+                        (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
+                    );
+                    if (mouseLoc.distance(midPoint) <= screenRadius) {
+                        canvas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                        return;
+                    }
+                }
             }
         }
         canvas.setCursor(Cursor.getDefaultCursor());
@@ -59,41 +77,61 @@ public class LineTool implements Tool {
             int ox = appState.getCanvasState().getImageOffsetX();
             int oy = appState.getCanvasState().getImageOffsetY();
 
-            // 1. Check handles on active selected line
-            SLine selectedLine = appState.getCanvasState().getSelectedLine();
-            if (selectedLine != null) {
+            // 1. Check handles on active selected lines
+            java.util.Set<SLine> selectedLines = appState.getCanvasState().getSelectedLines();
+            if (!selectedLines.isEmpty()) {
                 Point pMouse = new Point(
                     Math.round((float)(e.getX() - ox) / zoom),
                     Math.round((float)(e.getY() - oy) / zoom)
                 );
+                double screenRadius = 15.0 / zoom;
 
-                Point midPoint = new Point(
-                    (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
-                    (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
-                );
+                if (selectedLines.size() == 1) {
+                    SLine selectedLine = selectedLines.iterator().next();
+                    Point midPoint = new Point(
+                        (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
+                        (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
+                    );
 
-                double screenRadius = 15.0 / zoom; // 30px grab zone diameter on screen
-
-                if (pMouse.distance(selectedLine.startPoint) <= screenRadius) {
-                    activeHandleIndex = 0;
-                    draggingLine = selectedLine;
-                    originalDraggingLineState = selectedLine.copy();
-                    canvas.repaint();
-                    return;
-                } else if (pMouse.distance(selectedLine.endPoint) <= screenRadius) {
-                    activeHandleIndex = 1;
-                    draggingLine = selectedLine;
-                    originalDraggingLineState = selectedLine.copy();
-                    canvas.repaint();
-                    return;
-                } else if (pMouse.distance(midPoint) <= screenRadius) {
-                    activeHandleIndex = 2;
-                    draggingLine = selectedLine;
-                    originalDraggingLineState = selectedLine.copy();
-                    startPointOffset = new Point(selectedLine.startPoint.x - pMouse.x, selectedLine.startPoint.y - pMouse.y);
-                    endPointOffset = new Point(selectedLine.endPoint.x - pMouse.x, selectedLine.endPoint.y - pMouse.y);
-                    canvas.repaint();
-                    return;
+                    if (pMouse.distance(selectedLine.startPoint) <= screenRadius) {
+                        activeHandleIndex = 0;
+                        draggingLine = selectedLine;
+                        originalDraggingLineState = selectedLine.copy();
+                        canvas.repaint();
+                        return;
+                    } else if (pMouse.distance(selectedLine.endPoint) <= screenRadius) {
+                        activeHandleIndex = 1;
+                        draggingLine = selectedLine;
+                        originalDraggingLineState = selectedLine.copy();
+                        canvas.repaint();
+                        return;
+                    } else if (pMouse.distance(midPoint) <= screenRadius) {
+                        activeHandleIndex = 2;
+                        draggingLine = selectedLine;
+                        originalDraggingLineState = selectedLine.copy();
+                        startPointOffset = new Point(selectedLine.startPoint.x - pMouse.x, selectedLine.startPoint.y - pMouse.y);
+                        endPointOffset = new Point(selectedLine.endPoint.x - pMouse.x, selectedLine.endPoint.y - pMouse.y);
+                        canvas.repaint();
+                        return;
+                    }
+                } else {
+                    // Multi-select mode: Check midpoint handles only
+                    for (SLine l : selectedLines) {
+                        Point midPoint = new Point(
+                            (l.startPoint.x + l.endPoint.x) / 2,
+                            (l.startPoint.y + l.endPoint.y) / 2
+                        );
+                        if (pMouse.distance(midPoint) <= screenRadius) {
+                            activeHandleIndex = 3; // Batch midpoint drag marker
+                            dragStartMouse = new Point(pMouse);
+                            draggingPairs.clear();
+                            for (SLine active : selectedLines) {
+                                draggingPairs.add(new core.history.BatchLineCommand.LineStatePair(active, active.copy(), active.copy()));
+                            }
+                            canvas.repaint();
+                            return;
+                        }
+                    }
                 }
             }
 
@@ -115,6 +153,35 @@ public class LineTool implements Tool {
 
     @Override
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        if (activeHandleIndex == 3 && !draggingPairs.isEmpty()) {
+            boolean moved = false;
+            java.util.List<core.history.BatchLineCommand.LineStatePair> finalPairs = new java.util.ArrayList<>();
+            for (core.history.BatchLineCommand.LineStatePair pair : draggingPairs) {
+                if (!pair.line.startPoint.equals(pair.oldState.startPoint) ||
+                    !pair.line.endPoint.equals(pair.oldState.endPoint)) {
+                    moved = true;
+                }
+                finalPairs.add(new core.history.BatchLineCommand.LineStatePair(pair.line, pair.oldState, pair.line.copy()));
+            }
+            if (moved) {
+                core.history.BatchLineCommand cmd = new core.history.BatchLineCommand(
+                        appState.getCanvasState(),
+                        canvas,
+                        core.history.BatchLineCommand.Action.EDIT,
+                        finalPairs
+                );
+                appState.getHistoryManager().push(cmd);
+            }
+            draggingPairs.clear();
+            dragStartMouse = null;
+            activeHandleIndex = -1;
+            canvas.repaint();
+            isDrawing = false;
+            startPoint = null;
+            currentDrag = null;
+            return;
+        }
+
         if (draggingLine != null && originalDraggingLineState != null) {
             boolean moved = !draggingLine.startPoint.equals(originalDraggingLineState.startPoint) ||
                             !draggingLine.endPoint.equals(originalDraggingLineState.endPoint);
@@ -197,6 +264,27 @@ public class LineTool implements Tool {
         float zoom = appState.getCurrentZoom();
         int ox = appState.getCanvasState().getImageOffsetX();
         int oy = appState.getCanvasState().getImageOffsetY();
+
+        if (activeHandleIndex == 3 && dragStartMouse != null && !draggingPairs.isEmpty()) {
+            int mouseX = Math.round((float)(e.getX() - ox) / zoom);
+            int mouseY = Math.round((float)(e.getY() - oy) / zoom);
+
+            java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+            if (img != null) {
+                mouseX = Math.max(0, Math.min(img.getWidth() - 1, mouseX));
+                mouseY = Math.max(0, Math.min(img.getHeight() - 1, mouseY));
+            }
+
+            int dx = mouseX - dragStartMouse.x;
+            int dy = mouseY - dragStartMouse.y;
+
+            for (core.history.BatchLineCommand.LineStatePair pair : draggingPairs) {
+                pair.line.startPoint.setLocation(pair.oldState.startPoint.x + dx, pair.oldState.startPoint.y + dy);
+                pair.line.endPoint.setLocation(pair.oldState.endPoint.x + dx, pair.oldState.endPoint.y + dy);
+            }
+            canvas.repaint();
+            return;
+        }
 
         if (draggingLine != null && activeHandleIndex != -1) {
             int dragX = Math.round((float)(e.getX() - ox) / zoom);

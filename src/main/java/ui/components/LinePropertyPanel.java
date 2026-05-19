@@ -1,6 +1,7 @@
 package ui.components;
 
 import core.history.LineCommand;
+import core.history.BatchLineCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
 import userpackage.SLine;
@@ -79,6 +80,9 @@ public class LinePropertyPanel extends JPanel {
                         
                         SLine currentLine = appState.getCanvasState().getSelectedLine();
                         Color strokeColor = (currentLine != null) ? currentLine.strokeColor : appState.getBrushColor();
+                        if (strokeColor.equals(Color.LIGHT_GRAY) && appState.getCanvasState().getSelectedLines().size() > 1) {
+                            strokeColor = Color.DARK_GRAY; // Fallback for mixed color visualization
+                        }
                         g2.setColor(strokeColor);
                         g2.setStroke(new BasicStroke(thickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
                         int y = getHeight() / 2;
@@ -110,7 +114,7 @@ public class LinePropertyPanel extends JPanel {
         add(deleteBtn);
 
         // --- Selection listener ---
-        appState.getCanvasState().setLineSelectionListener(line -> updateUIFromLine(line));
+        appState.getCanvasState().setLineSelectionListener(lines -> updateUIFromLines(lines));
 
         addMouseListener(new java.awt.event.MouseAdapter() {});
         addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {});
@@ -124,16 +128,48 @@ public class LinePropertyPanel extends JPanel {
         super.paintComponent(g);
     }
 
-    private void updateUIFromLine(SLine line) {
-        if (line == null) {
+    private void updateUIFromLines(java.util.Set<SLine> lines) {
+        if (lines == null || lines.isEmpty()) {
             setVisible(false);
             return;
         }
 
         isUpdatingUI = true;
-        idLabel.setText("ID: " + line.id);
-        colorBtn.setBackground(line.strokeColor);
-        strokeWidthComboBox.setSelectedItem(line.strokeWidth);
+        if (lines.size() == 1) {
+            SLine line = lines.iterator().next();
+            idLabel.setText("ID: " + line.id);
+            colorBtn.setBackground(line.strokeColor);
+            strokeWidthComboBox.setSelectedItem(line.strokeWidth);
+        } else {
+            idLabel.setText("ID: " + lines.size() + " lines selected");
+            
+            // Determine if all selected lines share the same color/width
+            Color sharedColor = null;
+            Integer sharedWidth = null;
+            boolean uniformColor = true;
+            boolean uniformWidth = true;
+
+            for (SLine l : lines) {
+                if (sharedColor == null) sharedColor = l.strokeColor;
+                else if (!sharedColor.equals(l.strokeColor)) uniformColor = false;
+
+                if (sharedWidth == null) sharedWidth = l.strokeWidth;
+                else if (!sharedWidth.equals(l.strokeWidth)) uniformWidth = false;
+            }
+
+            if (uniformColor) {
+                colorBtn.setBackground(sharedColor);
+            } else {
+                colorBtn.setBackground(Color.LIGHT_GRAY);
+            }
+
+            if (uniformWidth) {
+                strokeWidthComboBox.setSelectedItem(sharedWidth);
+            } else {
+                strokeWidthComboBox.setSelectedIndex(-1);
+            }
+        }
+
         setVisible(true);
         isUpdatingUI = false;
 
@@ -145,44 +181,60 @@ public class LinePropertyPanel extends JPanel {
 
     private void applyStrokeWidthChange() {
         if (isUpdatingUI) return;
-        SLine line = appState.getCanvasState().getSelectedLine();
-        if (line == null) return;
+        java.util.Set<SLine> lines = appState.getCanvasState().getSelectedLines();
+        if (lines.isEmpty()) return;
 
         Integer selectedWidth = (Integer) strokeWidthComboBox.getSelectedItem();
-        if (selectedWidth != null && selectedWidth != line.strokeWidth) {
-            SLine oldState = line.copy();
-            SLine newState = line.copy();
-            newState.strokeWidth = selectedWidth;
+        if (selectedWidth == null) return;
 
-            LineCommand cmd = new LineCommand(
+        java.util.List<BatchLineCommand.LineStatePair> pairs = new java.util.ArrayList<>();
+        for (SLine l : lines) {
+            if (l.strokeWidth != selectedWidth) {
+                SLine oldState = l.copy();
+                SLine newState = l.copy();
+                newState.strokeWidth = selectedWidth;
+                pairs.add(new BatchLineCommand.LineStatePair(l, oldState, newState));
+            }
+        }
+
+        if (!pairs.isEmpty()) {
+            BatchLineCommand cmd = new BatchLineCommand(
                     appState.getCanvasState(),
                     canvas,
-                    line,
-                    LineCommand.Action.EDIT,
-                    oldState,
-                    newState
+                    BatchLineCommand.Action.EDIT,
+                    pairs
             );
             appState.getHistoryManager().push(cmd);
         }
     }
 
     private void changeColor() {
-        SLine line = appState.getCanvasState().getSelectedLine();
-        if (line == null) return;
+        java.util.Set<SLine> lines = appState.getCanvasState().getSelectedLines();
+        if (lines.isEmpty()) return;
 
-        Color newColor = JColorChooser.showDialog(this, "Select Line Color", line.strokeColor);
-        if (newColor != null && !newColor.equals(line.strokeColor)) {
-            SLine oldState = line.copy();
-            SLine newState = line.copy();
-            newState.strokeColor = newColor;
+        Color initialColor = Color.BLACK;
+        if (lines.size() == 1) {
+            initialColor = lines.iterator().next().strokeColor;
+        }
+        Color newColor = JColorChooser.showDialog(this, "Select Line Color", initialColor);
+        if (newColor == null) return;
 
-            LineCommand cmd = new LineCommand(
+        java.util.List<BatchLineCommand.LineStatePair> pairs = new java.util.ArrayList<>();
+        for (SLine l : lines) {
+            if (!newColor.equals(l.strokeColor)) {
+                SLine oldState = l.copy();
+                SLine newState = l.copy();
+                newState.strokeColor = newColor;
+                pairs.add(new BatchLineCommand.LineStatePair(l, oldState, newState));
+            }
+        }
+
+        if (!pairs.isEmpty()) {
+            BatchLineCommand cmd = new BatchLineCommand(
                     appState.getCanvasState(),
                     canvas,
-                    line,
-                    LineCommand.Action.EDIT,
-                    oldState,
-                    newState
+                    BatchLineCommand.Action.EDIT,
+                    pairs
             );
             appState.getHistoryManager().push(cmd);
             colorBtn.setBackground(newColor);
@@ -191,17 +243,20 @@ public class LinePropertyPanel extends JPanel {
     }
 
     private void deleteSelectedLine() {
-        SLine line = appState.getCanvasState().getSelectedLine();
-        if (line != null) {
-            LineCommand cmd = new LineCommand(
-                    appState.getCanvasState(),
-                    canvas,
-                    line,
-                    LineCommand.Action.DELETE,
-                    line.copy(),
-                    null
-            );
-            appState.getHistoryManager().push(cmd);
+        java.util.Set<SLine> lines = appState.getCanvasState().getSelectedLines();
+        if (lines.isEmpty()) return;
+
+        java.util.List<BatchLineCommand.LineStatePair> pairs = new java.util.ArrayList<>();
+        for (SLine l : lines) {
+            pairs.add(new BatchLineCommand.LineStatePair(l, l.copy(), null));
         }
+
+        BatchLineCommand cmd = new BatchLineCommand(
+                appState.getCanvasState(),
+                canvas,
+                BatchLineCommand.Action.DELETE,
+                pairs
+        );
+        appState.getHistoryManager().push(cmd);
     }
 }

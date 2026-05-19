@@ -284,7 +284,7 @@ public class RenderUtils {
         g2d.setStroke(oldStroke);
     }
 
-    public static void drawLines(Graphics2D g2d, List<userpackage.SLine> lines, userpackage.SLine selectedLine, float zoom) {
+    public static void drawLines(Graphics2D g2d, List<userpackage.SLine> lines, Set<userpackage.SLine> selectedLines, float zoom) {
         if (lines == null || lines.isEmpty()) return;
 
         Stroke oldStroke = g2d.getStroke();
@@ -300,7 +300,7 @@ public class RenderUtils {
             g2d.drawLine(line.startPoint.x, line.startPoint.y, line.endPoint.x, line.endPoint.y);
 
             // Draw handles if selected
-            if (line == selectedLine) {
+            if (selectedLines != null && selectedLines.contains(line)) {
                 // Radius of handle: 5px on screen
                 float r = 5.0f / zoom;
                 float d = 10.0f / zoom;

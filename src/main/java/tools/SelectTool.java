@@ -32,6 +32,10 @@ public class SelectTool implements Tool {
     private Point startPointOffset = null;
     private Point endPointOffset = null;
 
+    // Handle drag tracking for batch editing
+    private final List<core.history.BatchLineCommand.LineStatePair> draggingPairs = new ArrayList<>();
+    private Point dragStartMouse = null;
+
     // Perpendicular segment distance utility
     private double getDistanceToSegment(Point p, Point a, Point b) {
         double l2 = a.distanceSq(b);
@@ -45,9 +49,8 @@ public class SelectTool implements Tool {
 
     @Override
     public void onMouseMoved(MouseEvent e, AppState appState, ImageCanvas canvas) {
-        // Cursor feedback when hovering active selected line handles
-        SLine selectedLine = appState.getCanvasState().getSelectedLine();
-        if (selectedLine != null) {
+        Set<SLine> selectedLines = appState.getCanvasState().getSelectedLines();
+        if (!selectedLines.isEmpty()) {
             float zoom = appState.getCurrentZoom();
             int ox = appState.getCanvasState().getImageOffsetX();
             int oy = appState.getCanvasState().getImageOffsetY();
@@ -57,18 +60,33 @@ public class SelectTool implements Tool {
                 Math.round((float)(e.getY() - oy) / zoom)
             );
 
-            Point midPoint = new Point(
-                (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
-                (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
-            );
-
             double screenRadius = 15.0 / zoom; // 30px active zone
 
-            if (mouseLoc.distance(selectedLine.startPoint) <= screenRadius ||
-                mouseLoc.distance(selectedLine.endPoint) <= screenRadius ||
-                mouseLoc.distance(midPoint) <= screenRadius) {
-                canvas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-                return;
+            if (selectedLines.size() == 1) {
+                SLine selectedLine = selectedLines.iterator().next();
+                Point midPoint = new Point(
+                    (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
+                    (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
+                );
+
+                if (mouseLoc.distance(selectedLine.startPoint) <= screenRadius ||
+                    mouseLoc.distance(selectedLine.endPoint) <= screenRadius ||
+                    mouseLoc.distance(midPoint) <= screenRadius) {
+                    canvas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                    return;
+                }
+            } else {
+                // Only allow midpoint handle drag in multi-select
+                for (SLine selectedLine : selectedLines) {
+                    Point midPoint = new Point(
+                        (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
+                        (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
+                    );
+                    if (mouseLoc.distance(midPoint) <= screenRadius) {
+                        canvas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+                        return;
+                    }
+                }
             }
         }
         canvas.setCursor(Cursor.getDefaultCursor());
@@ -81,41 +99,60 @@ public class SelectTool implements Tool {
             int ox = appState.getCanvasState().getImageOffsetX();
             int oy = appState.getCanvasState().getImageOffsetY();
 
-            // 1. Check handles on active selected line
-            SLine selectedLine = appState.getCanvasState().getSelectedLine();
-            if (selectedLine != null) {
+            Set<SLine> selectedLines = appState.getCanvasState().getSelectedLines();
+            if (!selectedLines.isEmpty()) {
                 Point pMouse = new Point(
                     Math.round((float)(e.getX() - ox) / zoom),
                     Math.round((float)(e.getY() - oy) / zoom)
                 );
+                double screenRadius = 15.0 / zoom;
 
-                Point midPoint = new Point(
-                    (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
-                    (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
-                );
+                if (selectedLines.size() == 1) {
+                    SLine selectedLine = selectedLines.iterator().next();
+                    Point midPoint = new Point(
+                        (selectedLine.startPoint.x + selectedLine.endPoint.x) / 2,
+                        (selectedLine.startPoint.y + selectedLine.endPoint.y) / 2
+                    );
 
-                double screenRadius = 15.0 / zoom; // 30px grab zone diameter on screen
-
-                if (pMouse.distance(selectedLine.startPoint) <= screenRadius) {
-                    activeHandleIndex = 0;
-                    draggingLine = selectedLine;
-                    originalDraggingLineState = selectedLine.copy();
-                    canvas.repaint();
-                    return;
-                } else if (pMouse.distance(selectedLine.endPoint) <= screenRadius) {
-                    activeHandleIndex = 1;
-                    draggingLine = selectedLine;
-                    originalDraggingLineState = selectedLine.copy();
-                    canvas.repaint();
-                    return;
-                } else if (pMouse.distance(midPoint) <= screenRadius) {
-                    activeHandleIndex = 2;
-                    draggingLine = selectedLine;
-                    originalDraggingLineState = selectedLine.copy();
-                    startPointOffset = new Point(selectedLine.startPoint.x - pMouse.x, selectedLine.startPoint.y - pMouse.y);
-                    endPointOffset = new Point(selectedLine.endPoint.x - pMouse.x, selectedLine.endPoint.y - pMouse.y);
-                    canvas.repaint();
-                    return;
+                    if (pMouse.distance(selectedLine.startPoint) <= screenRadius) {
+                        activeHandleIndex = 0;
+                        draggingLine = selectedLine;
+                        originalDraggingLineState = selectedLine.copy();
+                        canvas.repaint();
+                        return;
+                    } else if (pMouse.distance(selectedLine.endPoint) <= screenRadius) {
+                        activeHandleIndex = 1;
+                        draggingLine = selectedLine;
+                        originalDraggingLineState = selectedLine.copy();
+                        canvas.repaint();
+                        return;
+                    } else if (pMouse.distance(midPoint) <= screenRadius) {
+                        activeHandleIndex = 2;
+                        draggingLine = selectedLine;
+                        originalDraggingLineState = selectedLine.copy();
+                        startPointOffset = new Point(selectedLine.startPoint.x - pMouse.x, selectedLine.startPoint.y - pMouse.y);
+                        endPointOffset = new Point(selectedLine.endPoint.x - pMouse.x, selectedLine.endPoint.y - pMouse.y);
+                        canvas.repaint();
+                        return;
+                    }
+                } else {
+                    // Multi-select mode: Check midpoint handles only
+                    for (SLine l : selectedLines) {
+                        Point midPoint = new Point(
+                            (l.startPoint.x + l.endPoint.x) / 2,
+                            (l.startPoint.y + l.endPoint.y) / 2
+                        );
+                        if (pMouse.distance(midPoint) <= screenRadius) {
+                            activeHandleIndex = 3; // Batch midpoint drag marker
+                            dragStartMouse = new Point(pMouse);
+                            draggingPairs.clear();
+                            for (SLine active : selectedLines) {
+                                draggingPairs.add(new core.history.BatchLineCommand.LineStatePair(active, active.copy(), active.copy()));
+                            }
+                            canvas.repaint();
+                            return;
+                        }
+                    }
                 }
             }
 
@@ -131,6 +168,27 @@ public class SelectTool implements Tool {
         float zoom = appState.getCurrentZoom();
         int ox = appState.getCanvasState().getImageOffsetX();
         int oy = appState.getCanvasState().getImageOffsetY();
+
+        if (activeHandleIndex == 3 && dragStartMouse != null && !draggingPairs.isEmpty()) {
+            int mouseX = Math.round((float)(e.getX() - ox) / zoom);
+            int mouseY = Math.round((float)(e.getY() - oy) / zoom);
+
+            java.awt.image.BufferedImage img = canvas.getBackgroundImage();
+            if (img != null) {
+                mouseX = Math.max(0, Math.min(img.getWidth() - 1, mouseX));
+                mouseY = Math.max(0, Math.min(img.getHeight() - 1, mouseY));
+            }
+
+            int dx = mouseX - dragStartMouse.x;
+            int dy = mouseY - dragStartMouse.y;
+
+            for (core.history.BatchLineCommand.LineStatePair pair : draggingPairs) {
+                pair.line.startPoint.setLocation(pair.oldState.startPoint.x + dx, pair.oldState.startPoint.y + dy);
+                pair.line.endPoint.setLocation(pair.oldState.endPoint.x + dx, pair.oldState.endPoint.y + dy);
+            }
+            canvas.repaint();
+            return;
+        }
 
         if (draggingLine != null && activeHandleIndex != -1) {
             int dragX = Math.round((float)(e.getX() - ox) / zoom);
@@ -182,6 +240,32 @@ public class SelectTool implements Tool {
 
     @Override
     public void onMouseReleased(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        if (activeHandleIndex == 3 && !draggingPairs.isEmpty()) {
+            boolean moved = false;
+            List<core.history.BatchLineCommand.LineStatePair> finalPairs = new ArrayList<>();
+            for (core.history.BatchLineCommand.LineStatePair pair : draggingPairs) {
+                if (!pair.line.startPoint.equals(pair.oldState.startPoint) ||
+                    !pair.line.endPoint.equals(pair.oldState.endPoint)) {
+                    moved = true;
+                }
+                finalPairs.add(new core.history.BatchLineCommand.LineStatePair(pair.line, pair.oldState, pair.line.copy()));
+            }
+            if (moved) {
+                core.history.BatchLineCommand cmd = new core.history.BatchLineCommand(
+                        appState.getCanvasState(),
+                        canvas,
+                        core.history.BatchLineCommand.Action.EDIT,
+                        finalPairs
+                );
+                appState.getHistoryManager().push(cmd);
+            }
+            draggingPairs.clear();
+            dragStartMouse = null;
+            activeHandleIndex = -1;
+            canvas.repaint();
+            return;
+        }
+
         if (draggingLine != null && originalDraggingLineState != null) {
             boolean moved = !draggingLine.startPoint.equals(originalDraggingLineState.startPoint) ||
                             !draggingLine.endPoint.equals(originalDraggingLineState.endPoint);
@@ -221,6 +305,9 @@ public class SelectTool implements Tool {
     // DRAG RELEASE: rectangle selection
     // ------------------------------------------------------------------
     private void handleDragRelease(MouseEvent e, AppState appState, ImageCanvas canvas) {
+        boolean isShift = (e.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) != 0;
+        boolean isCtrl  = (e.getModifiersEx() & InputEvent.CTRL_DOWN_MASK) != 0;
+
         int offsetX = appState.getCanvasState().getImageOffsetX();
         int offsetY = appState.getCanvasState().getImageOffsetY();
         float zoom  = appState.getCurrentZoom();
@@ -236,19 +323,68 @@ public class SelectTool implements Tool {
         float ix2 = ((sx + sw) - offsetX) / zoom;
         float iy2 = ((sy + sh) - offsetY) / zoom;
 
+        double rx = ix1;
+        double ry = iy1;
+        double rw = ix2 - ix1;
+        double rh = iy2 - iy1;
+
         Rectangle2D selRect = new Rectangle2D(ix1, iy1, ix2 - ix1, iy2 - iy1);
 
         // Find all points inside rect
-        LinkedHashSet<SPoint> matched = new LinkedHashSet<>();
+        LinkedHashSet<SPoint> matchedPoints = new LinkedHashSet<>();
         for (SPoint p : appState.getCanvasState().getStickyPoints()) {
             if (selRect.contains(p.X, p.Y)) {
-                matched.add(p);
+                matchedPoints.add(p);
+            }
+        }
+
+        // Find all lines intersecting rect
+        LinkedHashSet<SLine> matchedLines = new LinkedHashSet<>();
+        for (SLine l : appState.getCanvasState().getLines()) {
+            if (lineIntersectsRect(l.startPoint, l.endPoint, rx, ry, rw, rh)) {
+                matchedLines.add(l);
             }
         }
 
         appState.getCanvasState().setSelectedGrid(null);
-        appState.getCanvasState().setSelectedLine(null);
-        appState.getCanvasState().setSelectedPoints(matched);
+
+        if (isCtrl) {
+            // Toggle selection
+            LinkedHashSet<SPoint> newPoints = new LinkedHashSet<>(appState.getCanvasState().getSelectedPoints());
+            for (SPoint p : matchedPoints) {
+                if (newPoints.contains(p)) newPoints.remove(p);
+                else newPoints.add(p);
+            }
+            appState.getCanvasState().setSelectedPoints(newPoints);
+
+            LinkedHashSet<SLine> newLines = new LinkedHashSet<>(appState.getCanvasState().getSelectedLines());
+            for (SLine l : matchedLines) {
+                if (newLines.contains(l)) newLines.remove(l);
+                else newLines.add(l);
+            }
+            appState.getCanvasState().setSelectedLines(newLines);
+        } else if (isShift) {
+            // Add to selection
+            LinkedHashSet<SPoint> newPoints = new LinkedHashSet<>(appState.getCanvasState().getSelectedPoints());
+            newPoints.addAll(matchedPoints);
+            appState.getCanvasState().setSelectedPoints(newPoints);
+
+            LinkedHashSet<SLine> newLines = new LinkedHashSet<>(appState.getCanvasState().getSelectedLines());
+            newLines.addAll(matchedLines);
+            appState.getCanvasState().setSelectedLines(newLines);
+        } else {
+            // Replace selection
+            if (!matchedPoints.isEmpty()) {
+                appState.getCanvasState().clearLineSelection();
+                appState.getCanvasState().setSelectedPoints(matchedPoints);
+            } else if (!matchedLines.isEmpty()) {
+                appState.getCanvasState().clearPointSelection();
+                appState.getCanvasState().setSelectedLines(matchedLines);
+            } else {
+                appState.getCanvasState().clearPointSelection();
+                appState.getCanvasState().clearLineSelection();
+            }
+        }
         canvas.repaint();
     }
 
@@ -348,19 +484,47 @@ public class SelectTool implements Tool {
         }
 
         if (!lineCandidates.isEmpty()) {
-            SLine currentSelectedLine = appState.getCanvasState().getSelectedLine();
-            SLine toSelect;
-            if (lineCandidates.size() > 1 && lineCandidates.contains(currentSelectedLine)) {
-                List<SLine> others = new ArrayList<>(lineCandidates);
-                others.remove(currentSelectedLine);
-                toSelect = others.get(random.nextInt(others.size()));
+            SLine toSelect = null;
+            Set<SLine> currentSelected = appState.getCanvasState().getSelectedLines();
+            if (lineCandidates.size() > 1) {
+                List<SLine> unselected = new ArrayList<>();
+                for (SLine l : lineCandidates) {
+                    if (!currentSelected.contains(l)) unselected.add(l);
+                }
+                if (!unselected.isEmpty()) {
+                    toSelect = unselected.get(random.nextInt(unselected.size()));
+                } else {
+                    SLine last = appState.getCanvasState().getSelectedLine();
+                    List<SLine> others = new ArrayList<>(lineCandidates);
+                    others.remove(last);
+                    if (!others.isEmpty()) {
+                        toSelect = others.get(random.nextInt(others.size()));
+                    } else {
+                        toSelect = last;
+                    }
+                }
             } else {
-                toSelect = lineCandidates.get(random.nextInt(lineCandidates.size()));
+                toSelect = lineCandidates.get(0);
             }
 
-            appState.getCanvasState().setSelectedGrid(null);
-            appState.getCanvasState().clearPointSelection();
-            appState.getCanvasState().setSelectedLine(toSelect);
+            if (isCtrl) {
+                LinkedHashSet<SLine> newLines = new LinkedHashSet<>(currentSelected);
+                if (newLines.contains(toSelect)) {
+                    appState.getCanvasState().removeFromSelection(toSelect);
+                } else {
+                    appState.getCanvasState().setSelectedGrid(null);
+                    appState.getCanvasState().clearPointSelection();
+                    appState.getCanvasState().addToSelection(toSelect);
+                }
+            } else if (isShift) {
+                appState.getCanvasState().setSelectedGrid(null);
+                appState.getCanvasState().clearPointSelection();
+                appState.getCanvasState().addToSelection(toSelect);
+            } else {
+                appState.getCanvasState().setSelectedGrid(null);
+                appState.getCanvasState().clearPointSelection();
+                appState.getCanvasState().setSelectedLine(toSelect);
+            }
             canvas.repaint();
             return;
         }
@@ -436,6 +600,20 @@ public class SelectTool implements Tool {
             g2d.fillRect((int) ix1, (int) iy1, (int) iw, (int) ih);
             g2d.setStroke(old);
         }
+    }
+
+    private boolean lineIntersectsRect(Point a, Point b, double rx, double ry, double rw, double rh) {
+        if (a.x >= rx && a.x <= rx + rw && a.y >= ry && a.y <= ry + rh) return true;
+        if (b.x >= rx && b.x <= rx + rw && b.y >= ry && b.y <= ry + rh) return true;
+
+        java.awt.geom.Line2D.Double segment = new java.awt.geom.Line2D.Double(a.x, a.y, b.x, b.y);
+        java.awt.geom.Line2D.Double top = new java.awt.geom.Line2D.Double(rx, ry, rx + rw, ry);
+        java.awt.geom.Line2D.Double bottom = new java.awt.geom.Line2D.Double(rx, ry + rh, rx + rw, ry + rh);
+        java.awt.geom.Line2D.Double left = new java.awt.geom.Line2D.Double(rx, ry, rx, ry + rh);
+        java.awt.geom.Line2D.Double right = new java.awt.geom.Line2D.Double(rx + rw, ry, rx + rw, ry + rh);
+
+        return segment.intersectsLine(top) || segment.intersectsLine(bottom) || 
+               segment.intersectsLine(left) || segment.intersectsLine(right);
     }
 
     // Simple 2D rect helper

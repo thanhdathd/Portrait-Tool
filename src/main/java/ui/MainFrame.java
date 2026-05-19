@@ -1313,7 +1313,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         strokeWidthComboBox = new JComboBox<>(new Integer[]{1, 2, 3, 5, 8, 13});
         strokeWidthComboBox.setSelectedItem(appState.getActiveLineStrokeWidth());
         strokeWidthComboBox.setVisible(false);
-        strokeWidthComboBox.setMaximumSize(new Dimension(100, 30));
+        strokeWidthComboBox.setMaximumSize(new Dimension(80, 26));
         strokeWidthComboBox.setToolTipText("Line Stroke Width");
         strokeWidthComboBox.setRenderer(new ListCellRenderer<Integer>() {
             @Override
@@ -1333,7 +1333,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 };
                 panel.setPreferredSize(new Dimension(80, 24));
                 if (isSelected) {
-                    panel.setBackground(list.getSelectionBackground());
+                    panel.setBackground(Color.LIGHT_GRAY);
                 } else {
                     panel.setBackground(list.getBackground());
                 }
@@ -1407,7 +1407,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         // Color
         JButton colorBtn = new JButton("         ");
         colorBtn.setBackground(appState.getBrushColor());
-        colorBtn.setPreferredSize(new Dimension(150, 30));
+        colorBtn.setPreferredSize(new Dimension(80, 30));
         colorBtn.setOpaque(true);
         colorBtn.setBorderPainted(false);
         colorBtn.setToolTipText("Select Brush Color");

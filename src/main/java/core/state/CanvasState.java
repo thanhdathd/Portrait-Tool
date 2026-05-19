@@ -15,8 +15,8 @@ public class CanvasState {
 
     // Line support
     private final List<userpackage.SLine> lines = new ArrayList<>();
-    private userpackage.SLine selectedLine = null;
-    private Consumer<userpackage.SLine> lineSelectionListener;
+    private final LinkedHashSet<userpackage.SLine> selectedLines = new LinkedHashSet<>();
+    private Consumer<Set<userpackage.SLine>> lineSelectionListener;
 
     // Multi-selection: ordered set of selected points
     private final LinkedHashSet<SPoint> selectedPoints = new LinkedHashSet<>();
@@ -162,7 +162,7 @@ public class CanvasState {
         grids.clear();
         lines.clear();
         setSelectedGrid(null);
-        setSelectedLine(null);
+        clearLineSelection();
         clearPointSelection();
         if (pointChangeListener != null) pointChangeListener.accept(0);
     }
@@ -174,18 +174,59 @@ public class CanvasState {
     }
 
     public userpackage.SLine getSelectedLine() {
-        return selectedLine;
+        if (selectedLines.isEmpty()) return null;
+        userpackage.SLine last = null;
+        for (userpackage.SLine l : selectedLines) last = l;
+        return last;
+    }
+
+    public Set<userpackage.SLine> getSelectedLines() {
+        return Collections.unmodifiableSet(selectedLines);
     }
 
     public void setSelectedLine(userpackage.SLine line) {
-        this.selectedLine = line;
-        if (lineSelectionListener != null) {
-            lineSelectionListener.accept(line);
+        selectedLines.clear();
+        if (line != null) {
+            selectedLines.add(line);
+        }
+        fireLineSelectionChanged();
+    }
+
+    public void setSelectedLines(Set<userpackage.SLine> lines) {
+        selectedLines.clear();
+        if (lines != null) {
+            selectedLines.addAll(lines);
+        }
+        fireLineSelectionChanged();
+    }
+
+    public void addToSelection(userpackage.SLine line) {
+        if (line != null && selectedLines.add(line)) {
+            fireLineSelectionChanged();
         }
     }
 
-    public void setLineSelectionListener(java.util.function.Consumer<userpackage.SLine> listener) {
+    public void removeFromSelection(userpackage.SLine line) {
+        if (line != null && selectedLines.remove(line)) {
+            fireLineSelectionChanged();
+        }
+    }
+
+    public void clearLineSelection() {
+        if (!selectedLines.isEmpty()) {
+            selectedLines.clear();
+            fireLineSelectionChanged();
+        }
+    }
+
+    public void setLineSelectionListener(Consumer<Set<userpackage.SLine>> listener) {
         this.lineSelectionListener = listener;
+    }
+
+    private void fireLineSelectionChanged() {
+        if (lineSelectionListener != null) {
+            lineSelectionListener.accept(Collections.unmodifiableSet(selectedLines));
+        }
     }
 
     // --- Export Live Preview Properties ---
