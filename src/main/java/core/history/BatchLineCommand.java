@@ -77,7 +77,22 @@ public class BatchLineCommand implements Command {
 
     @Override
     public CommandData capture() {
-        return null; // Local command history, not autosaved
+        CommandData cmd = new CommandData();
+        cmd.lines = new ArrayList<>();
+        if (action == Action.DELETE) {
+            cmd.type = CommandData.CommandType.BATCH_DELETE_LINES;
+            for (LineStatePair pair : linePairs) {
+                cmd.lines.add(pair.oldState.copy());
+            }
+        } else if (action == Action.EDIT) {
+            cmd.type = CommandData.CommandType.BATCH_EDIT_LINES;
+            cmd.newLines = new ArrayList<>();
+            for (LineStatePair pair : linePairs) {
+                cmd.lines.add(pair.oldState.copy());
+                cmd.newLines.add(pair.newState.copy());
+            }
+        }
+        return cmd;
     }
 
     @Override

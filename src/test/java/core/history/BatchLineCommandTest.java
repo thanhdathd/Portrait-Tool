@@ -52,4 +52,37 @@ class BatchLineCommandTest {
         assertEquals(Color.BLACK, line2.strokeColor);
         assertEquals(new Point(20, 20), line2.startPoint);
     }
+
+    @Test
+    void testBatchCapture() {
+        AppState appState = new AppState();
+        CanvasState canvasState = appState.getCanvasState();
+        ImageCanvas canvas = new ImageCanvas(appState) {
+            @Override public void repaint() {}
+        };
+
+        SLine line1 = new SLine(1, new Point(0, 0), new Point(10, 10), 2, Color.BLACK);
+        canvasState.getLines().add(line1);
+
+        List<BatchLineCommand.LineStatePair> pairs = new ArrayList<>();
+        SLine line1New = line1.copy();
+        line1New.strokeColor = Color.BLUE;
+        pairs.add(new BatchLineCommand.LineStatePair(line1, line1.copy(), line1New));
+
+        BatchLineCommand editCmd = new BatchLineCommand(canvasState, canvas, BatchLineCommand.Action.EDIT, pairs);
+        core.state.CommandData editData = editCmd.capture();
+        assertNotNull(editData);
+        assertEquals(core.state.CommandData.CommandType.BATCH_EDIT_LINES, editData.type);
+        assertEquals(1, editData.lines.size());
+        assertEquals(Color.BLACK, editData.lines.get(0).strokeColor);
+        assertEquals(1, editData.newLines.size());
+        assertEquals(Color.BLUE, editData.newLines.get(0).strokeColor);
+
+        BatchLineCommand delCmd = new BatchLineCommand(canvasState, canvas, BatchLineCommand.Action.DELETE, pairs);
+        core.state.CommandData delData = delCmd.capture();
+        assertNotNull(delData);
+        assertEquals(core.state.CommandData.CommandType.BATCH_DELETE_LINES, delData.type);
+        assertEquals(1, delData.lines.size());
+        assertNull(delData.newLines);
+    }
 }

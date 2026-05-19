@@ -24,7 +24,9 @@ public class CommandData {
         RESIZE,
         ADD_LINE,
         DELETE_LINE,
-        EDIT_LINE
+        EDIT_LINE,
+        BATCH_DELETE_LINES,
+        BATCH_EDIT_LINES
     }
 
     public CommandType type;
@@ -41,6 +43,10 @@ public class CommandData {
         public java.util.List<SPoint> points;  // danh sách point cho BATCH_DELETE / BATCH_EDIT_COLOR
         public java.awt.Color batchColor;       // màu mới cho BATCH_EDIT_POINTS_COLOR
         public java.util.List<java.awt.Color> oldColors; // màu cũ từng point (cho undo)
+
+        // Tham số cho batch line commands
+        public java.util.List<userpackage.SLine> lines;
+        public java.util.List<userpackage.SLine> newLines;
 
         // Tham số cho lệnh CROP
         public Integer cropX;

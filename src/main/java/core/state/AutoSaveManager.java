@@ -562,6 +562,50 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     }
                     break;
                 }
+                case BATCH_DELETE_LINES: {
+                    List<core.history.BatchLineCommand.LineStatePair> pairs = new ArrayList<>();
+                    if (d.lines != null) {
+                        for (userpackage.SLine snap : d.lines) {
+                            userpackage.SLine existing = null;
+                            for (userpackage.SLine l : appState.getCanvasState().getLines()) {
+                                if (l.id == snap.id) {
+                                    existing = l;
+                                    break;
+                                }
+                            }
+                            if (existing != null) {
+                                pairs.add(new core.history.BatchLineCommand.LineStatePair(existing, snap.copy(), null));
+                            }
+                        }
+                    }
+                    if (!pairs.isEmpty()) {
+                        cmd = new core.history.BatchLineCommand(appState.getCanvasState(), ui.getCanvas(), core.history.BatchLineCommand.Action.DELETE, pairs);
+                    }
+                    break;
+                }
+                case BATCH_EDIT_LINES: {
+                    List<core.history.BatchLineCommand.LineStatePair> pairs = new ArrayList<>();
+                    if (d.lines != null && d.newLines != null && d.lines.size() == d.newLines.size()) {
+                        for (int i = 0; i < d.lines.size(); i++) {
+                            userpackage.SLine oldSnap = d.lines.get(i);
+                            userpackage.SLine newSnap = d.newLines.get(i);
+                            userpackage.SLine existing = null;
+                            for (userpackage.SLine l : appState.getCanvasState().getLines()) {
+                                if (l.id == oldSnap.id) {
+                                    existing = l;
+                                    break;
+                                }
+                            }
+                            if (existing != null) {
+                                pairs.add(new core.history.BatchLineCommand.LineStatePair(existing, oldSnap.copy(), newSnap.copy()));
+                            }
+                        }
+                    }
+                    if (!pairs.isEmpty()) {
+                        cmd = new core.history.BatchLineCommand(appState.getCanvasState(), ui.getCanvas(), core.history.BatchLineCommand.Action.EDIT, pairs);
+                    }
+                    break;
+                }
                 case CROP:
                     // Recreate cropped image
                     nextImage = new java.awt.image.BufferedImage(d.cropW, d.cropH, currentImage.getType() == 0 ? java.awt.image.BufferedImage.TYPE_INT_ARGB : currentImage.getType());
