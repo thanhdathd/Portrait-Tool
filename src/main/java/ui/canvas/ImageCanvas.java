@@ -525,6 +525,9 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         if (image != null) {
             this.revalidate();
         }
+        if (zoomWindow != null && zoomWindow.isVisible()) {
+            zoomWindow.updateImage(image);
+        }
         this.repaint();
     }
 
