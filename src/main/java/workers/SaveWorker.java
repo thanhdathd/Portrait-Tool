@@ -44,6 +44,9 @@ public class SaveWorker extends SwingWorker<Void, Void> {
         List<SPoint> sPoints = appState.getCanvasState().getStickyPoints();
         RenderUtils.drawStickyPoints(g2d, sPoints, drawLabels);
 
+        // Draw Lines
+        RenderUtils.drawLines(g2d, appState.getCanvasState().getLines(), null, 1.0f);
+
         // 4. Draw Grids
         List<SPoint> grids = appState.getCanvasState().getGrids();
         if (!grids.isEmpty() && drawGrids) {
