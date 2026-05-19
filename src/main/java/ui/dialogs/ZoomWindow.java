@@ -156,73 +156,98 @@ public class ZoomWindow extends JDialog {
             int gap = appState.getCustomGap();
             int angle = appState.getCustomAngle();
 
-            g2.setXORMode(Color.YELLOW); // Dùng màu nổi bật cho Radar
-            // Thủ thuật: Giữ nét vẽ luôn mỏng 1 pixel trên màn hình bất chấp độ Zoom
+            g2.setPaintMode();
             Stroke oldStroke = g2.getStroke();
-            g2.setStroke(new BasicStroke(1.0f / zoomRate));
 
-            // 1. Vẽ vòng tròn Gap
+            // 1. Vẽ vòng tròn Gap và đường leader line
             Ellipse2D.Double circle = new Ellipse2D.Double(
                     cx - gap, cy - gap, gap * 2, gap * 2);
-            g2.draw(circle);
 
-            // 2. Tính toán điểm lp (Lượng giác)
-            // Lưu ý: Trục Y của Java đi xuống, nên CCW (Ngược chiều KĐH) thì Y phải trừ đi Sin
             double radians = Math.toRadians(angle);
             double lpX_d = cx + gap * Math.cos(radians);
             double lpY_d = cy - gap * Math.sin(radians);
-
             int lpX = (int) Math.round(lpX_d);
             int lpY = (int) Math.round(lpY_d);
 
-            // Vẽ một đường Line mỏng từ tâm ra điểm lp (như kim radar) để user dễ nhìn
-            g2.draw(new Line2D.Double(cx, cy, lpX, lpY));
-
             Font font = new Font("SansSerif", Font.BOLD, 12);
             g2.setFont(font);
-
             g2.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
                     RenderingHints.VALUE_FRACTIONALMETRICS_ON);
             FontMetrics fm = g2.getFontMetrics(font);
 
-            // Nội suy Text
-            List<SPoint> points = appState.getCanvasState().getStickyPoints();
+            List<userpackage.SPoint> points = appState.getCanvasState().getStickyPoints();
             int predictedId = points.isEmpty() ? 1 : points.get(points.size() - 1).id + 1;
             String text = String.valueOf(predictedId);
 
-            // 4. Đo đạc Text
             int textWidth = fm.stringWidth(text);
             int textAscent = fm.getAscent();
 
-            // 5. Tính tọa độ X của Baseline dựa trên hàm dùng chung
             int baselineStartX = RenderUtils.calculateCustomBaselineX(lpX, angle, textWidth);
-
-            // Tọa độ Y của baseline chính là lpY (vì text ngồi ngay trên lp)
             int baselineY = lpY;
-
-            // 6. Vẽ Indicator
-            // Vẽ đường Baseline (một gạch chân ngang bên dưới text)
-            g2.draw(new Line2D.Double(baselineStartX, lpY, baselineStartX + textWidth, lpY));
-
-            // Vẽ nội dung Text mẫu (vẽ cao hơn baseline 1-2 pixel để không dính vào vạch)
             if(angle >= 213 && angle <= 327) {
                 baselineY = lpY + (int)(textAscent*0.9);
             }
+
+            // Draw Black outline (shadow) first
+            g2.setColor(Color.BLACK);
+            g2.setStroke(new BasicStroke(2.0f / zoomRate));
+            g2.draw(circle);
+            g2.draw(new Line2D.Double(cx, cy, lpX, lpY));
+            g2.draw(new Line2D.Double(baselineStartX, lpY, baselineStartX + textWidth, lpY));
+
+            // Draw Yellow foreground next
+            g2.setColor(Color.YELLOW);
+            g2.setStroke(new BasicStroke(1.0f / zoomRate));
+            g2.draw(circle);
+            g2.draw(new Line2D.Double(cx, cy, lpX, lpY));
+            g2.draw(new Line2D.Double(baselineStartX, lpY, baselineStartX + textWidth, lpY));
+
+            // Draw Text with contrast shadow
+            // Shadow
+            g2.setColor(Color.BLACK);
+            g2.drawString(text, baselineStartX - 1, baselineY - 2);
+            g2.drawString(text, baselineStartX + 1, baselineY - 2);
+            g2.drawString(text, baselineStartX, baselineY - 3);
             g2.drawString(text, baselineStartX, baselineY - 1);
+            // Foreground text
+            g2.setColor(Color.YELLOW);
+            g2.drawString(text, baselineStartX, baselineY - 2);
 
+            // Draw angle indicator with shadow
+            Font angleFont = new Font("SansSerif", Font.PLAIN, 8);
+            g2.setFont(angleFont);
+            String angleText = String.valueOf(angle);
+            // Shadow
+            g2.setColor(Color.BLACK);
+            g2.drawString(angleText, baselineStartX + textWidth + 19, lpY + 1);
+            g2.drawString(angleText, baselineStartX + textWidth + 21, lpY + 1);
+            g2.drawString(angleText, baselineStartX + textWidth + 20, lpY + 2);
+            g2.drawString(angleText, baselineStartX + textWidth + 20, lpY);
+            // Foreground
+            g2.setColor(Color.YELLOW);
+            g2.drawString(angleText, baselineStartX + textWidth + 20, lpY + 1);
 
-            g2.setFont(new  Font("SansSerif", Font.PLAIN, 8));
-            g2.drawString(angle+"", baselineStartX + textWidth + 20, lpY);
-
-            // Trả lại trạng thái nét vẽ cũ
             g2.setStroke(oldStroke);
-            g2.setPaintMode();
         }
     }
 
     // --- Các hàm hỗ trợ vẽ giữ nguyên logic của bạn nhưng tối ưu hóa tham số ---
     private void drawCross(Graphics2D g2, int cx, int cy, float zoomRate) {
-        g2.setXORMode(Color.WHITE);
+        g2.setPaintMode();
+        Stroke oldStroke = g2.getStroke();
+
+        // 1. Draw black shadow outline
+        g2.setColor(Color.BLACK);
+        g2.setStroke(new BasicStroke(3.0f));
+        g2.drawOval(cx - 14, cy - 14, 28, 28);
+        g2.drawLine(cx, cy - 5, cx, cy - 25);
+        g2.drawLine(cx, cy + 5, cx, cy + 25);
+        g2.drawLine(cx - 5, cy, cx - 25, cy);
+        g2.drawLine(cx + 5, cy, cx + 25, cy);
+
+        // 2. Draw white foreground inner lines
+        g2.setColor(Color.WHITE);
+        g2.setStroke(new BasicStroke(1.0f));
         g2.drawOval(cx - 14, cy - 14, 28, 28);
         g2.drawLine(cx, cy - 5, cx, cy - 25);
         g2.drawLine(cx, cy + 5, cx, cy + 25);
@@ -231,39 +256,47 @@ public class ZoomWindow extends JDialog {
 
         // vẽ indicator phụ khi zoomRate đủ lớn
         if(zoomRate > 5.0f) {
-            // Tọa độ góc dưới bên phải
             int brX = cx + (int) zoomRate;
             int brY = cy + (int) zoomRate;
-
-            // Tính toán độ dài của nét vẽ phụ (nhỏ hơn cạnh của pixel một chút cho đẹp)
             int lineLength = Math.min(16, (int) (zoomRate / 2.0f));
-
-            // Vẽ đường ngang (từ phải qua trái, hướng vào trong pixel)
+            
+            // Draw secondary indicator with shadow
+            g2.setColor(Color.BLACK);
+            g2.setStroke(new BasicStroke(3.0f));
             g2.drawLine(brX, brY, brX - lineLength, brY);
+            g2.drawLine(brX, brY, brX, brY - lineLength);
 
-            // Vẽ đường dọc (từ dưới lên trên, hướng vào trong pixel)
+            g2.setColor(Color.WHITE);
+            g2.setStroke(new BasicStroke(1.0f));
+            g2.drawLine(brX, brY, brX - lineLength, brY);
             g2.drawLine(brX, brY, brX, brY - lineLength);
         } else {
+            g2.setColor(Color.BLACK);
+            g2.fillRect(cx - 1, cy - 1, (int)zoomRate + 2, (int)zoomRate + 2);
+            g2.setColor(Color.WHITE);
             g2.fillRect(cx, cy, (int)zoomRate, (int)zoomRate);
         }
+
         // draw direction indicator
         if(!appState.isCustomLabelMode()) {
+            g2.setColor(Color.BLACK);
+            g2.setStroke(new BasicStroke(3.0f));
             switch (appState.getLabelDirection()) {
-                case NORTH -> {
-                    g2.drawLine(cx + 3, cy - 20, cx + 3, cy - 25);
-                }
-                case EAST -> {
-                    g2.drawLine(cx + 20, cy + 3, cx + 25, cy + 3);
-                }
-                case SOUTH -> {
-                    g2.drawLine(cx + 3, cy + 20, cx + 3, cy + 25);
-                }
-                case WEST -> {
-                    g2.drawLine(cx - 20, cy + 3, cx - 25, cy + 3);
-                }
+                case NORTH -> g2.drawLine(cx + 3, cy - 20, cx + 3, cy - 25);
+                case EAST -> g2.drawLine(cx + 20, cy + 3, cx + 25, cy + 3);
+                case SOUTH -> g2.drawLine(cx + 3, cy + 20, cx + 3, cy + 25);
+                case WEST -> g2.drawLine(cx - 20, cy + 3, cx - 25, cy + 3);
+            }
+            g2.setColor(Color.WHITE);
+            g2.setStroke(new BasicStroke(1.0f));
+            switch (appState.getLabelDirection()) {
+                case NORTH -> g2.drawLine(cx + 3, cy - 20, cx + 3, cy - 25);
+                case EAST -> g2.drawLine(cx + 20, cy + 3, cx + 25, cy + 3);
+                case SOUTH -> g2.drawLine(cx + 3, cy + 20, cx + 3, cy + 25);
+                case WEST -> g2.drawLine(cx - 20, cy + 3, cx - 25, cy + 3);
             }
         }
-        g2.setPaintMode();
+        g2.setStroke(oldStroke);
     }
     
     // API to control state from outside
