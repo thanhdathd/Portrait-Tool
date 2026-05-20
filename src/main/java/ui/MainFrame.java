@@ -12,6 +12,7 @@ import core.history.ResizeCommand;
 import core.state.AppState;
 import tools.ToolManager;
 import ui.canvas.ImageCanvas;
+import ui.dialogs.AboutDialog;
 import ui.dialogs.FilterDialog;
 import ui.dialogs.ImagePreviewPanel;
 import ui.dialogs.ResizeDialog;
@@ -1083,8 +1084,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         helpMenu.setMnemonic(KeyEvent.VK_H);
         JMenuItem aboutItem = new JMenuItem();
         setI18nText(aboutItem, "menu.help.about");
-        aboutItem.addActionListener(e -> JOptionPane.showMessageDialog(this, 
-            "Portrai-Tool Modernized\nA Swing-based Image Processing Tool", "About", JOptionPane.INFORMATION_MESSAGE));
+        aboutItem.addActionListener(e -> new AboutDialog(this).setVisible(true));
             
         JMenuItem keyAssistItem = new JMenuItem();
         setI18nText(keyAssistItem, "menu.help.keyAssist");
