@@ -7,6 +7,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import javax.imageio.ImageIO;
+import com.formdev.flatlaf.extras.FlatSVGIcon;
 import core.fileio.ImageFormatHelper;
 
 public class ImagePreviewPanel extends JPanel {
@@ -24,6 +25,20 @@ public class ImagePreviewPanel extends JPanel {
     private final JPanel pointsRow;
     private final JPanel gridsRow;
     private final JPanel scaleRow;
+
+    private enum FileType { IMAGE, PDW, PDF, XLSX, UNSUPPORTED }
+
+    private static FileType detectFileType(File f) {
+        String name = f.getName().toLowerCase();
+        if (name.endsWith(".pdw")) return FileType.PDW;
+        if (name.endsWith(".pdf")) return FileType.PDF;
+        if (name.endsWith(".xlsx") || name.endsWith(".xls")) return FileType.XLSX;
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot == -1) return FileType.UNSUPPORTED;
+        String ext = name.substring(lastDot + 1);
+        if (ImageFormatHelper.getSupportedExtensions().contains(ext)) return FileType.IMAGE;
+        return FileType.UNSUPPORTED;
+    }
 
     private static final int PREVIEW_MAX_SIZE = 220;
     private static final int NAME_MAX_CHARS_PER_LINE = 25;
@@ -99,7 +114,7 @@ public class ImagePreviewPanel extends JPanel {
 
     private JPanel createRow(String label, JLabel valueLabel) {
         JPanel row = new JPanel(new BorderLayout());
-        row.setMaximumSize(new Dimension(210, 20));
+        row.setMaximumSize(new Dimension(210, 22));
         row.setOpaque(false);
         
         JLabel keyLabel = new JLabel(label + ":");
@@ -115,7 +130,12 @@ public class ImagePreviewPanel extends JPanel {
     }
 
     private void updatePreview(File file) {
-        if (file == null || !isSupportedFile(file)) {
+        if (file == null) {
+            clearPreview();
+            return;
+        }
+        FileType fileType = detectFileType(file);
+        if (fileType == FileType.UNSUPPORTED) {
             clearPreview();
             return;
         }
@@ -127,17 +147,15 @@ public class ImagePreviewPanel extends JPanel {
             private int pointsCount = -1;
             private int gridsCount = -1;
             private double scaleVal = -1;
-            private boolean isPdw = false;
 
             @Override
             protected BufferedImage doInBackground() {
                 fileSize = file.length();
                 lastModified = file.lastModified();
                 try {
-                    isPdw = file.getName().toLowerCase().endsWith(".pdw");
                     BufferedImage original = null;
-                    
-                    if (isPdw) {
+
+                    if (fileType == FileType.PDW) {
                         try {
                             core.state.ProjectFileManager.LoadedProject project = core.state.ProjectFileManager.loadProject(file);
                             original = project.image;
@@ -149,22 +167,20 @@ public class ImagePreviewPanel extends JPanel {
                         } catch (Exception e) {
                             System.err.println("Failed to parse PDW for preview: " + e.getMessage());
                         }
-                    } else {
+                    } else if (fileType == FileType.IMAGE) {
                         original = ImageIO.read(file);
                     }
+                    // For PDF and XLSX, no image to load — icon shown instead
 
                     if (original != null) {
                         imgWidth = original.getWidth();
                         imgHeight = original.getHeight();
-                        // Chỉ scale xuống nếu ảnh thực sự quá lớn (để tiết kiệm RAM)
                         final int MAX_SAFE_RESOLUTION = 800;
-
                         if (imgWidth > MAX_SAFE_RESOLUTION || imgHeight > MAX_SAFE_RESOLUTION) {
                             double scale = Math.min((double) MAX_SAFE_RESOLUTION / imgWidth,
                                     (double) MAX_SAFE_RESOLUTION / imgHeight);
                             int w = (int) (imgWidth * scale);
                             int h = (int) (imgHeight * scale);
-
                             Image tempImg = original.getScaledInstance(w, h, Image.SCALE_SMOOTH);
                             BufferedImage scaled = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
                             Graphics2D g2d = scaled.createGraphics();
@@ -172,8 +188,7 @@ public class ImagePreviewPanel extends JPanel {
                             g2d.dispose();
                             return scaled;
                         }
-
-                        return original; 
+                        return original;
                     }
                 } catch (Exception e) {
                     // ignore
@@ -188,27 +203,41 @@ public class ImagePreviewPanel extends JPanel {
                     if (img != null) {
                         previewLabel.setImage(img);
                     } else {
-                        previewLabel.clear();
+                        // Show a large type-specific icon for non-image documents
+                        String iconRes = switch (fileType) {
+                            case PDF  -> "icons/pdf_file.svg";
+                            case XLSX -> "icons/xlsx_file.svg";
+                            case PDW  -> "icons/pdw_file.svg";
+                            default   -> null;
+                        };
+                        if (iconRes != null) {
+                            previewLabel.setIcon(new FlatSVGIcon(iconRes));
+                        } else {
+                            previewLabel.clear();
+                        }
                     }
 
                     String ext = "";
                     int dot = file.getName().lastIndexOf('.');
                     if (dot > 0) ext = file.getName().substring(dot + 1).toUpperCase();
 
-                    nameLabel.setText( wrapFileName(file.getName(), NAME_MAX_CHARS_PER_LINE, NAME_MAX_LINES) );
-                    if (isPdw) {
-                        typeLabel.setText("<html><div style=\"color:#10acd3; width:180px; text-align:center;\"><b>PDW Portrait Data Work File</b></div></html>");
-                    } else {
-                        typeLabel.setText(ext + " Image");
+                    nameLabel.setText(wrapFileName(file.getName(), NAME_MAX_CHARS_PER_LINE, NAME_MAX_LINES));
+
+                    switch (fileType) {
+                        case PDW  -> typeLabel.setText("<html><div style=\"color:#10acd3; width:180px; text-align:center;\"><b>PDW Portrait Data Work File</b></div></html>");
+                        case PDF  -> typeLabel.setText("<html><div style=\"color:#E53935; width:180px; text-align:center;\"><b>PDF Document</b></div></html>");
+                        case XLSX -> typeLabel.setText("<html><div style=\"color:#2E7D32; width:180px; text-align:center;\"><b>Excel Spreadsheet</b></div></html>");
+                        default   -> typeLabel.setText(ext + " Image");
                     }
+
                     sizeLabel.setText(formatFileSize(fileSize));
                     modifiedLabel.setText(formatDate(lastModified));
 
-                    if (isPdw && pointsCount >= 0) {
+                    // PDW-specific rows
+                    if (fileType == FileType.PDW && pointsCount >= 0) {
                         pointsLabel.setText(String.valueOf(pointsCount));
                         gridsLabel.setText(String.valueOf(gridsCount));
                         scaleLabel.setText(String.format("%.2f", scaleVal));
-                        
                         pointsRow.setVisible(true);
                         gridsRow.setVisible(true);
                         scaleRow.setVisible(true);
@@ -218,6 +247,7 @@ public class ImagePreviewPanel extends JPanel {
                         scaleRow.setVisible(false);
                     }
 
+                    // Dimension only shown for image files that have pixel dimensions
                     if (imgWidth > 0 && imgHeight > 0) {
                         dimensionLabel.setText(imgWidth + " x " + imgHeight);
                     } else {
@@ -244,11 +274,7 @@ public class ImagePreviewPanel extends JPanel {
     }
 
     private boolean isSupportedFile(File f) {
-        String name = f.getName().toLowerCase();
-        int lastDot = name.lastIndexOf('.');
-        if (lastDot == -1) return false;
-        String ext = name.substring(lastDot + 1);
-        return ImageFormatHelper.getSupportedExtensions().contains(ext);
+        return detectFileType(f) != FileType.UNSUPPORTED;
     }
 
     private String formatFileSize(long size) {

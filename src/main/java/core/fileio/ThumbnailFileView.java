@@ -16,6 +16,8 @@ public class ThumbnailFileView extends FileView {
     private final JFileChooser chooser;
     private final Icon placeholderIcon;
     private Icon pdwIcon;
+    private Icon pdfIcon;
+    private Icon xlsxIcon;
     private Icon folderIcon;
 
     public ThumbnailFileView(JFileChooser chooser, int iconSize) {
@@ -67,11 +69,26 @@ public class ThumbnailFileView extends FileView {
             return folderIcon;
         }
 
-        if (f.getName().toLowerCase().endsWith(".pdw")) {
+        String nameLower = f.getName().toLowerCase();
+        if (nameLower.endsWith(".pdw")) {
             if (pdwIcon == null) {
                 pdwIcon = new FlatSVGIcon("icons/pdw_file.svg", iconSize, iconSize);
             }
             return pdwIcon;
+        }
+
+        if (nameLower.endsWith(".pdf")) {
+            if (pdfIcon == null) {
+                pdfIcon = new FlatSVGIcon("icons/pdf_file.svg", iconSize, iconSize);
+            }
+            return pdfIcon;
+        }
+
+        if (nameLower.endsWith(".xlsx") || nameLower.endsWith(".xls")) {
+            if (xlsxIcon == null) {
+                xlsxIcon = new FlatSVGIcon("icons/xlsx_file.svg", iconSize, iconSize);
+            }
+            return xlsxIcon;
         }
 
         if (!isImageFile(f)) {
