@@ -1061,7 +1061,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         setI18nText(viewMenu, "menu.view");
         viewMenu.setMnemonic(KeyEvent.VK_V);
         
-        JMenuItem zoomItem = new JMenuItem("Toggle Zoom/Measure Calipers");
+        JMenuItem zoomItem = new JMenuItem("Zoom dialog");
         zoomItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         zoomItem.addActionListener(e -> {
             openZoomWindow();
