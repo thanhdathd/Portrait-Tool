@@ -514,10 +514,11 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         }
     }
 
+    private boolean forcedOpen = false;
     private void attemptOpenFile() {
         if (appState.getHistoryManager().isModified()) {
             int result = JOptionPane.showOptionDialog(this,
-                    "Open new file will erase all current points. Are you sure to continue?",
+                    "Open new file will erase all current unsave data. Are you sure to continue?",
                     "Unsaved Changes",
                     JOptionPane.OK_CANCEL_OPTION,
                     JOptionPane.WARNING_MESSAGE,
@@ -525,6 +526,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                     new String[]{"Continue", "Cancel"},
                     "Continue");
             if (result == JOptionPane.YES_OPTION) {
+                forcedOpen = true;
                 performOpenFile();
             }
         } else {
@@ -596,7 +598,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         }
 
         // Check for unsaved changes before opening new file
-        if (appState.getHistoryManager().isModified()) {
+        if (appState.getHistoryManager().isModified() && !forcedOpen) {
             int result = JOptionPane.showOptionDialog(this,
                     "You have unsaved changes. What would you like to do?",
                     "Unsaved Changes",
@@ -624,6 +626,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         } else {
             loadImage(file);
         }
+        forcedOpen = false;
     }
 
     private void loadImage(java.io.File file) {

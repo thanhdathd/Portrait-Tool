@@ -30,12 +30,7 @@ public class ImageFormatHelper {
             return false;
         }
 
-        // WebP support extension fallback (if ImageIO doesn't support WebP natively in the JVM)
-        String name = file.getName().toLowerCase();
-        if (name.endsWith(".webp")) {
-            System.out.println("Detected format (fallback): webp | File: " + file.getName());
-            return true;
-        }
+
 
         ImageInputStream iis = null;
         try {

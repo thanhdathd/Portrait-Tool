@@ -68,11 +68,14 @@ class ImageFormatHelperTest {
     }
 
     @Test
-    void testIsValidImageWithWebpFallback() throws IOException {
-        // Even if the file has webp content or dummy bytes, name-based WebP fallback should return true
+    void testIsValidImageWithWebp() throws IOException {
+        // Base64 of a valid 1x1 pixel WebP image
+        String base64WebP = "UklGRhoAAABXRUJQVlA4WAoAAAAQAAAAAQAAAAAAQUxQSAwAAAARBxAR/Q9ECf8DAFZQOCQgAAAAwAcAnQEqAQABAAFAc2EAAYcAAf54AAA=";
+        byte[] webpBytes = java.util.Base64.getDecoder().decode(base64WebP);
+        
         File webpFile = new File(tempDir.toFile(), "test.webp");
         try (FileOutputStream fos = new FileOutputStream(webpFile)) {
-            fos.write("dummy webp bytes".getBytes());
+            fos.write(webpBytes);
         }
         assertTrue(ImageFormatHelper.isValidImage(webpFile));
     }

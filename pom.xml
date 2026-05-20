@@ -42,6 +42,28 @@
             <version>2.10.1</version>
         </dependency>
 
+        <!-- TwelveMonkeys ImageIO plugins for WebP, TIFF, JPEG and Core -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-core</artifactId>
+            <version>3.13.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.13.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-jpeg</artifactId>
+            <version>3.13.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-tiff</artifactId>
+            <version>3.13.1</version>
+        </dependency>
+
         <!-- MigLayout for robust Swing layout management -->
         <dependency>
             <groupId>com.miglayout</groupId>
