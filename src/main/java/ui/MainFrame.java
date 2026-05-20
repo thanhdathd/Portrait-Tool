@@ -18,6 +18,7 @@ import ui.dialogs.ResizeDialog;
 import ui.dialogs.ZoomWindow;
 import utils.ExcelExportUtils;
 import ui.components.SaveStatusIcon;
+import ui.components.ToastNotification;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
@@ -786,7 +787,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 appState.getHistoryManager().markAsClean();
                 autoSaveManager.cleanupSession();
                 
-                JOptionPane.showMessageDialog(this, "Project saved successfully!");
+                ToastNotification.show("Project saved successfully!");
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Failed to save project: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -954,7 +955,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                         outputStream
                 );
                 appState.setLastOpenedDir(file.getParent());
-                JOptionPane.showMessageDialog(this, "Successfully exported to " + file.getName(), "Export Complete", JOptionPane.INFORMATION_MESSAGE);
+                ToastNotification.show("Successfully exported to " + file.getName());
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Failed to export: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }

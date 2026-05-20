@@ -10,6 +10,7 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import ui.canvas.ImageCanvas;
 import ui.canvas.RenderUtils;
 import userpackage.SPoint;
+import ui.components.ToastNotification;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -240,7 +241,7 @@ public class SavePointMapWorker extends SwingWorker<Void, Void> {
     protected void done() {
         try {
             get();
-            JOptionPane.showMessageDialog(null, "Point map successfully saved to:\n" + outputFile.getAbsolutePath(), "Save Complete", JOptionPane.INFORMATION_MESSAGE);
+            ToastNotification.show("Point map successfully saved to:\n" + outputFile.getAbsolutePath());
         } catch (Exception e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, "Failed to save point map: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);

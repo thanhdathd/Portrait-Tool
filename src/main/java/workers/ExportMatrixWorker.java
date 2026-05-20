@@ -3,6 +3,7 @@ package workers;
 import core.state.CanvasState;
 import userpackage.SPoint;
 import user.Enum.Direction;
+import ui.components.ToastNotification;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -79,7 +80,7 @@ public class ExportMatrixWorker extends SwingWorker<Void, Integer> {
     protected void done() {
         try {
             get();
-            JOptionPane.showMessageDialog(null, "Matrix Exported Successfully!", "Export Complete", JOptionPane.INFORMATION_MESSAGE);
+            ToastNotification.show("Matrix Exported Successfully!");
         } catch (Exception e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, "Export failed: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
