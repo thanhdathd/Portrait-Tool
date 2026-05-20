@@ -1,6 +1,8 @@
 package ui.dialogs;
 
 import com.formdev.flatlaf.extras.FlatSVGIcon;
+import utils.BuildInfo;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -51,11 +53,18 @@ public class AboutDialog extends JDialog {
         infoPanel.add(Box.createRigidArea(new Dimension(0, 5)));
         
         // Version
-        JLabel verLabel = new JLabel("Version 2.0.0");
+        JLabel verLabel = new JLabel("Version "+BuildInfo.getVersion());
         verLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
         verLabel.setForeground(Color.GRAY);
         verLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         infoPanel.add(verLabel);
+
+        JLabel buildInfoLabel = new JLabel();
+        buildInfoLabel.setText("Build: "+ BuildInfo.getBuildCount() + " - "+ BuildInfo.getCommit());
+        buildInfoLabel.setFont(new Font("SansSerif", Font.PLAIN, 10));
+        buildInfoLabel.setForeground(Color.GRAY);
+        buildInfoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        infoPanel.add(buildInfoLabel);
         
         infoPanel.add(Box.createRigidArea(new Dimension(0, 15)));
         
