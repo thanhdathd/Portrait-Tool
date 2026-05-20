@@ -7,6 +7,7 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import javax.imageio.ImageIO;
+import core.fileio.ImageFormatHelper;
 
 public class ImagePreviewPanel extends JPanel {
     private final JFileChooser chooser;
@@ -244,10 +245,10 @@ public class ImagePreviewPanel extends JPanel {
 
     private boolean isSupportedFile(File f) {
         String name = f.getName().toLowerCase();
-        return name.endsWith(".jpg") || name.endsWith(".jpeg") ||
-                name.endsWith(".png") || name.endsWith(".gif") ||
-                name.endsWith(".bmp") || name.endsWith(".webp") ||
-                name.endsWith(".pdw");
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot == -1) return false;
+        String ext = name.substring(lastDot + 1);
+        return ImageFormatHelper.getSupportedExtensions().contains(ext);
     }
 
     private String formatFileSize(long size) {

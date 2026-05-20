@@ -5,6 +5,7 @@ import config.ConfigManager;
 import core.actions.KeyAction;
 import core.fileio.GridOptionInjector;
 import core.fileio.ThumbnailFileView;
+import core.fileio.ImageFormatHelper;
 import core.fileio.PreviewOptionInjector;
 import core.history.Command;
 import core.history.FilterCommand;
@@ -31,6 +32,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 public class MainFrame extends JFrame implements core.state.RecoveryUI {
 
@@ -579,13 +583,13 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
     public void openExternalFile(java.io.File file) {
         if (file == null || !file.exists()) return;
 
-        String name = file.getName().toLowerCase();
-        boolean isProject = name.endsWith(".pdw");
-        boolean isImage = name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg");
+        boolean isProject = ImageFormatHelper.isProjectFile(file);
+        boolean isImage = ImageFormatHelper.isValidImage(file);
 
         if (!isProject && !isImage) {
+            String supportedList = String.join(", ", ImageFormatHelper.getSupportedExtensions());
             JOptionPane.showMessageDialog(this,
-                    "Unsupported file format: " + file.getName() + "\nPlease open .pdw, .png, .jpg, or .jpeg files.",
+                    "Unsupported file format: " + file.getName() + "\nSupported formats: " + supportedList,
                     "Unsupported File",
                     JOptionPane.ERROR_MESSAGE);
             return;
@@ -824,14 +828,19 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                         "Portrait Project (.pdw)",
                         "pdw"
                 );
-        FileNameExtensionFilter imageFilter =
-                new FileNameExtensionFilter(
-                        "Image Files (JPG, JPEG, PNG, GIF, BMP, WEBP, PDW)",
-                        "jpg", "jpeg", "png", "gif", "bmp", "webp", "pdw"
-                );
+        Set<String> extensionsSet = ImageFormatHelper.getSupportedExtensions();
+        List<String> upperList = new ArrayList<>();
+        for (String ext : extensionsSet) {
+            upperList.add(ext.toUpperCase());
+        }
+        String description = "Image Files (" + String.join(", ", upperList) + ")";
+        FileNameExtensionFilter imageFilter = new FileNameExtensionFilter(
+                description,
+                extensionsSet.toArray(new String[0])
+        );
         chooser.addChoosableFileFilter(pdwFilter);
         chooser.addChoosableFileFilter(imageFilter);
-        chooser.setFileFilter(imageFilter); // PDW as primary filter
+        chooser.setFileFilter(imageFilter);
 
 
         // Thumbnail view for file list

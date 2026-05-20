@@ -90,9 +90,11 @@ public class ThumbnailFileView extends FileView {
 
     private boolean isImageFile(File f) {
         String name = f.getName().toLowerCase();
-        return name.endsWith(".jpg") || name.endsWith(".jpeg") ||
-                name.endsWith(".png") || name.endsWith(".gif") ||
-                name.endsWith(".bmp") || name.endsWith(".webp");
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot == -1) return false;
+        String ext = name.substring(lastDot + 1);
+        if ("pdw".equals(ext)) return false;
+        return ImageFormatHelper.getSupportedExtensions().contains(ext);
     }
 
     private Icon createThumbnailIcon(BufferedImage original) {
