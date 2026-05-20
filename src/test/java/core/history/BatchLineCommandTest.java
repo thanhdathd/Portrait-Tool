@@ -3,7 +3,7 @@ package core.history;
 import core.state.AppState;
 import core.state.CanvasState;
 import ui.canvas.ImageCanvas;
-import userpackage.SLine;
+import core.state.SLine;
 import org.junit.jupiter.api.Test;
 import java.awt.Point;
 import java.awt.Color;

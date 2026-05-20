@@ -4,8 +4,9 @@ import core.image.ImageTransformUtils.TransformType;
 import core.state.CanvasState;
 import core.state.CommandData;
 import ui.canvas.ImageCanvas;
-import userpackage.SPoint;
-import user.Enum.Direction;
+import core.state.SPoint;
+import core.state.SLine;
+import core.state.Direction;
 
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -44,13 +45,13 @@ public class TransformCommand implements Command {
     }
 
     private static class LineSnapshot {
-        final userpackage.SLine line;
+        final SLine line;
         final int oldStartX;
         final int oldStartY;
         final int oldEndX;
         final int oldEndY;
 
-        LineSnapshot(userpackage.SLine line) {
+        LineSnapshot(SLine line) {
             this.line = line;
             this.oldStartX = line.startPoint.x;
             this.oldStartY = line.startPoint.y;
@@ -87,7 +88,7 @@ public class TransformCommand implements Command {
             undoGrids.add(new PointSnapshot(p));
         }
         undoLines.clear();
-        for (userpackage.SLine l : canvasState.getLines()) {
+        for (SLine l : canvasState.getLines()) {
             undoLines.add(new LineSnapshot(l));
         }
         
@@ -160,8 +161,8 @@ public class TransformCommand implements Command {
         }
     }
 
-    private void transformLines(List<userpackage.SLine> lines, int w, int h) {
-        for (userpackage.SLine l : lines) {
+    private void transformLines(List<SLine> lines, int w, int h) {
+        for (SLine l : lines) {
             int sx = l.startPoint.x;
             int sy = l.startPoint.y;
             int ex = l.endPoint.x;

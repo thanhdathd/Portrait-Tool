@@ -1,7 +1,5 @@
 package core.state;
 
-import userpackage.SLine;
-import userpackage.SPoint;
 import java.awt.Color;
 import java.util.List;
 

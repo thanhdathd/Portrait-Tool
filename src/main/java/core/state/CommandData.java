@@ -3,7 +3,6 @@ package core.state;
 import core.image.ImageTransformUtils;
 import filter.FilterProperties;
 import ui.dialogs.ResizeDialog;
-import userpackage.SPoint;
 
 import java.awt.*;
 
@@ -36,8 +35,8 @@ public class CommandData {
         public SPoint newPoint; // Dùng cho lệnh EDIT_GRID / EDIT_POINT
 
         // Tham số cho lệnh Line
-        public userpackage.SLine line;
-        public userpackage.SLine newLine;
+        public SLine line;
+        public SLine newLine;
 
         // Tham số cho batch point commands
         public java.util.List<SPoint> points;  // danh sách point cho BATCH_DELETE / BATCH_EDIT_COLOR
@@ -45,8 +44,8 @@ public class CommandData {
         public java.util.List<java.awt.Color> oldColors; // màu cũ từng point (cho undo)
 
         // Tham số cho batch line commands
-        public java.util.List<userpackage.SLine> lines;
-        public java.util.List<userpackage.SLine> newLines;
+        public java.util.List<SLine> lines;
+        public java.util.List<SLine> newLines;
 
         // Tham số cho lệnh CROP
         public Integer cropX;

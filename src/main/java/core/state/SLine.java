@@ -1,4 +1,4 @@
-package userpackage;
+package core.state;
 
 import java.awt.Color;
 import java.awt.Point;

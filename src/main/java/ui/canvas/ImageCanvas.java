@@ -21,8 +21,8 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.List;
 
-import userpackage.SPoint;
-import user.Enum.Direction;
+import core.state.SPoint;
+import core.state.Direction;
 import workers.FilterWorker;
 import ui.MainFrame;
 import java.awt.datatransfer.DataFlavor;
@@ -852,7 +852,7 @@ public class ImageCanvas extends JPanel implements DropTargetListener {
         if (!(activeTool instanceof tools.SelectTool)) return false;
 
         // Disable multi-move: chỉ cho phép move khi chọn đúng 1 point
-        java.util.Set<userpackage.SPoint> sel = appState.getCanvasState().getSelectedPoints();
+        java.util.Set<SPoint> sel = appState.getCanvasState().getSelectedPoints();
         if (sel.size() != 1) return sel.size() > 1; // consume event but don't move
 
         SPoint p = appState.getCanvasState().getSelectedPoint();

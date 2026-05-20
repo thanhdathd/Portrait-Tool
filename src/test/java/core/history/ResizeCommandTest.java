@@ -4,7 +4,7 @@ import core.state.AppState;
 import core.state.CanvasState;
 import ui.canvas.ImageCanvas;
 import ui.dialogs.ResizeDialog;
-import userpackage.SLine;
+import core.state.SLine;
 import org.junit.jupiter.api.Test;
 import java.awt.Point;
 import java.awt.image.BufferedImage;

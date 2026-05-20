@@ -1,6 +1,5 @@
 package core.state;
 
-import userpackage.SPoint;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -14,9 +13,9 @@ public class CanvasState {
     private SPoint selectedGrid;
 
     // Line support
-    private final List<userpackage.SLine> lines = new ArrayList<>();
-    private final LinkedHashSet<userpackage.SLine> selectedLines = new LinkedHashSet<>();
-    private Consumer<Set<userpackage.SLine>> lineSelectionListener;
+    private final List<SLine> lines = new ArrayList<>();
+    private final LinkedHashSet<SLine> selectedLines = new LinkedHashSet<>();
+    private Consumer<Set<SLine>> lineSelectionListener;
 
     // Multi-selection: ordered set of selected points
     private final LinkedHashSet<SPoint> selectedPoints = new LinkedHashSet<>();
@@ -173,22 +172,22 @@ public class CanvasState {
 
     // ---- Lines ----
 
-    public List<userpackage.SLine> getLines() {
+    public List<SLine> getLines() {
         return lines;
     }
 
-    public userpackage.SLine getSelectedLine() {
+    public SLine getSelectedLine() {
         if (selectedLines.isEmpty()) return null;
-        userpackage.SLine last = null;
-        for (userpackage.SLine l : selectedLines) last = l;
+        SLine last = null;
+        for (SLine l : selectedLines) last = l;
         return last;
     }
 
-    public Set<userpackage.SLine> getSelectedLines() {
+    public Set<SLine> getSelectedLines() {
         return Collections.unmodifiableSet(selectedLines);
     }
 
-    public void setSelectedLine(userpackage.SLine line) {
+    public void setSelectedLine(SLine line) {
         selectedLines.clear();
         if (line != null) {
             selectedLines.add(line);
@@ -196,7 +195,7 @@ public class CanvasState {
         fireLineSelectionChanged();
     }
 
-    public void setSelectedLines(Set<userpackage.SLine> lines) {
+    public void setSelectedLines(Set<SLine> lines) {
         selectedLines.clear();
         if (lines != null) {
             selectedLines.addAll(lines);
@@ -204,13 +203,13 @@ public class CanvasState {
         fireLineSelectionChanged();
     }
 
-    public void addToSelection(userpackage.SLine line) {
+    public void addToSelection(SLine line) {
         if (line != null && selectedLines.add(line)) {
             fireLineSelectionChanged();
         }
     }
 
-    public void removeFromSelection(userpackage.SLine line) {
+    public void removeFromSelection(SLine line) {
         if (line != null && selectedLines.remove(line)) {
             fireLineSelectionChanged();
         }
@@ -223,7 +222,7 @@ public class CanvasState {
         }
     }
 
-    public void setLineSelectionListener(Consumer<Set<userpackage.SLine>> listener) {
+    public void setLineSelectionListener(Consumer<Set<SLine>> listener) {
         this.lineSelectionListener = listener;
     }
 

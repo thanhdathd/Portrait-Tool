@@ -4,7 +4,7 @@ import core.history.LineCommand;
 import core.history.BatchLineCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
-import userpackage.SLine;
+import core.state.SLine;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

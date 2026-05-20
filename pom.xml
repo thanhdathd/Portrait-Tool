@@ -165,6 +165,10 @@
                                         <!-- Loại bỏ module-info để tránh đụng độ giữa các thư viện khi nén chung -->
                                         <exclude>module-info.class</exclude>
                                         <exclude>META-INF/versions/9/module-info.class</exclude>
+                                        <!-- Xóa bỏ các file văn bản gây cảnh báo trùng lặp -->
+                                        <exclude>META-INF/LICENSE</exclude>
+                                        <exclude>META-INF/NOTICE</exclude>
+                                        <exclude>META-INF/DEPENDENCIES</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

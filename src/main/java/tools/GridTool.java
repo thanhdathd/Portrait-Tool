@@ -3,7 +3,7 @@ package tools;
 import core.history.GridCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
-import userpackage.SPoint;
+import core.state.SPoint;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;

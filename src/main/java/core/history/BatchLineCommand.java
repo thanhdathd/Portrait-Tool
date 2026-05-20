@@ -3,7 +3,7 @@ package core.history;
 import core.state.CanvasState;
 import core.state.CommandData;
 import ui.canvas.ImageCanvas;
-import userpackage.SLine;
+import core.state.SLine;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;

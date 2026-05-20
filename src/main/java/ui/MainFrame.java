@@ -11,6 +11,8 @@ import core.history.Command;
 import core.history.FilterCommand;
 import core.history.ResizeCommand;
 import core.state.AppState;
+import core.state.SPoint;
+import core.state.SLine;
 import tools.ToolManager;
 import ui.canvas.ImageCanvas;
 import ui.dialogs.AboutDialog;
@@ -393,16 +395,16 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
         // Phím Delete để xóa đối tượng đang được chọn (Point ưu tiên hơn Line, Line ưu tiên hơn Grid)
         keyBindingHelper(im,am,KeyEvent.VK_DELETE, 0, "DeleteSelectedObject", e -> {
             // Xóa các point đang được chọn (ưu tiên point trước line, line trước grid)
-            java.util.Set<userpackage.SPoint> selPoints = appState.getCanvasState().getSelectedPoints();
+            java.util.Set<SPoint> selPoints = appState.getCanvasState().getSelectedPoints();
             if (!selPoints.isEmpty()) {
                 if (selPoints.size() == 1) {
-                    userpackage.SPoint p = selPoints.iterator().next();
+                    SPoint p = selPoints.iterator().next();
                     core.history.StickCommand cmd = new core.history.StickCommand(
                             appState.getCanvasState(), canvas, p,
                             core.history.StickCommand.Action.DELETE, p.copy(), null);
                     appState.getHistoryManager().push(cmd);
                 } else {
-                    java.util.List<userpackage.SPoint> targets = new java.util.ArrayList<>(selPoints);
+                    java.util.List<SPoint> targets = new java.util.ArrayList<>(selPoints);
                     core.history.BatchStickCommand cmd = new core.history.BatchStickCommand(
                             appState.getCanvasState(), canvas, targets);
                     appState.getHistoryManager().push(cmd);
@@ -411,17 +413,17 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             }
             
             // Xóa line đang được chọn
-            java.util.Set<userpackage.SLine> selLines = appState.getCanvasState().getSelectedLines();
+            java.util.Set<SLine> selLines = appState.getCanvasState().getSelectedLines();
             if (!selLines.isEmpty()) {
                 if (selLines.size() == 1) {
-                    userpackage.SLine line = selLines.iterator().next();
+                    SLine line = selLines.iterator().next();
                     core.history.LineCommand cmd = new core.history.LineCommand(
                             appState.getCanvasState(), canvas, line,
                             core.history.LineCommand.Action.DELETE, line.copy(), null);
                     appState.getHistoryManager().push(cmd);
                 } else {
                     java.util.List<core.history.BatchLineCommand.LineStatePair> pairs = new java.util.ArrayList<>();
-                    for (userpackage.SLine l : selLines) {
+                    for (SLine l : selLines) {
                         pairs.add(new core.history.BatchLineCommand.LineStatePair(l, l.copy(), null));
                     }
                     core.history.BatchLineCommand cmd = new core.history.BatchLineCommand(
@@ -431,7 +433,7 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
                 return;
             }
 
-            userpackage.SPoint grid = appState.getCanvasState().getSelectedGrid();
+            SPoint grid = appState.getCanvasState().getSelectedGrid();
             if (grid != null) {
                 core.history.GridCommand cmd = new core.history.GridCommand(
                         appState.getCanvasState(), canvas, grid,
@@ -672,17 +674,17 @@ public class MainFrame extends JFrame implements core.state.RecoveryUI {
             // 3. Restore Points
             appState.getCanvasState().clearAll();
             if (project.data.stickyPoints != null) {
-                for (userpackage.SPoint p : project.data.stickyPoints) {
+                for (SPoint p : project.data.stickyPoints) {
                     appState.getCanvasState().addStickyPoint(p);
                 }
             }
             if (project.data.grids != null) {
-                for (userpackage.SPoint p : project.data.grids) {
+                for (SPoint p : project.data.grids) {
                     appState.getCanvasState().addGrid(p);
                 }
             }
             if (project.data.lines != null) {
-                for (userpackage.SLine l : project.data.lines) {
+                for (SLine l : project.data.lines) {
                     appState.getCanvasState().getLines().add(l);
                 }
             }

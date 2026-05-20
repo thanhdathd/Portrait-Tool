@@ -1,4 +1,4 @@
-package user.Enum;
+package core.state;
 
 public enum MouseMode {
     STICK,

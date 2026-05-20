@@ -1,8 +1,8 @@
 package workers;
 
 import core.state.CanvasState;
-import userpackage.SPoint;
-import user.Enum.Direction;
+import core.state.SPoint;
+import core.state.Direction;
 import ui.components.ToastNotification;
 
 import javax.imageio.ImageIO;

@@ -4,7 +4,7 @@ import core.state.AppState;
 import tools.StickTool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import userpackage.SPoint;
+import core.state.SPoint;
 
 import java.awt.Color;
 import java.awt.event.MouseEvent;

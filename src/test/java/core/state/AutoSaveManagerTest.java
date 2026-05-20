@@ -4,7 +4,7 @@ import core.history.Command;
 import core.history.StickCommand;
 import org.junit.jupiter.api.Test;
 import ui.canvas.ImageCanvas;
-import userpackage.SPoint;
+import core.state.SPoint;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Deque;

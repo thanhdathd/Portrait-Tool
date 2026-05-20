@@ -3,7 +3,7 @@ package core.history;
 import core.state.CanvasState;
 import core.state.CommandData;
 import ui.canvas.ImageCanvas;
-import userpackage.SPoint;
+import core.state.SPoint;
 
 public class GridCommand implements Command {
 

@@ -3,7 +3,8 @@ package core.history;
 import core.state.CanvasState;
 import core.state.CommandData;
 import ui.canvas.ImageCanvas;
-import userpackage.SPoint;
+import core.state.SLine;
+import core.state.SPoint;
 
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
@@ -13,11 +14,11 @@ import java.util.List;
 
 public class CropCommand implements Command {
     private static class LineStateBackup {
-        userpackage.SLine line;
+        SLine line;
         java.awt.Point originalStart;
         java.awt.Point originalEnd;
         
-        LineStateBackup(userpackage.SLine line) {
+        LineStateBackup(SLine line) {
             this.line = line;
             this.originalStart = new java.awt.Point(line.startPoint);
             this.originalEnd = new java.awt.Point(line.endPoint);
@@ -32,7 +33,7 @@ public class CropCommand implements Command {
     
     private final List<SPoint> removedPoints = new ArrayList<>();
     private final List<SPoint> removedGrids = new ArrayList<>();
-    private final List<userpackage.SLine> removedLines = new ArrayList<>();
+    private final List<SLine> removedLines = new ArrayList<>();
     private final List<LineStateBackup> editedLinesBackups = new ArrayList<>();
     
     private final int targetVisualX;
@@ -50,7 +51,7 @@ public class CropCommand implements Command {
         this.cropBounds = cropBounds;
         
         // Backup all line states
-        for (userpackage.SLine l : canvasState.getLines()) {
+        for (SLine l : canvasState.getLines()) {
             this.editedLinesBackups.add(new LineStateBackup(l));
         }
         
@@ -285,10 +286,10 @@ public class CropCommand implements Command {
         return false;
     }
 
-    private void processLinesExecute(List<userpackage.SLine> lines, List<userpackage.SLine> removedList) {
-        Iterator<userpackage.SLine> it = lines.iterator();
+    private void processLinesExecute(List<SLine> lines, List<SLine> removedList) {
+        Iterator<SLine> it = lines.iterator();
         while (it.hasNext()) {
-            userpackage.SLine l = it.next();
+            SLine l = it.next();
             // 1. Shift
             l.startPoint.x -= cropBounds.x;
             l.startPoint.y -= cropBounds.y;

@@ -5,8 +5,8 @@ import core.history.StickCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
 import ui.canvas.RenderUtils;
-import userpackage.SPoint;
-import userpackage.SLine;
+import core.state.SPoint;
+import core.state.SLine;
 
 import java.awt.*;
 import java.awt.event.InputEvent;

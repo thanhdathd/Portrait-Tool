@@ -3,7 +3,7 @@ package tools;
 import core.history.LineCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
-import userpackage.SLine;
+import core.state.SLine;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;

@@ -1,6 +1,5 @@
 package core.state;
 
-import userpackage.SPoint;
 import java.awt.Color;
 import java.util.List;
 
@@ -21,7 +20,7 @@ public class ProjectData {
     // Static data points
     public List<SPoint> stickyPoints;
     public List<SPoint> grids;
-    public List<userpackage.SLine> lines;
+    public List<SLine> lines;
 
     public ProjectData() {
         this.timestamp = System.currentTimeMillis();

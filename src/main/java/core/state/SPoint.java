@@ -1,7 +1,6 @@
-package userpackage;
+package core.state;
 
 import java.awt.Color;
-import user.Enum.Direction;
 
 public class SPoint {
     public int id;

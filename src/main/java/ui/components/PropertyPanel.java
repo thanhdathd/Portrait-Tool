@@ -3,7 +3,7 @@ package ui.components;
 import core.history.GridCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
-import userpackage.SPoint;
+import core.state.SPoint;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

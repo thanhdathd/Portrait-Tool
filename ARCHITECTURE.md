@@ -83,7 +83,7 @@ Global shortcuts (like Ctrl+Z, Spacebar to temporarily pan) are implemented usin
 
 Below is a breakdown of the package structure to help you find specific functionalities quickly.
 
-> **Note on Legacy Code:** The packages `images`, `user.Enum`, `userpackage`, and `transform` contain legacy code from previous versions. They are kept primarily as a technical reference source. Some classes in `userpackage` (e.g., `SPoint`) and `user.Enum` are still actively used in the new codebase, but they are planned to be migrated out later. For more details, please refer to [LEGACY_CODE.md](LEGACY_CODE.md).
+> **Note on Architecture Modernization:** All legacy code packages (`images`, `user.Enum`, `userpackage`, `transform`) have been fully purged. Active entities like `SPoint`, `SLine`, `Direction`, and `MouseMode` have been relocated to `core.state`.
 
 ```text
 src/main/java/
@@ -99,14 +99,12 @@ src/main/java/
 ├── filter/                       # Image filter implementations.
 │   ├── FilterProperties.java     # Data structure for filter sliders (RGBA, mode).
 │   └── RGBFilter, RedGrayFilter..# Specific pixel manipulation logic.
-├── images/                       # [LEGACY REFERENCE]
-│   └── Img.java                  # Legacy/wrapper image object.
+
 ├── tools/                        # Interactive Canvas Tools.
 │   ├── ToolManager.java          # Tool registry.
 │   ├── Tool.java                 # Interface for all tools.
 │   └── HandTool, StickTool, etc. # Concrete tool implementations.
-├── transform/                    # [LEGACY REFERENCE]
-│   └── ResizeBox.java            # Legacy UI helper for resizing operations.
+
 ├── ui/                           # User Interface components.
 │   ├── MainFrame.java            # The primary application window, menus, toolbars.
 │   ├── CustomCursors.java        # Custom mouse cursors for different tools.
@@ -117,11 +115,7 @@ src/main/java/
 │       ├── FilterDialog.java     # UI for adjusting RGB filters.
 │       ├── SettingsDialog.java   # App settings.
 │       └── ZoomWindow.java       # The floating magnifying glass window.
-├── user/
-│   └── Enum/                     # [LEGACY REFERENCE] Enums (some still used, planned to move).
-├── userpackage/                  # [LEGACY REFERENCE] UI components, domain objects (some still used).
-│   ├── SPoint.java               # The primary object representing a marker/sticky point.
-│   └── ExcelExporter.java        # (Legacy) Excel logic.
+
 ├── utils/                        
 │   ├── ExcelExportUtils.java     # Modern implementation of .xlsx export using FastExcel.
 │   └── Utils.java                # General helpers.

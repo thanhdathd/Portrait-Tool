@@ -4,7 +4,7 @@ import core.state.AppState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ui.canvas.ImageCanvas;
-import userpackage.SPoint;
+import core.state.SPoint;
 
 import java.awt.event.MouseEvent;
 import javax.swing.JPanel;

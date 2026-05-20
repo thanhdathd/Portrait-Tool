@@ -4,8 +4,8 @@ import core.history.BatchStickCommand;
 import core.history.StickCommand;
 import core.state.AppState;
 import ui.canvas.ImageCanvas;
-import user.Enum.Direction;
-import userpackage.SPoint;
+import core.state.Direction;
+import core.state.SPoint;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

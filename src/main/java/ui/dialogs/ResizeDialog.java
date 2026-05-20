@@ -2,14 +2,12 @@ package ui.dialogs;
 
 import core.image.ImageResizer;
 import net.miginfocom.swing.MigLayout;
-import transform.ResizeBox;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemEvent;
 import java.awt.image.BufferedImage;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public class ResizeDialog extends JDialog {
 

@@ -1,8 +1,9 @@
 package ui.canvas;
 
 import core.state.AppState;
-import user.Enum.Direction;
-import userpackage.SPoint;
+import core.state.Direction;
+import core.state.SPoint;
+import core.state.SLine;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
@@ -284,7 +285,7 @@ public class RenderUtils {
         g2d.setStroke(oldStroke);
     }
 
-    public static void drawLines(Graphics2D g2d, List<userpackage.SLine> lines, Set<userpackage.SLine> selectedLines, float zoom) {
+    public static void drawLines(Graphics2D g2d, List<SLine> lines, Set<SLine> selectedLines, float zoom) {
         if (lines == null || lines.isEmpty()) return;
 
         Stroke oldStroke = g2d.getStroke();
@@ -293,7 +294,7 @@ public class RenderUtils {
 
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        for (userpackage.SLine line : lines) {
+        for (SLine line : lines) {
             // Draw segment line
             g2d.setColor(line.strokeColor);
             g2d.setStroke(new BasicStroke(line.strokeWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));

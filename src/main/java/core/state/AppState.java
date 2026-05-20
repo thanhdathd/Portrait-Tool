@@ -1,8 +1,6 @@
 package core.state;
 
 import tools.PropertyChangeListener;
-import user.Enum.Direction;
-import user.Enum.MouseMode;
 import core.history.HistoryManager;
 
 import java.awt.*;
@@ -74,9 +72,9 @@ public class AppState {
     private core.history.HistoryMemoryLevel historyMemoryLevel = core.history.HistoryMemoryLevel.MEDIUM;
 
     // Persisted initial project points & grids for autosave recovery
-    private List<userpackage.SPoint> initialPoints = null;
-    private List<userpackage.SPoint> initialGrids = null;
-    private List<userpackage.SLine> initialLines = null;
+    private List<SPoint> initialPoints = null;
+    private List<SPoint> initialGrids = null;
+    private List<SLine> initialLines = null;
     private int activeLineStrokeWidth = 2;
 
     public AppState() {
@@ -138,27 +136,27 @@ public class AppState {
         return canvasState;
     }
 
-    public List<userpackage.SPoint> getInitialPoints() {
+    public List<SPoint> getInitialPoints() {
         return initialPoints;
     }
 
-    public void setInitialPoints(List<userpackage.SPoint> initialPoints) {
+    public void setInitialPoints(List<SPoint> initialPoints) {
         this.initialPoints = initialPoints;
     }
 
-    public List<userpackage.SPoint> getInitialGrids() {
+    public List<SPoint> getInitialGrids() {
         return initialGrids;
     }
 
-    public void setInitialGrids(List<userpackage.SPoint> initialGrids) {
+    public void setInitialGrids(List<SPoint> initialGrids) {
         this.initialGrids = initialGrids;
     }
 
-    public List<userpackage.SLine> getInitialLines() {
+    public List<SLine> getInitialLines() {
         return initialLines;
     }
 
-    public void setInitialLines(List<userpackage.SLine> initialLines) {
+    public void setInitialLines(List<SLine> initialLines) {
         this.initialLines = initialLines;
     }
 

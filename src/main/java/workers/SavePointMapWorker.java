@@ -9,7 +9,7 @@ import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import ui.canvas.ImageCanvas;
 import ui.canvas.RenderUtils;
-import userpackage.SPoint;
+import core.state.SPoint;
 import ui.components.ToastNotification;
 
 import javax.imageio.ImageIO;

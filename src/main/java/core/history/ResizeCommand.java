@@ -4,7 +4,8 @@ import core.state.CanvasState;
 import core.state.CommandData;
 import ui.canvas.ImageCanvas;
 import ui.dialogs.ResizeDialog;
-import userpackage.SPoint;
+import core.state.SPoint;
+import core.state.SLine;
 
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -39,13 +40,13 @@ public class ResizeCommand implements Command {
     }
 
     private static class LineSnapshot {
-        final userpackage.SLine line;
+        final SLine line;
         final int oldStartX;
         final int oldStartY;
         final int oldEndX;
         final int oldEndY;
 
-        LineSnapshot(userpackage.SLine line) {
+        LineSnapshot(SLine line) {
             this.line = line;
             this.oldStartX = line.startPoint.x;
             this.oldStartY = line.startPoint.y;
@@ -91,7 +92,7 @@ public class ResizeCommand implements Command {
         }
 
         undoLines.clear();
-        for (userpackage.SLine l : canvasState.getLines()) {
+        for (SLine l : canvasState.getLines()) {
             undoLines.add(new LineSnapshot(l));
             l.startPoint.setLocation((int) Math.round(l.startPoint.x * scaleX), (int) Math.round(l.startPoint.y * scaleY));
             l.endPoint.setLocation((int) Math.round(l.endPoint.x * scaleX), (int) Math.round(l.endPoint.y * scaleY));

@@ -425,17 +425,17 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
 
                     // Restore Initial Project State (Points, Grids, and Lines) if it was a project file
                     if (data.initialPoints != null) {
-                        for (userpackage.SPoint p : data.initialPoints) {
+                        for (SPoint p : data.initialPoints) {
                             appState.getCanvasState().addStickyPoint(p);
                         }
                     }
                     if (data.initialGrids != null) {
-                        for (userpackage.SPoint g : data.initialGrids) {
+                        for (SPoint g : data.initialGrids) {
                             appState.getCanvasState().addGrid(g);
                         }
                     }
                     if (data.initialLines != null) {
-                        for (userpackage.SLine l : data.initialLines) {
+                        for (SLine l : data.initialLines) {
                             appState.getCanvasState().getLines().add(l);
                         }
                     }
@@ -501,8 +501,8 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                 case DELETE_POINT:
                 case EDIT_POINT: {
                     // Find existing point reference matching old state
-                    userpackage.SPoint existingPoint = null;
-                    for (userpackage.SPoint p : appState.getCanvasState().getStickyPoints()) {
+                    SPoint existingPoint = null;
+                    for (SPoint p : appState.getCanvasState().getStickyPoints()) {
                         if (p.X == d.point.X && p.Y == d.point.Y && p.id == d.point.id) {
                             existingPoint = p;
                             break;
@@ -526,8 +526,8 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                 case DELETE_GRID:
                 case EDIT_GRID:
                     // Find the existing grid reference from CanvasState that matches old properties
-                    userpackage.SPoint existingGrid = null;
-                    for (userpackage.SPoint g : appState.getCanvasState().getGrids()) {
+                    SPoint existingGrid = null;
+                    for (SPoint g : appState.getCanvasState().getGrids()) {
                         if (g.X == d.point.X && g.Y == d.point.Y && g.id == d.point.id && g.c.equals(d.point.c)) {
                             existingGrid = g;
                             break;
@@ -546,8 +546,8 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     break;
                 case DELETE_LINE:
                 case EDIT_LINE: {
-                    userpackage.SLine existingLine = null;
-                    for (userpackage.SLine l : appState.getCanvasState().getLines()) {
+                    SLine existingLine = null;
+                    for (SLine l : appState.getCanvasState().getLines()) {
                         if (l.id == d.line.id) {
                             existingLine = l;
                             break;
@@ -565,9 +565,9 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                 case BATCH_DELETE_LINES: {
                     List<core.history.BatchLineCommand.LineStatePair> pairs = new ArrayList<>();
                     if (d.lines != null) {
-                        for (userpackage.SLine snap : d.lines) {
-                            userpackage.SLine existing = null;
-                            for (userpackage.SLine l : appState.getCanvasState().getLines()) {
+                        for (SLine snap : d.lines) {
+                            SLine existing = null;
+                            for (SLine l : appState.getCanvasState().getLines()) {
                                 if (l.id == snap.id) {
                                     existing = l;
                                     break;
@@ -587,10 +587,10 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     List<core.history.BatchLineCommand.LineStatePair> pairs = new ArrayList<>();
                     if (d.lines != null && d.newLines != null && d.lines.size() == d.newLines.size()) {
                         for (int i = 0; i < d.lines.size(); i++) {
-                            userpackage.SLine oldSnap = d.lines.get(i);
-                            userpackage.SLine newSnap = d.newLines.get(i);
-                            userpackage.SLine existing = null;
-                            for (userpackage.SLine l : appState.getCanvasState().getLines()) {
+                            SLine oldSnap = d.lines.get(i);
+                            SLine newSnap = d.newLines.get(i);
+                            SLine existing = null;
+                            for (SLine l : appState.getCanvasState().getLines()) {
                                 if (l.id == oldSnap.id) {
                                     existing = l;
                                     break;
@@ -642,10 +642,10 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     break;
                 case BATCH_DELETE_POINTS: {
                     // Tìm live refs trong CanvasState khớp với từng point snapshot
-                    java.util.List<userpackage.SPoint> targets = new java.util.ArrayList<>();
+                    java.util.List<SPoint> targets = new java.util.ArrayList<>();
                     if (d.points != null) {
-                        for (userpackage.SPoint snap : d.points) {
-                            for (userpackage.SPoint live : appState.getCanvasState().getStickyPoints()) {
+                        for (SPoint snap : d.points) {
+                            for (SPoint live : appState.getCanvasState().getStickyPoints()) {
                                 if (live.X == snap.X && live.Y == snap.Y && live.id == snap.id) {
                                     targets.add(live);
                                     break;
@@ -661,10 +661,10 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                 }
                 case BATCH_EDIT_POINTS_COLOR: {
                     // Tìm live refs và tạo BatchStickCommand đổi màu
-                    java.util.List<userpackage.SPoint> targets = new java.util.ArrayList<>();
+                    java.util.List<SPoint> targets = new java.util.ArrayList<>();
                     if (d.points != null) {
-                        for (userpackage.SPoint snap : d.points) {
-                            for (userpackage.SPoint live : appState.getCanvasState().getStickyPoints()) {
+                        for (SPoint snap : d.points) {
+                            for (SPoint live : appState.getCanvasState().getStickyPoints()) {
                                 if (live.X == snap.X && live.Y == snap.Y && live.id == snap.id) {
                                     targets.add(live);
                                     break;
