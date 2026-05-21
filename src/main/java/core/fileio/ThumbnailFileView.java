@@ -114,7 +114,7 @@ public class ThumbnailFileView extends FileView {
         return ImageFormatHelper.getSupportedExtensions().contains(ext);
     }
 
-    private Icon createThumbnailIcon(BufferedImage original) {
+    private BufferedImage createThumbnailImage(BufferedImage original) {
         int imgW = original.getWidth();
         int imgH = original.getHeight();
         double scale = Math.min((double) iconSize / imgW, (double) iconSize / imgH);
@@ -131,7 +131,11 @@ public class ThumbnailFileView extends FileView {
         int y = (iconSize - scaledH) / 2;
         g.drawImage(scaledImage, x, y, scaledW, scaledH, null);
         g.dispose();
-        return new ImageIcon(thumbnail);
+        return thumbnail;
+    }
+
+    private Icon createThumbnailIcon(BufferedImage original) {
+        return new ImageIcon(createThumbnailImage(original));
     }
 
 
@@ -147,9 +151,23 @@ public class ThumbnailFileView extends FileView {
         @Override
         protected Icon doInBackground() {
             try {
+                // 1. Try disk cache first
+                BufferedImage cachedImg = ThumbnailDiskCache.get(file, iconSize);
+                if (cachedImg != null) {
+                    return new ImageIcon(cachedImg);
+                }
+
+                // 2. Load and scale original image
                 BufferedImage img = ImageIO.read(file);
                 if (img == null) return null;
-                return createThumbnailIcon(img);
+
+                BufferedImage thumbnailImg = createThumbnailImage(img);
+                if (thumbnailImg != null) {
+                    // 3. Save to disk cache
+                    ThumbnailDiskCache.put(file, iconSize, thumbnailImg);
+                    return new ImageIcon(thumbnailImg);
+                }
+                return null;
             } catch (Exception e) {
                 return null;
             }
