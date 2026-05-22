@@ -60,6 +60,9 @@ public class ConfigManager {
             String autoSaveInterval = props.getProperty("autoSaveInterval", "5");
             appState.setAutoSaveInterval(Integer.parseInt(autoSaveInterval));
             
+            String cropOversizeFillBlurred = props.getProperty("cropOversizeFillBlurred", "false");
+            appState.setCropOversizeFillBlurred(Boolean.parseBoolean(cropOversizeFillBlurred));
+            
             String memLevel = props.getProperty("historyMemoryLevel", "MEDIUM");
             try {
                 appState.setHistoryMemoryLevel(core.history.HistoryMemoryLevel.valueOf(memLevel));
@@ -109,6 +112,7 @@ public class ConfigManager {
         props.setProperty("checkerSize", String.valueOf(appState.getCheckerSize()));
         props.setProperty("autoSaveEnabled", String.valueOf(appState.isAutoSaveEnabled()));
         props.setProperty("autoSaveInterval", String.valueOf(appState.getAutoSaveInterval()));
+        props.setProperty("cropOversizeFillBlurred", String.valueOf(appState.isCropOversizeFillBlurred()));
         props.setProperty("historyMemoryLevel", appState.getHistoryMemoryLevel().name());
 
         // Có thể thêm: vị trí cửa sổ, kích thước, lần mở file gần nhất, tool đang dùng...
@@ -142,6 +146,7 @@ public class ConfigManager {
         appState.setWindowWidth(1000);
         appState.setWindowHeight(750);
         appState.setStringZoomWindowBounds("200;200;500;500");
+        appState.setCropOversizeFillBlurred(false);
     }
 
     /**

@@ -23,6 +23,7 @@ public class SettingsDialog extends JDialog {
     private JCheckBox showHelpCheck;
     private JCheckBox autoSaveCheck;
     private JSpinner autoSaveIntervalSpinner;
+    private JCheckBox cropOversizeFillCheck;
 
     // Segmented control for checker size
     private static final int[] CHECKER_SIZES  = {20, 40, 80};
@@ -156,6 +157,10 @@ public class SettingsDialog extends JDialog {
         languageCombo = new JComboBox<>(new String[]{"English", "Tiếng Việt", "中文 (简体)"});
         formPanel.add(languageCombo);
 
+        formPanel.add(new JLabel("Crop Oversize Fill:"));
+        cropOversizeFillCheck = new JCheckBox("Fill blank area with blurred background");
+        formPanel.add(cropOversizeFillCheck);
+
         formPanel.add(new JLabel("Auto Save:"), "gap top 10");
         autoSaveCheck = new JCheckBox("Enable Auto Save");
         formPanel.add(autoSaveCheck, "gap top 10");
@@ -212,6 +217,7 @@ public class SettingsDialog extends JDialog {
         }
         autoSaveCheck.setSelected(appState.isAutoSaveEnabled());
         autoSaveIntervalSpinner.setValue(appState.getAutoSaveInterval());
+        cropOversizeFillCheck.setSelected(appState.isCropOversizeFillBlurred());
 
         // Checker size
         int currentCheckerSize = appState.getCheckerSize();
@@ -255,6 +261,7 @@ public class SettingsDialog extends JDialog {
             
             appState.setAutoSaveEnabled(autoSaveCheck.isSelected());
             appState.setAutoSaveInterval((Integer) autoSaveIntervalSpinner.getValue());
+            appState.setCropOversizeFillBlurred(cropOversizeFillCheck.isSelected());
 
             dispose();
         } catch (NumberFormatException ex) {

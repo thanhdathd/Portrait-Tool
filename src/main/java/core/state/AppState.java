@@ -70,6 +70,7 @@ public class AppState {
     private boolean autoSaveEnabled = true;
     private int autoSaveInterval = 1; // Minutes
     private core.history.HistoryMemoryLevel historyMemoryLevel = core.history.HistoryMemoryLevel.MEDIUM;
+    private boolean cropOversizeFillBlurred = false;
 
     // Persisted initial project points & grids for autosave recovery
     private List<SPoint> initialPoints = null;
@@ -422,5 +423,13 @@ public class AppState {
 
     public void cycleXorColor() {
         xorColorIndex = (xorColorIndex + 1) % XOR_COLORS.length;
+    }
+
+    public boolean isCropOversizeFillBlurred() {
+        return cropOversizeFillBlurred;
+    }
+
+    public void setCropOversizeFillBlurred(boolean cropOversizeFillBlurred) {
+        this.cropOversizeFillBlurred = cropOversizeFillBlurred;
     }
 }

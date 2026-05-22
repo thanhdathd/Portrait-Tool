@@ -606,21 +606,17 @@ public class AutoSaveManager implements core.history.HistoryManager.HistoryListe
                     }
                     break;
                 }
-                case CROP:
-                    // Recreate cropped image
-                    nextImage = new java.awt.image.BufferedImage(d.cropW, d.cropH, currentImage.getType() == 0 ? java.awt.image.BufferedImage.TYPE_INT_ARGB : currentImage.getType());
-                    java.awt.Graphics2D g2 = nextImage.createGraphics();
-                    g2.setColor(java.awt.Color.BLACK);
-                    g2.fillRect(0, 0, d.cropW, d.cropH);
-                    g2.drawImage(currentImage, -d.cropX, -d.cropY, null);
-                    g2.dispose();
-                    
+                case CROP: {
+                    boolean fillBlurred = d.cropOversizeFillBlurred != null ? d.cropOversizeFillBlurred : false;
                     cmd = new core.history.CropCommand(ui.getCanvas(), appState.getCanvasState(), currentImage, 
                             new java.awt.Rectangle(d.cropX, d.cropY, d.cropW, d.cropH), 
                             d.zomAtCrop != null ? d.zomAtCrop : 1.0f, 
                             d.oldVisualX != null ? d.oldVisualX : 0, 
-                            d.oldVisualY != null ? d.oldVisualY : 0);
+                            d.oldVisualY != null ? d.oldVisualY : 0,
+                            fillBlurred);
+                    nextImage = ((core.history.CropCommand) cmd).getNewImage();
                     break;
+                }
                 case RESIZE:
                     java.awt.RenderingHints.Key hintKey = java.awt.RenderingHints.KEY_INTERPOLATION;
                     Object hintObj = switch (d.resizeProps.hint) {

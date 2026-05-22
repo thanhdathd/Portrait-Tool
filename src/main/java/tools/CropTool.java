@@ -516,7 +516,7 @@ public class CropTool implements Tool {
         java.awt.image.BufferedImage img = canvas.getBackgroundImage();
         if (img == null) return;
         
-        CropCommand cmd = new CropCommand(canvas, state.getCanvasState(), img, bounds, zoom, oldVisualX, oldVisualY);
+        CropCommand cmd = new CropCommand(canvas, state.getCanvasState(), img, bounds, zoom, oldVisualX, oldVisualY, state.isCropOversizeFillBlurred());
         state.getHistoryManager().push(cmd);
         canvas.setActiveTool(new HandTool());
     }

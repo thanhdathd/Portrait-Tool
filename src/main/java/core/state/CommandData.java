@@ -55,6 +55,7 @@ public class CommandData {
         public Float zomAtCrop;
         public Integer oldVisualX;
         public Integer oldVisualY;
+        public Boolean cropOversizeFillBlurred;
 
         // tham số cho lệnh filter
         public FilterProperties filterProps;

@@ -105,4 +105,41 @@ public class ImageProcessor {
     public static BufferedImage applyFilter(BufferedImage source, FilterProperties props) {
         return applyFilter(source, props, () -> false);
     }
+
+    public static BufferedImage blur(BufferedImage source, int radius) {
+        if (source == null) return null;
+        
+        int w = source.getWidth();
+        int h = source.getHeight();
+        
+        // Scale down factor: 1/16th of the original size, keeping minimum at 16x16 where possible
+        int dw = w < 16 ? w : Math.max(16, w / 16);
+        int dh = h < 16 ? h : Math.max(16, h / 16);
+        
+        int type = source.getType() == 0 ? BufferedImage.TYPE_INT_ARGB : source.getType();
+        BufferedImage small = new BufferedImage(dw, dh, type);
+        java.awt.Graphics2D g = small.createGraphics();
+        g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(source, 0, 0, dw, dh, null);
+        g.dispose();
+        
+        // Adjust kernel size to fit within downscaled dimensions
+        int size = Math.min(5, Math.min(dw, dh));
+        if (size >= 3) {
+            float weight = 1.0f / (size * size);
+            float[] data = new float[size * size];
+            java.util.Arrays.fill(data, weight);
+            
+            java.awt.image.Kernel kernel = new java.awt.image.Kernel(size, size, data);
+            java.awt.image.ConvolveOp op = new java.awt.image.ConvolveOp(kernel, java.awt.image.ConvolveOp.EDGE_NO_OP, null);
+            
+            BufferedImage blurred = op.filter(small, null);
+            // Second pass for smoother blur
+            blurred = op.filter(blurred, null);
+            return blurred;
+        } else {
+            // Image is too small to convolve, returning the downscaled image is fine since upscaling it back will naturally blur it
+            return small;
+        }
+    }
 }

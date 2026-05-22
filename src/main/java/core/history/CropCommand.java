@@ -30,6 +30,7 @@ public class CropCommand implements Command {
     private final BufferedImage oldImage;
     private final BufferedImage newImage;
     private final Rectangle cropBounds;
+    private final boolean fillBlurred;
     
     private final List<SPoint> removedPoints = new ArrayList<>();
     private final List<SPoint> removedGrids = new ArrayList<>();
@@ -45,10 +46,17 @@ public class CropCommand implements Command {
     public CropCommand(ImageCanvas canvas, CanvasState canvasState,
                        BufferedImage oldImage, Rectangle cropBounds,
                        float zoom, int oldVisualX, int oldVisualY) {
+        this(canvas, canvasState, oldImage, cropBounds, zoom, oldVisualX, oldVisualY, false);
+    }
+
+    public CropCommand(ImageCanvas canvas, CanvasState canvasState,
+                       BufferedImage oldImage, Rectangle cropBounds,
+                       float zoom, int oldVisualX, int oldVisualY, boolean fillBlurred) {
         this.canvas = canvas;
         this.canvasState = canvasState;
         this.oldImage = oldImage;
         this.cropBounds = cropBounds;
+        this.fillBlurred = fillBlurred;
         
         // Backup all line states
         for (SLine l : canvasState.getLines()) {
@@ -60,8 +68,32 @@ public class CropCommand implements Command {
         this.newImage = new BufferedImage(cropBounds.width, cropBounds.height, type);
         java.awt.Graphics2D g2 = this.newImage.createGraphics();
         
-        g2.setColor(java.awt.Color.BLACK);
-        g2.fillRect(0, 0, cropBounds.width, cropBounds.height);
+        boolean isOversize = cropBounds.x < 0 || cropBounds.y < 0 ||
+                             cropBounds.x + cropBounds.width > oldImage.getWidth() ||
+                             cropBounds.y + cropBounds.height > oldImage.getHeight();
+        
+        if (fillBlurred && isOversize) {
+            BufferedImage blurredTiny = core.image.ImageProcessor.blur(oldImage, 15);
+            if (blurredTiny != null) {
+                double scaleX = (double) cropBounds.width / oldImage.getWidth();
+                double scaleY = (double) cropBounds.height / oldImage.getHeight();
+                double scale = Math.max(scaleX, scaleY);
+                
+                double sw = oldImage.getWidth() * scale;
+                double sh = oldImage.getHeight() * scale;
+                double sx = (cropBounds.width - sw) / 2.0;
+                double sy = (cropBounds.height - sh) / 2.0;
+                
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g2.drawImage(blurredTiny, (int) Math.round(sx), (int) Math.round(sy), (int) Math.round(sw), (int) Math.round(sh), null);
+            } else {
+                g2.setColor(java.awt.Color.BLACK);
+                g2.fillRect(0, 0, cropBounds.width, cropBounds.height);
+            }
+        } else {
+            g2.setColor(java.awt.Color.BLACK);
+            g2.fillRect(0, 0, cropBounds.width, cropBounds.height);
+        }
         
         // If crop is outside oldImage, this simply translates oldImage so the correct part falls into newImage
         g2.drawImage(oldImage, -cropBounds.x, -cropBounds.y, null);
@@ -123,7 +155,12 @@ public class CropCommand implements Command {
         cmd.oldVisualX = this.oldVisualX;
         cmd.oldVisualY = this.oldVisualY;
         cmd.zomAtCrop = this.zoomAtCrop;
+        cmd.cropOversizeFillBlurred = this.fillBlurred;
         return cmd;
+    }
+
+    public BufferedImage getNewImage() {
+        return newImage;
     }
 
     private void processPointsExecute(List<SPoint> points, List<SPoint> removedList) {
