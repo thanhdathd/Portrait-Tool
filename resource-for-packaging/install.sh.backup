@@ -1,0 +1,105 @@
+#!/bin/bash
+
+# 1. Định nghĩa các đường dẫn
+APP_DIR="$HOME/Applications"
+MENU_DIR="$HOME/.local/share/applications"
+MIME_DIR="$HOME/.local/share/mime/packages"
+DESKTOP_DIR=$(xdg-user-dir DESKTOP)
+CURRENT_DIR=$(dirname "$(readlink -f "$0")")
+
+# 2. Tìm file .AppImage và .png
+APP_IMAGE=$(ls "$CURRENT_DIR"/*.AppImage 2>/dev/null | head -n 1)
+ICON_FILE=$(ls "$CURRENT_DIR"/*.png 2>/dev/null | head -n 1)
+
+pause_and_exit() {
+    echo ""
+    echo "------------------------------------------"
+    read -p "Nhấn [Enter] để đóng cửa sổ này..."
+    exit $1
+}
+
+if [ -z "$APP_IMAGE" ]; then
+    echo "❌ Lỗi: Không tìm thấy file .AppImage."
+    pause_and_exit 1
+fi
+
+APP_NAME=$(basename "$APP_IMAGE")
+APP_FILENAME="${APP_NAME%.*}"
+ICON_NAME=$(basename "$ICON_FILE")
+MIME_TYPE="application/x-portrait-data-work"
+MIME_ICON="application-x-portrait-data-work"
+
+echo "🚀 Bắt đầu cài đặt chuyên sâu cho $APP_FILENAME..."
+
+# 3. Chuẩn bị thư mục và copy file chính
+mkdir -p "$APP_DIR"
+cp "$APP_IMAGE" "$APP_DIR/"
+[ -f "$ICON_FILE" ] && cp "$ICON_FILE" "$APP_DIR/"
+chmod +x "$APP_DIR/$APP_NAME"
+
+# 4. Đăng ký MIME Type (Sửa lại XML chuẩn XDG)
+mkdir -p "$MIME_DIR"
+cat <<EOF > "$MIME_DIR/portraittool-mime.xml"
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="$MIME_TYPE">
+    <comment>Portrait Tool Project File</comment>
+    <glob pattern="*.pdw"/>
+    <generic-icon name="$MIME_ICON"/>
+    <icon name="$MIME_ICON"/>
+  </mime-type>
+</mime-info>
+EOF
+
+# 5. Đăng ký Icon bằng công cụ hệ thống (Thay thế cho việc copy thủ công)
+# Lệnh này sẽ tự động xử lý việc đưa ảnh to vào các folder phù hợp
+echo "🖼️  Đang đăng ký icon vào hệ thống..."
+for s in 16 32 48 64 128 256 512; do
+    xdg-icon-resource install --context mimetypes --size $s "$ICON_FILE" "$MIME_ICON" 2>/dev/null
+done
+
+# 6. Tạo file .desktop
+DESKTOP_CONTENT="[Desktop Entry]
+Type=Application
+Version=2.0.0
+Name=$APP_FILENAME
+Comment=App for measuring and constructing outline sketch for portrait drawing
+Exec=$APP_DIR/$APP_NAME %f
+Icon=$APP_DIR/$ICON_NAME
+Terminal=false
+Categories=Graphics;
+MimeType=$MIME_TYPE;
+StartupWMClass=core-launcher-AppLauncher"
+
+echo "$DESKTOP_CONTENT" > "$MENU_DIR/$APP_FILENAME.desktop"
+chmod +x "$MENU_DIR/$APP_FILENAME.desktop"
+
+if [ -d "$DESKTOP_DIR" ]; then
+    echo "$DESKTOP_CONTENT" > "$DESKTOP_DIR/$APP_FILENAME.desktop"
+    chmod +x "$DESKTOP_DIR/$APP_FILENAME.desktop"
+fi
+
+# 7. Cập nhật Database và Dọn dẹp Cache (Bước quyết định)
+echo "🔄 Đang làm mới toàn bộ database và cache..."
+update-mime-database "$HOME/.local/share/mime"
+update-desktop-database "$HOME/.local/share/applications"
+xdg-desktop-menu forceupdate
+gtk-update-icon-cache -f -t "$HOME/.local/share/icons/hicolor"
+
+# Xóa cache thumbnail để ép Nemo vẽ lại icon mới
+rm -rf ~/.cache/thumbnails/*
+
+# Khởi động lại trình quản lý file (Nemo) ngầm
+nemo -q && nohup nemo > /dev/null 2>&1 &
+
+echo "✅ Đã đăng ký thành công! Vui lòng kiểm tra file .pdw."
+pause_and_exit 0
+
+
+
+
+
+
+
+
+

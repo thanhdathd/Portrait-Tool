@@ -1,0 +1,1613 @@
+package ui;
+
+import com.formdev.flatlaf.extras.FlatSVGIcon;
+import config.ConfigManager;
+import core.actions.KeyAction;
+import core.fileio.GridOptionInjector;
+import core.fileio.ThumbnailFileView;
+import core.fileio.ImageFormatHelper;
+import core.fileio.PreviewOptionInjector;
+import core.history.Command;
+import core.history.FilterCommand;
+import core.history.ResizeCommand;
+import core.state.AppState;
+import core.state.SPoint;
+import core.state.SLine;
+import tools.ToolManager;
+import ui.canvas.ImageCanvas;
+import ui.dialogs.AboutDialog;
+import ui.dialogs.FilterDialog;
+import ui.dialogs.ImagePreviewPanel;
+import ui.dialogs.ResizeDialog;
+import ui.dialogs.ZoomWindow;
+import utils.ExcelExportUtils;
+import ui.components.SaveStatusIcon;
+import ui.components.ToastNotification;
+
+import javax.swing.*;
+import javax.swing.filechooser.FileFilter;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+public class MainFrame extends JFrame implements core.state.RecoveryUI {
+
+    private final AppState appState;
+    private final ImageCanvas canvas;
+    private final ConfigManager configManager;
+    private final ToolManager tool;
+    private ZoomWindow zoom = null;
+    private JScrollPane scrollPane;
+    private JMenuItem savePointMapItem;
+    private JCheckBoxMenuItem showPointMapItem;
+    private SaveStatusIcon saveStatusIcon;
+    private JComboBox<Integer> strokeWidthComboBox;
+    private final core.state.AutoSaveManager autoSaveManager;
+    private JProgressBar recoveryProgressBar;
+    private final java.util.List<JComponent> disableInExportMode = new java.util.ArrayList<>();
+    private boolean exportFocusMode = false;
+
+    public boolean isExportFocusMode() {
+        return exportFocusMode;
+    }
+
+    public void setExportFocusMode(boolean active) {
+        this.exportFocusMode = active;
+        for (JComponent c : disableInExportMode) {
+            c.setEnabled(!active);
+        }
+        if (active) {
+            tools.Tool current = canvas.getActiveTool();
+            if (!(current instanceof tools.HandTool) && !(current instanceof tools.ZoomCanvasTool)) {
+                canvas.setActiveTool(tool.handTool);
+            }
+        } else {
+            // Restore Undo/Redo states
+            for (JComponent c : disableInExportMode) {
+                if (c instanceof JButton btn && "Undo".equals(btn.getToolTipText())) {
+                    btn.setEnabled(appState.getHistoryManager().canUndo());
+                } else if (c instanceof JButton btn && "Redo".equals(btn.getToolTipText())) {
+                    btn.setEnabled(appState.getHistoryManager().canRedo());
+                } else if (c instanceof JMenuItem item && "Undo".equals(item.getText())) {
+                    item.setEnabled(appState.getHistoryManager().canUndo());
+                } else if (c instanceof JMenuItem item && "Redo".equals(item.getText())) {
+                    item.setEnabled(appState.getHistoryManager().canRedo());
+                }
+            }
+        }
+    }
+
+    public MainFrame() {
+        this.appState = new AppState();
+        this.canvas = new ImageCanvas(appState);
+        this.canvas.setMainFrame(this);
+        configManager = new ConfigManager();
+        configManager.load(appState);
+        core.i18n.LanguageManager.setLanguage(appState.getLanguageCode());
+        tool = ToolManager.initializeTools();
+        autoSaveManager = new core.state.AutoSaveManager(canvas);
+        autoSaveManager.setSaveStatusListener(new core.state.AutoSaveManager.SaveStatusListener() {
+            @Override
+            public void onSaveStarted() {
+                if (saveStatusIcon != null) saveStatusIcon.startSaving();
+            }
+
+            @Override
+            public void onSaveFinished() {
+                if (saveStatusIcon != null) saveStatusIcon.stopSaving();
+            }
+
+            @Override
+            public void onDirtyStateChanged(boolean isDirty) {
+                if (saveStatusIcon != null) saveStatusIcon.setDirty(isDirty);
+            }
+        });
+        
+        setTitle("Portrait Tool Modernized");
+        setIconImage(new FlatSVGIcon("icons/p_icon.svg").getImage());
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+//        setSize(1000, 750);
+//        setLocationRelativeTo(null); // Center on screen
+        applyWindowSettings();
+
+        // Handle window closing for unsaved changes
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+                attemptClose();
+            }
+        });
+
+        
+        // Listen to history to mark as dirty
+        appState.getHistoryManager().addListener((canUndo, canRedo, isModified) -> {
+            if(isModified)appState.setEditState(AppState.EditState.MODIFIED);
+            updateWindowTitle();
+        });
+        appState.getCanvasState().addStickyPointChangeListener(num -> {
+            savePointMapItem.setEnabled(num > 0);
+            showPointMapItem.setEnabled(num > 0);
+        });
+        
+        setLayout(new BorderLayout());
+        
+        // Wrap canvas in JScrollPane
+        scrollPane = new JScrollPane(canvas);
+        scrollPane.setBorder(null); // Clean look
+        // Improve panning speed
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        scrollPane.getHorizontalScrollBar().setUnitIncrement(16);
+        disableScrollByArrowKey(scrollPane);
+        
+        JPanel overlayContainer = new JPanel(new BorderLayout()) {
+            @Override
+            public boolean contains(int x, int y) {
+                for (Component c : getComponents()) {
+                    if (c.getBounds().contains(x, y) && c.isVisible()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+        overlayContainer.setOpaque(false);
+        
+        ui.components.PropertyPanel propertyPanel = new ui.components.PropertyPanel(appState, canvas);
+        ui.components.PointPropertyPanel pointPropertyPanel = new ui.components.PointPropertyPanel(appState, canvas);
+        ui.components.LinePropertyPanel linePropertyPanel = new ui.components.LinePropertyPanel(appState, canvas);
+        JPanel rightWrapper = new JPanel() {
+            @Override
+            public boolean contains(int x, int y) {
+                for (Component c : getComponents()) {
+                    if (c.getBounds().contains(x, y) && c.isVisible()) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        };
+        rightWrapper.setLayout(new BoxLayout(rightWrapper, BoxLayout.Y_AXIS));
+        rightWrapper.setOpaque(false);
+        // Wrap in a FlowLayout-like container aligned to top-right with padding
+        JPanel rightPadded = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        rightPadded.setOpaque(false);
+        JPanel pointStack = new JPanel();
+        pointStack.setLayout(new BoxLayout(pointStack, BoxLayout.Y_AXIS));
+        pointStack.setOpaque(false);
+        pointStack.add(pointPropertyPanel);
+        pointStack.add(Box.createRigidArea(new Dimension(0, 5)));
+        pointStack.add(propertyPanel);
+        pointStack.add(Box.createRigidArea(new Dimension(0, 5)));
+        pointStack.add(linePropertyPanel);
+        rightPadded.add(pointStack);
+        overlayContainer.add(rightPadded, BorderLayout.EAST);
+        
+        JPanel centerWrapper = new JPanel() {
+            @Override
+            public boolean isOptimizedDrawingEnabled() {
+                // Must return false for OverlayLayout to properly paint overlapping components
+                return false;
+            }
+        };
+        centerWrapper.setLayout(new OverlayLayout(centerWrapper));
+        centerWrapper.add(overlayContainer);
+        centerWrapper.add(scrollPane);
+        
+        add(centerWrapper, BorderLayout.CENTER);
+        
+        recoveryProgressBar = new JProgressBar(0, 100);
+        recoveryProgressBar.setVisible(false);
+        recoveryProgressBar.setStringPainted(true);
+        add(recoveryProgressBar, BorderLayout.SOUTH);
+        
+        initMenuBar();
+        initToolBar();
+        initContextMenu();
+        setupGlobalShortcuts();
+        
+        // Default tool
+        canvas.setActiveTool(new tools.HandTool());
+        
+        retranslateUI();
+
+        // Auto recovery check and load sequentially
+        SwingUtilities.invokeLater(() -> {
+            checkForRecovery();
+            if (autoSaveManager.getAutoSaveFile() == null) {
+                autoOpenFile();
+            }
+        });
+    }
+
+    private void initContextMenu() {
+        JPopupMenu contextMenu = new JPopupMenu();
+
+        JMenuItem undoItem = new JMenuItem();
+        setI18nText(undoItem, "menu.context.undo");
+        undoItem.setAccelerator(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Z, java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        undoItem.addActionListener(e -> {
+            if (appState.getHistoryManager().canUndo()) {
+                appState.getHistoryManager().undo();
+                canvas.repaint();
+            }
+        });
+
+        JMenuItem redoItem = new JMenuItem();
+        setI18nText(redoItem, "menu.context.redo");
+        redoItem.setAccelerator(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_Y, java.awt.Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        redoItem.addActionListener(e -> {
+            if (appState.getHistoryManager().canRedo()) {
+                appState.getHistoryManager().redo();
+                canvas.repaint();
+            }
+        });
+
+        contextMenu.add(undoItem);
+        contextMenu.add(redoItem);
+        contextMenu.addSeparator();
+
+        JMenuItem resizeItem = new JMenuItem();
+        setI18nText(resizeItem, "menu.context.resize");
+        resizeItem.addActionListener(e -> performOpenResize());
+        contextMenu.add(resizeItem);
+
+        JMenuItem cropItem = new JMenuItem();
+        setI18nText(cropItem, "menu.context.crop");
+        cropItem.addActionListener(e -> canvas.setActiveTool(new tools.CropTool(configManager)));
+        contextMenu.add(cropItem);
+
+        JMenuItem manageProfilesItem = new JMenuItem();
+        setI18nText(manageProfilesItem, "menu.context.manageProfiles");
+        manageProfilesItem.addActionListener(e -> new ui.dialogs.ManageProfilesDialog(this, configManager).setVisible(true));
+        contextMenu.add(manageProfilesItem);
+
+        contextMenu.addSeparator();
+
+        JMenuItem rot90cw = new JMenuItem();
+        setI18nText(rot90cw, "menu.context.rot90cw");
+        rot90cw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CW));
+        contextMenu.add(rot90cw);
+
+        JMenuItem rot90ccw = new JMenuItem();
+        setI18nText(rot90ccw, "menu.context.rot90ccw");
+        rot90ccw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CCW));
+        contextMenu.add(rot90ccw);
+
+        JMenuItem rot180 = new JMenuItem();
+        setI18nText(rot180, "menu.context.rot180");
+        rot180.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_180));
+        contextMenu.add(rot180);
+
+        contextMenu.addSeparator();
+
+        JMenuItem flipH = new JMenuItem();
+        setI18nText(flipH, "menu.context.flipH");
+        flipH.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_H));
+        contextMenu.add(flipH);
+
+        JMenuItem flipV = new JMenuItem();
+        setI18nText(flipV, "menu.context.flipV");
+        flipV.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_V));
+        contextMenu.add(flipV);
+
+        contextMenu.addPopupMenuListener(new javax.swing.event.PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(javax.swing.event.PopupMenuEvent e) {
+                if (!exportFocusMode) {
+                    undoItem.setEnabled(appState.getHistoryManager().canUndo());
+                    redoItem.setEnabled(appState.getHistoryManager().canRedo());
+                }
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(javax.swing.event.PopupMenuEvent e) {}
+
+            @Override
+            public void popupMenuCanceled(javax.swing.event.PopupMenuEvent e) {}
+        });
+
+        canvas.setComponentPopupMenu(contextMenu);
+        
+        disableInExportMode.add(undoItem);
+        disableInExportMode.add(redoItem);
+        disableInExportMode.add(resizeItem);
+        disableInExportMode.add(cropItem);
+        disableInExportMode.add(manageProfilesItem);
+        disableInExportMode.add(rot90cw);
+        disableInExportMode.add(rot90ccw);
+        disableInExportMode.add(rot180);
+        disableInExportMode.add(flipH);
+        disableInExportMode.add(flipV);
+    }
+
+    private void setupGlobalShortcuts() {
+        JRootPane rootPane = this.getRootPane();
+        InputMap im = rootPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap am = rootPane.getActionMap();
+
+        // Lấy phím Modifier hệ thống (Ctrl trên Win/Linux, Cmd trên macOS)
+        int shortcutMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
+
+        // 1. Phím tắt UNDO (Ctrl + Z)
+        keyBindingHelper(im,am,KeyEvent.VK_Z, shortcutMask, "UndoAction", e -> {
+            if (exportFocusMode) return;
+            System.out.println("Thực hiện Undo!");
+            if (appState.getHistoryManager().canUndo()) {
+                appState.getHistoryManager().undo();
+                canvas.repaint();
+            }
+        });
+
+        // 2. Phím tắt REDO (Ctrl + Y)
+        keyBindingHelper(im,am,KeyEvent.VK_Y, shortcutMask, "RedoAction", e -> {
+            if (exportFocusMode) return;
+            System.out.println("Thực hiện Redo!");
+            if(appState.getHistoryManager().canRedo()) {
+                appState.getHistoryManager().redo();
+                canvas.repaint();
+            }
+        });
+
+        // 3. Phím tắt chuyển Tool (Ví dụ: phím 'H' cho Hand Tool)
+        keyBindingHelper(im,am,KeyEvent.VK_H, 0, "HandToolAction", e -> {
+            canvas.setActiveTool(tool.handTool);
+        });
+
+        keyBindingHelper(im,am, new int[]{KeyEvent.VK_C, KeyEvent.VK_S}, 0, "StickToolAction", e -> {
+            if (!exportFocusMode) canvas.setActiveTool(tool.stickTool);
+        });
+
+        keyBindingHelper(im,am,new int[]{KeyEvent.VK_V,KeyEvent.VK_G}, 0, "GridToolAction", e -> {
+            if (!exportFocusMode) canvas.setActiveTool(tool.gridTool);
+        });
+
+        // Phím 'L' cho LineTool
+        keyBindingHelper(im, am, KeyEvent.VK_L, 0, "LineToolAction", e -> {
+            if (!exportFocusMode) canvas.setActiveTool(tool.lineTool);
+        });
+
+        // Phím 'P' cho Point/Pen Tool
+        keyBindingHelper(im,am, new int[]{KeyEvent.VK_P, KeyEvent.VK_B}, 0, "PointToolActionP", e -> {
+            if (exportFocusMode) return;
+            tool.p2pTool.clearCompletedLines();
+            canvas.setActiveTool(tool.p2pTool);
+        });
+        keyBindingHelper(im,am,KeyEvent.VK_Z, 0, "ZoomToolAction", e -> {
+            if (canvas.getActiveTool() instanceof tools.ZoomCanvasTool) {
+                ((tools.ZoomCanvasTool) canvas.getActiveTool()).toggleMode();
+                canvas.updateCursor();
+            } else {
+                canvas.setActiveTool(new tools.ZoomCanvasTool());
+            }
+        });
+        keyBindingHelper(im,am,KeyEvent.VK_M, 0, "OpenZoomWindow", e -> {
+            openZoomWindow();
+        });
+
+        // Phím Delete để xóa đối tượng đang được chọn (Point ưu tiên hơn Line, Line ưu tiên hơn Grid)
+        keyBindingHelper(im,am,KeyEvent.VK_DELETE, 0, "DeleteSelectedObject", e -> {
+            // Xóa các point đang được chọn (ưu tiên point trước line, line trước grid)
+            java.util.Set<SPoint> selPoints = appState.getCanvasState().getSelectedPoints();
+            if (!selPoints.isEmpty()) {
+                if (selPoints.size() == 1) {
+                    SPoint p = selPoints.iterator().next();
+                    core.history.StickCommand cmd = new core.history.StickCommand(
+                            appState.getCanvasState(), canvas, p,
+                            core.history.StickCommand.Action.DELETE, p.copy(), null);
+                    appState.getHistoryManager().push(cmd);
+                } else {
+                    java.util.List<SPoint> targets = new java.util.ArrayList<>(selPoints);
+                    core.history.BatchStickCommand cmd = new core.history.BatchStickCommand(
+                            appState.getCanvasState(), canvas, targets);
+                    appState.getHistoryManager().push(cmd);
+                }
+                return;
+            }
+            
+            // Xóa line đang được chọn
+            java.util.Set<SLine> selLines = appState.getCanvasState().getSelectedLines();
+            if (!selLines.isEmpty()) {
+                if (selLines.size() == 1) {
+                    SLine line = selLines.iterator().next();
+                    core.history.LineCommand cmd = new core.history.LineCommand(
+                            appState.getCanvasState(), canvas, line,
+                            core.history.LineCommand.Action.DELETE, line.copy(), null);
+                    appState.getHistoryManager().push(cmd);
+                } else {
+                    java.util.List<core.history.BatchLineCommand.LineStatePair> pairs = new java.util.ArrayList<>();
+                    for (SLine l : selLines) {
+                        pairs.add(new core.history.BatchLineCommand.LineStatePair(l, l.copy(), null));
+                    }
+                    core.history.BatchLineCommand cmd = new core.history.BatchLineCommand(
+                            appState.getCanvasState(), canvas, core.history.BatchLineCommand.Action.DELETE, pairs);
+                    appState.getHistoryManager().push(cmd);
+                }
+                return;
+            }
+
+            SPoint grid = appState.getCanvasState().getSelectedGrid();
+            if (grid != null) {
+                core.history.GridCommand cmd = new core.history.GridCommand(
+                        appState.getCanvasState(), canvas, grid,
+                        core.history.GridCommand.Action.DELETE, grid.copy(), null);
+                appState.getHistoryManager().push(cmd);
+            }
+        });
+    }
+
+    private void keyBindingHelper(InputMap im, ActionMap am, int keyEvent,
+                                  int modifiers, String mapkey, KeyAction keyAction) {
+        im.put(KeyStroke.getKeyStroke(keyEvent, modifiers), mapkey);
+        am.put(mapkey, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                keyAction.perform(e);
+            }
+        });
+    }
+
+    private void keyBindingHelper(InputMap im, ActionMap am, int[] keyEvents,
+                                  int modifiers, String mapkey, KeyAction keyAction) {
+        for (int key : keyEvents) {
+            im.put(KeyStroke.getKeyStroke(key, modifiers), mapkey);
+        }
+        am.put(mapkey, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                keyAction.perform(e);
+            }
+        });
+    }
+
+    /**
+     * Disable action scroll content inside scroll pane with arrow key
+     * We use arrow key for other action
+     * @param scrollPane
+     */
+    private void disableScrollByArrowKey(JScrollPane scrollPane) {
+        // Giả sử scrollPane là đối tượng JScrollPane chứa ImageCanvas của bạn
+        InputMap scrollIm = scrollPane.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
+
+        // Ghi đè hành động mặc định bằng "none" để vô hiệu hóa
+        scrollIm.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "none");
+        scrollIm.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "none");
+        scrollIm.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "none");
+        scrollIm.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "none");
+    }
+
+    private void applyWindowSettings() {
+        setLocation(appState.getWindowX(), appState.getWindowY());
+        setSize(appState.getWindowWidth(), appState.getWindowHeight());
+    }
+
+    private void autoOpenFile() {
+        File file = new File(appState.getFilePath());
+        if(!file.exists()) {
+            System.out.println("Can not open file");
+            return;
+        }
+        setTitle("Loading...");
+        System.out.println("Loading... "+file.getAbsolutePath());
+        if (file.getName().toLowerCase().endsWith(".pdw")) {
+            loadPDWProject(file);
+        } else {
+            loadImage(file);
+        }
+    }
+
+    private void updateWindowTitle() {
+        java.awt.image.BufferedImage image = canvas.getBackgroundImage();
+        if (image != null) {
+            String path = appState.getFilePath();
+            if (path == null || path.isEmpty()) {
+                path = "Untitled";
+            }
+            setTitle(path + " - " + image.getWidth() + "x" + image.getHeight());
+        } else {
+            setTitle("Portrait Tool Modernized");
+        }
+    }
+
+    private boolean forcedOpen = false;
+    private void attemptOpenFile() {
+        if (appState.getHistoryManager().isModified()) {
+            int result = JOptionPane.showOptionDialog(this,
+                    "Open new file will erase all current unsave data. Are you sure to continue?",
+                    "Unsaved Changes",
+                    JOptionPane.OK_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    new String[]{"Continue", "Cancel"},
+                    "Continue");
+            if (result == JOptionPane.YES_OPTION) {
+                forcedOpen = true;
+                performOpenFile();
+            }
+        } else {
+            performOpenFile();
+        }
+    }
+
+    private void attemptClose() {
+        updateUIState(appState);
+        configManager.save(appState);
+        if (appState.getEditState() == AppState.EditState.MODIFIED) {
+            int result = JOptionPane.showOptionDialog(this,
+                    "You have unsaved changes. Do you want to save before exiting?",
+                    "Unsaved Changes",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    new String[]{"Save", "Don't Save", "Cancel"},
+                    "Save");
+            
+            if (result == JOptionPane.YES_OPTION) {
+                performSavePDWFile();
+                if (appState.getEditState() != AppState.EditState.MODIFIED) {
+                    autoSaveManager.cleanup();
+                    autoSaveManager.stop();
+                    System.exit(0);
+                }
+            } else if (result == JOptionPane.NO_OPTION) {
+                autoSaveManager.cleanup();
+                autoSaveManager.stop();
+                System.exit(0);
+            }
+            // Cancel does nothing
+        } else {
+            autoSaveManager.cleanup();
+            autoSaveManager.stop();
+            System.exit(0);
+        }
+    }
+
+    private void updateUIState(AppState appState) {
+        appState.setWindowX(this.getX());
+        appState.setWindowY(this.getY());
+        appState.setWindowWidth(this.getWidth());
+        appState.setWindowHeight(this.getHeight());
+    }
+
+    // --- Action Methods to share between Menu and Toolbar ---
+    private void performOpenFile() {
+        JFileChooser chooser = prepareChooserDialog();
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            openExternalFile(chooser.getSelectedFile());
+        }
+    }
+
+    public void openExternalFile(java.io.File file) {
+        if (file == null || !file.exists()) return;
+
+        boolean isProject = ImageFormatHelper.isProjectFile(file);
+        boolean isImage = ImageFormatHelper.isValidImage(file);
+
+        if (!isProject && !isImage) {
+            String supportedList = String.join(", ", ImageFormatHelper.getSupportedExtensions());
+            JOptionPane.showMessageDialog(this,
+                    "Unsupported file format: " + file.getName() + "\nSupported formats: " + supportedList,
+                    "Unsupported File",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Check for unsaved changes before opening new file
+        if (appState.getHistoryManager().isModified() && !forcedOpen) {
+            int result = JOptionPane.showOptionDialog(this,
+                    "You have unsaved changes. What would you like to do?",
+                    "Unsaved Changes",
+                    JOptionPane.YES_NO_CANCEL_OPTION,
+                    JOptionPane.WARNING_MESSAGE,
+                    null,
+                    new String[]{"Save data", "Continue anyway", "Cancel"},
+                    "Save data");
+
+            if (result == 0) { // Save data
+                performSavePDWFile();
+                // If user cancelled save or it failed, history will still be modified
+                if (appState.getHistoryManager().isModified()) {
+                    return;
+                }
+            } else if (result == 1) { // Continue anyway
+                // Proceed without saving
+            } else { // Cancel or Close dialog
+                return;
+            }
+        }
+
+        if (isProject) {
+            loadPDWProject(file);
+        } else {
+            loadImage(file);
+        }
+        forcedOpen = false;
+    }
+
+    private void loadImage(java.io.File file) {
+        System.out.println("user open image: " + file.getAbsolutePath());
+        setTitle("Portrait Tool Modernized - Loading...");
+        new workers.ImageLoadWorker(file, image -> {
+            canvas.setBackgroundImage(image);
+            appState.setFilePath(file.getAbsolutePath());
+            appState.setLastOpenedDir(file.getParent());
+            setTitle(file.getAbsolutePath()+" - "+image.getWidth()+"x"+image.getHeight());
+            appState.getHistoryManager().clearAll();
+            appState.getHistoryManager().markAsClean();
+            appState.getCanvasState().clearAll();
+            appState.setInitialPoints(null);
+            appState.setInitialGrids(null);
+            appState.setInitialLines(null);
+            autoSaveManager.initShadowSession(file);
+        }, ex -> {
+            JOptionPane.showMessageDialog(this, "Failed to load image: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            setTitle("Portrait Tool Modernized");
+        }).execute();
+    }
+
+    private void loadPDWProject(java.io.File file) {
+        System.out.println("user open project: " + file.getAbsolutePath());
+        setTitle("Portrait Tool Modernized - Loading Project...");
+        try {
+            core.state.ProjectFileManager.LoadedProject project = core.state.ProjectFileManager.loadProject(file);
+            
+            // 1. Set Image
+            canvas.setBackgroundImage(project.image);
+            
+            // 2. Restore State
+            appState.setFilePath(file.getAbsolutePath()); // We use the PDW path as current path
+            appState.setLastOpenedDir(file.getParent());
+            appState.setScale(project.data.scale);
+            appState.setGridSize(project.data.gridSize);
+            appState.setGridInCm(project.data.gridInCm);
+            if (project.data.brushColor != null) {
+                appState.setBrushColor(project.data.brushColor);
+            }
+            
+            // 3. Restore Points
+            appState.getCanvasState().clearAll();
+            if (project.data.stickyPoints != null) {
+                for (SPoint p : project.data.stickyPoints) {
+                    appState.getCanvasState().addStickyPoint(p);
+                }
+            }
+            if (project.data.grids != null) {
+                for (SPoint p : project.data.grids) {
+                    appState.getCanvasState().addGrid(p);
+                }
+            }
+            if (project.data.lines != null) {
+                for (SLine l : project.data.lines) {
+                    appState.getCanvasState().getLines().add(l);
+                }
+            }
+            
+            // Set initial points/grids/lines in AppState for project persistence
+            appState.setInitialPoints(project.data.stickyPoints);
+            appState.setInitialGrids(project.data.grids);
+            appState.setInitialLines(project.data.lines);
+            
+            // 4. Reset History
+            appState.getHistoryManager().clearAll();
+            appState.getHistoryManager().markAsClean();
+            
+            setTitle(file.getAbsolutePath() + " (Project) - " + project.image.getWidth() + "x" + project.image.getHeight());
+            
+            autoSaveManager.initShadowSession(file);
+            
+            // Notify AutoSave that we are clean
+            autoSaveManager.onManualSave();
+            
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "Failed to load project: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            setTitle("Portrait Tool Modernized");
+        }
+    }
+
+    /**
+     * Xác định thư mục khởi tạo cho FileChooser
+     * @return Thư mục chứa file ảnh hiện tại (nếu có), hoặc thư mục Documents
+     */
+    private File getInitialDirectory() {
+        String lastOpenedDir = appState.getLastOpenedDir();
+        if (lastOpenedDir != null && !lastOpenedDir.isEmpty()) {
+            File dir = new File(lastOpenedDir);
+            if (dir.exists() && dir.isDirectory()) {
+                return dir;
+            }
+        }
+
+        String currentFilePath = appState.getFilePath();
+        // Kiểm tra xem đã có file ảnh hợp lệ chưa
+        if (currentFilePath != null && !currentFilePath.isEmpty()) {
+            File currentFile = new File(currentFilePath);
+            if (currentFile.exists() && currentFile.isFile()) {
+                // Trả về thư mục cha của file hiện tại
+                return currentFile.getParentFile();
+            }
+        }
+
+        // Nếu chưa có file nào, mở ra thư mục Documents mặc định
+        return getDefaultDocumentsDirectory();
+    }
+
+    /**
+     * Lấy thư mục Documents mặc định của hệ thống (hoạt động trên cả Windows, macOS, Linux)
+     */
+    private File getDefaultDocumentsDirectory() {
+        String os = System.getProperty("os.name").toLowerCase();
+        String userHome = System.getProperty("user.home");
+
+        if (os.contains("win")) {
+            // Windows: C:\Users\<username>\Documents
+            return new File(userHome, "Documents");
+        } else if (os.contains("mac")) {
+            // macOS: /Users/<username>/Documents
+            return new File(userHome, "Documents");
+        } else {
+            // Linux: /home/<username>/Documents hoặc ~/Documents
+            File documents = new File(userHome, "Documents");
+            if (documents.exists()) {
+                return documents;
+            }
+            // Nếu không có thư mục Documents, trả về thư mục home
+            return new File(userHome);
+        }
+    }
+
+    private void performSavePDWFile() {
+        JFileChooser chooser = prepareChooserDialog();
+        chooser.setDialogTitle("Save Project (.pdw)");
+        // Set PDW filter as default
+        for (javax.swing.filechooser.FileFilter ff : chooser.getChoosableFileFilters()) {
+            if (ff.getDescription().contains(".pdw")) {
+                chooser.setFileFilter(ff);
+                break;
+            }
+        }
+
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (!file.getName().toLowerCase().endsWith(".pdw")) {
+                file = new java.io.File(file.getAbsolutePath() + ".pdw");
+            }
+            
+            try {
+                core.state.ProjectData data = new core.state.ProjectData();
+                data.scale = appState.getScale();
+                data.gridSize = appState.getGridSize();
+                data.gridInCm = appState.isGridInCm();
+                data.brushColor = appState.getBrushColor();
+                data.stickyPoints = new java.util.ArrayList<>(appState.getCanvasState().getStickyPoints());
+                data.grids = new java.util.ArrayList<>(appState.getCanvasState().getGrids());
+                data.lines = new java.util.ArrayList<>(appState.getCanvasState().getLines());
+                
+                core.state.ProjectFileManager.saveProject(file, canvas.getBackgroundImage(), data);
+
+                appState.setLastOpenedDir(file.getParent());
+                appState.setFilePath(file.getAbsolutePath());
+                appState.setEditState(AppState.EditState.SAVED);
+                appState.getHistoryManager().markAsClean();
+                autoSaveManager.cleanupSession();
+                
+                ToastNotification.show("Project saved successfully!");
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Failed to save project: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void performSavePNGFile() {
+        JFileChooser chooser = prepareChooserDialog();
+        chooser.setDialogTitle("Export as PNG");
+        for (FileFilter ff : chooser.getChoosableFileFilters()) {
+            if (ff.getDescription().contains("PNG")) {
+                chooser.setFileFilter(ff);
+                break;
+            }
+        }
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (!file.getName().toLowerCase().endsWith(".png")) {
+                file = new java.io.File(file.getAbsolutePath() + ".png");
+            }
+            new workers.SaveWorker(canvas, file, true, true).execute();
+            appState.setEditState(AppState.EditState.PARTLY_SAVED);
+            appState.setLastOpenedDir(file.getParent());
+            autoSaveManager.cleanupSession();
+        }
+    }
+
+    private JFileChooser prepareChooserDialog() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setPreferredSize(new Dimension(900, 600));
+        FileNameExtensionFilter pdwFilter =
+                new FileNameExtensionFilter(
+                        "Portrait Project (.pdw)",
+                        "pdw"
+                );
+        Set<String> extensionsSet = ImageFormatHelper.getSupportedExtensions();
+        List<String> upperList = new ArrayList<>();
+        for (String ext : extensionsSet) {
+            upperList.add(ext.toUpperCase());
+        }
+        String description = "Image Files (" + String.join(", ", upperList) + ")";
+        FileNameExtensionFilter imageFilter = new FileNameExtensionFilter(
+                description,
+                extensionsSet.toArray(new String[0])
+        );
+        chooser.addChoosableFileFilter(pdwFilter);
+        chooser.addChoosableFileFilter(imageFilter);
+        chooser.setFileFilter(imageFilter);
+
+
+        // Thumbnail view for file list
+        chooser.setFileView(new ThumbnailFileView(chooser, 32));
+        GridOptionInjector.inject(chooser, 32);
+
+        File initialDirectory = getInitialDirectory();
+        if (initialDirectory != null && initialDirectory.exists()) {
+            chooser.setCurrentDirectory(initialDirectory);
+        }
+
+        // ========== Preview Panel cải tiến ==========
+        ImagePreviewPanel previewPanel = new ImagePreviewPanel(chooser);
+        chooser.setAccessory(previewPanel);
+        PreviewOptionInjector.inject(chooser, previewPanel);
+
+        return chooser;
+    }
+
+    private void performSaveTicksOnly() {
+        JFileChooser chooser = prepareChooserDialog();
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (!file.getName().endsWith(".png")) {
+                file = new java.io.File(file.getAbsolutePath() + ".png");
+            }
+            
+            workers.SaveWorker worker = new workers.SaveWorker(canvas, file, false, false);
+            worker.execute();
+            appState.setLastOpenedDir(file.getParent());
+        }
+    }
+
+    private void performSavePointMap() {
+        if (canvas.getBackgroundImage() == null) {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        JFileChooser chooser = prepareChooserDialog();
+        new ui.dialogs.ExportPointMapDialog(this, canvas, appState, chooser).setVisible(true);
+    }
+
+
+    private void performOpenFilter() {
+        BufferedImage currentImage = canvas.getBackgroundImage();
+        if (currentImage != null) {
+            new FilterDialog(this, currentImage, (newImage, props) -> {
+                Command filterCmd = new FilterCommand(canvas, currentImage, newImage, props);
+                appState.getHistoryManager().push(filterCmd);
+                canvas.repaint();
+            }, (filterProps) -> {
+                if(filterProps == null) {
+                    canvas.setLivePreviewFilterActive(false);
+                    canvas.clearTempPreview();
+                } else {
+                    canvas.setLivePreviewFilterActive(true);
+                    canvas.applyLivePreviewToMainCanvas(filterProps);
+                }
+            }).setVisible(true);
+        } else {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private void performOpenResize() {
+        BufferedImage currentImage = canvas.getBackgroundImage();
+        if (currentImage != null) {
+            new ResizeDialog(this, currentImage, (newImage, props) -> {
+                Command resizeCmd = new ResizeCommand(
+                        canvas, appState.getCanvasState(), currentImage, newImage, props);
+                appState.getHistoryManager().push(resizeCmd);
+                canvas.repaint();
+            }).setVisible(true);
+        } else {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private void performTransform(core.image.ImageTransformUtils.TransformType type) {
+        BufferedImage currentImage = canvas.getBackgroundImage();
+        if (currentImage != null) {
+            BufferedImage newImage = core.image.ImageTransformUtils.transform(currentImage, type);
+            core.history.Command transformCmd = new core.history.TransformCommand(
+                    canvas, appState.getCanvasState(), currentImage, newImage, type);
+            appState.getHistoryManager().push(transformCmd);
+            canvas.repaint();
+        } else {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+        }
+    }
+
+    private void performExportToExcel() {
+        if (canvas.getBackgroundImage() == null) {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if(appState.getCanvasState().getStickyPoints().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Don't have any point to export", "No Data", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setPreferredSize(new Dimension(900, 600));
+        FileNameExtensionFilter imageFilter =
+                new FileNameExtensionFilter(
+                        "Excel File (xls, xlsx)",
+                        "xls", "xlsx", "csv", "txt"
+                );
+        chooser.setFileFilter(imageFilter);
+        File initialDirectory = getInitialDirectory();
+        chooser.setCurrentDirectory(initialDirectory);
+        chooser.setDialogTitle("Export to Excel (.xls)");
+        if (chooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = chooser.getSelectedFile();
+            if (!file.getName().endsWith(".xlsx")) {
+                file = new java.io.File(file.getAbsolutePath() + ".xlsx");
+            }
+            
+            try (FileOutputStream outputStream = new FileOutputStream(file)) {
+                ExcelExportUtils.exportToXlsx(
+                        appState.getCanvasState().getStickyPoints(),
+                        appState.getScale(),
+                        outputStream
+                );
+                appState.setLastOpenedDir(file.getParent());
+                ToastNotification.show("Successfully exported to " + file.getName());
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Failed to export: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    private void initMenuBar() {
+        JMenuBar menuBar = new JMenuBar();
+
+        // File Menu
+        JMenu fileMenu = new JMenu();
+        setI18nText(fileMenu, "menu.file");
+        fileMenu.setMnemonic(KeyEvent.VK_F);
+        
+        JMenuItem openItem = new JMenuItem();
+        setI18nText(openItem, "menu.file.openImage");
+        openItem.addActionListener(e -> attemptOpenFile());
+        
+        JMenuItem saveItem = new JMenuItem();
+        setI18nText(saveItem, "menu.file.saveProject");
+        saveItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        saveItem.setToolTipText("Save the full project for future editing");
+        saveItem.addActionListener(e -> performSavePDWFile());
+        
+        JMenu exportMenu = new JMenu();
+        exportMenu.setText("Export"); // TODO: Add to properties
+        
+        JMenuItem exportImageItem = new JMenuItem("Export as PNG...");
+        exportImageItem.addActionListener(e -> performSavePNGFile());
+
+        JMenuItem exportPointData = new JMenuItem("Export Point Data (Excel)");
+        exportPointData.addActionListener(e -> performExportToExcel());
+
+        JMenuItem savePointOnly = new JMenuItem("Export Image with Points Only");
+        savePointOnly.addActionListener(e -> performSaveTicksOnly());
+
+        savePointMapItem = new JMenuItem("Export Point Map Image");
+        savePointMapItem.setEnabled(false);
+        savePointMapItem.addActionListener(e -> performSavePointMap());
+
+        exportMenu.add(exportImageItem);
+        exportMenu.add(exportPointData);
+        exportMenu.add(savePointOnly);
+        exportMenu.add(savePointMapItem);
+
+        JMenuItem exitItem = new JMenuItem();
+        setI18nText(exitItem, "menu.file.exit");
+        exitItem.addActionListener(e -> attemptClose());
+
+        fileMenu.add(openItem);
+        fileMenu.add(saveItem);
+        fileMenu.addSeparator();
+        fileMenu.add(exportMenu);
+        fileMenu.addSeparator();
+        fileMenu.add(exitItem);
+
+        // Edit Menu
+        JMenu editMenu = new JMenu();
+        editMenu.setText("Edit");
+        editMenu.setMnemonic(KeyEvent.VK_E);
+        
+        JMenuItem undoItem = new JMenuItem();
+        setI18nText(undoItem, "menu.context.undo");
+        undoItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        undoItem.addActionListener(e -> {
+            if (appState.getHistoryManager().canUndo()) {
+                appState.getHistoryManager().undo();
+                canvas.repaint();
+            }
+        });
+
+        JMenuItem redoItem = new JMenuItem();
+        setI18nText(redoItem, "menu.context.redo");
+        redoItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Y, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        redoItem.addActionListener(e -> {
+            if (appState.getHistoryManager().canRedo()) {
+                appState.getHistoryManager().redo();
+                canvas.repaint();
+            }
+        });
+        
+        editMenu.add(undoItem);
+        editMenu.add(redoItem);
+        editMenu.addSeparator();
+        
+        JMenuItem settingsItem = new JMenuItem();
+        setI18nText(settingsItem, "menu.file.settings");
+        settingsItem.addActionListener(e -> {
+            new ui.dialogs.SettingsDialog(this, appState).setVisible(true);
+        });
+        editMenu.add(settingsItem);
+        
+        disableInExportMode.add(undoItem);
+        disableInExportMode.add(redoItem);
+        disableInExportMode.add(openItem);
+        disableInExportMode.add(exportImageItem);
+        disableInExportMode.add(exportPointData);
+        disableInExportMode.add(savePointOnly);
+
+        // View Menu
+        JMenu viewMenu = new JMenu();
+        setI18nText(viewMenu, "menu.view");
+        viewMenu.setMnemonic(KeyEvent.VK_V);
+        
+        JMenuItem zoomItem = new JMenuItem("Zoom dialog");
+        zoomItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
+        zoomItem.addActionListener(e -> {
+            openZoomWindow();
+        });
+        viewMenu.add(zoomItem);
+
+        showPointMapItem = new JCheckBoxMenuItem();
+        setI18nText(showPointMapItem, "menu.view.showPointMap");
+        showPointMapItem.setEnabled(false);
+        showPointMapItem.setSelected(appState.isShowPointMap());
+        showPointMapItem.addActionListener(e -> {
+            appState.setShowPointMap(showPointMapItem.isSelected());
+            canvas.repaint();
+        });
+        viewMenu.add(showPointMapItem);
+
+        // Help Menu
+        JMenu helpMenu = new JMenu();
+        setI18nText(helpMenu, "menu.help");
+        helpMenu.setMnemonic(KeyEvent.VK_H);
+        JMenuItem aboutItem = new JMenuItem();
+        setI18nText(aboutItem, "menu.help.about");
+        aboutItem.addActionListener(e -> new AboutDialog(this).setVisible(true));
+            
+        JMenuItem keyAssistItem = new JMenuItem();
+        setI18nText(keyAssistItem, "menu.help.keyAssist");
+        keyAssistItem.addActionListener(e -> new ui.dialogs.ShortcutAssistanceDialog(this).setVisible(true));
+            
+        helpMenu.add(keyAssistItem);
+        helpMenu.add(aboutItem);
+
+        // Image Menu
+        JMenu imageMenu = new JMenu();
+        imageMenu.setText("Image");
+        imageMenu.setMnemonic(KeyEvent.VK_I);
+        
+        JMenuItem filterItem = new JMenuItem("Filters...");
+        filterItem.addActionListener(e -> performOpenFilter());
+        imageMenu.add(filterItem);
+
+        JMenuItem resizeItem = new JMenuItem();
+        setI18nText(resizeItem, "menu.context.resize");
+        resizeItem.addActionListener(e -> performOpenResize());
+        imageMenu.add(resizeItem);
+
+        JMenuItem cropItemMenu = new JMenuItem();
+        setI18nText(cropItemMenu, "menu.context.crop");
+        cropItemMenu.addActionListener(e -> canvas.setActiveTool(new tools.CropTool(configManager)));
+        imageMenu.add(cropItemMenu);
+
+        JMenuItem manageProfilesMenu = new JMenuItem();
+        setI18nText(manageProfilesMenu, "menu.context.manageProfiles");
+        manageProfilesMenu.addActionListener(e -> new ui.dialogs.ManageProfilesDialog(this, configManager).setVisible(true));
+        imageMenu.add(manageProfilesMenu);
+
+        imageMenu.addSeparator();
+
+        JMenuItem rot90cw = new JMenuItem();
+        setI18nText(rot90cw, "menu.context.rot90cw");
+        rot90cw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CW));
+        imageMenu.add(rot90cw);
+
+        JMenuItem rot90ccw = new JMenuItem();
+        setI18nText(rot90ccw, "menu.context.rot90ccw");
+        rot90ccw.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_90_CCW));
+        imageMenu.add(rot90ccw);
+
+        JMenuItem rot180 = new JMenuItem();
+        setI18nText(rot180, "menu.context.rot180");
+        rot180.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.ROTATE_180));
+        imageMenu.add(rot180);
+
+        imageMenu.addSeparator();
+
+        JMenuItem flipH = new JMenuItem();
+        setI18nText(flipH, "menu.context.flipH");
+        flipH.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_H));
+        imageMenu.add(flipH);
+
+        JMenuItem flipV = new JMenuItem();
+        setI18nText(flipV, "menu.context.flipV");
+        flipV.addActionListener(e -> performTransform(core.image.ImageTransformUtils.TransformType.FLIP_V));
+        imageMenu.add(flipV);
+
+        menuBar.add(fileMenu);
+        menuBar.add(editMenu);
+        menuBar.add(viewMenu);
+        menuBar.add(imageMenu);
+        menuBar.add(helpMenu);
+
+        setJMenuBar(menuBar);
+        
+        disableInExportMode.add(imageMenu);
+        disableInExportMode.add(settingsItem);
+    }
+
+    private void openZoomWindow() {
+        if (canvas.getBackgroundImage() == null) {
+            JOptionPane.showMessageDialog(this, "Please open an image first.", "No Image", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        if(zoom != null && zoom.isShowing()) {
+            zoom.setVisible(false);
+            return;
+        }
+
+        if(zoom == null) {
+            zoom = new ZoomWindow(this, appState);
+        }
+        canvas.setZoomWindow(zoom);
+        zoom.updateImage(canvas.getBackgroundImage());
+        zoom.setVisible(true);
+    }
+
+    private JButton createIconButton(String iconName, String tooltip) {
+        JButton btn = new JButton();
+        try {
+            java.net.URL url = getClass().getClassLoader().getResource("icons/" + iconName);
+            if (url != null) {
+                btn.setIcon(new ImageIcon(url));
+            } else {
+                btn.setText(tooltip); // fallback
+            }
+        } catch (Exception e) {
+            btn.setText(tooltip);
+        }
+        btn.setToolTipText(tooltip);
+        btn.setFocusPainted(false);
+        return btn;
+    }
+
+    private JButton createSVGIconButton(String iconName, String tooltip, int w, int h, Color color) {
+        JButton btn = new JButton();
+        try {
+            FlatSVGIcon svgIcon = new FlatSVGIcon("icons/"+iconName, w,h);
+            if(color != null) {
+                svgIcon.setColorFilter(new FlatSVGIcon.ColorFilter() {
+                    @Override
+                    public Color filter(Color c) {
+                        return color; // Đổi màu
+                    }
+                });
+            }
+            Image image = svgIcon.getImage();
+            if (image != null) {
+                btn.setIcon(new ImageIcon(image));
+            } else {
+                btn.setText(tooltip);
+            }
+        }catch (Exception e) {
+            btn.setText(tooltip);
+        }
+        btn.setToolTipText(tooltip);
+        btn.setFocusPainted(false);
+        return btn;
+    }
+
+    private void initToolBar() {
+        Color lineColor = Color.decode("#0242a1");
+        JToolBar toolBar = new JToolBar();
+        toolBar.setOrientation(JToolBar.HORIZONTAL);
+        
+        // File Ops
+        JButton openBtn = createIconButton("icon3.png", "Open");
+        openBtn.addActionListener(e -> attemptOpenFile());
+        
+        JButton saveBtn = createIconButton("icon2.png", "Save Project (.pdw)");
+        saveBtn.addActionListener(e -> performSavePDWFile());
+        
+        JButton exportBtn = createSVGIconButton("ic_save_as_png.svg", "Export as PNG",20,20,lineColor);
+        exportBtn.addActionListener(e -> performSavePNGFile());
+
+        JButton saveTicksBtn = createSVGIconButton(
+                "ic_spoint.svg", "Export Image with Points Only",
+                24,24, Color.decode("#0e5299"));
+        saveTicksBtn.addActionListener(e -> performSaveTicksOnly());
+        
+        toolBar.add(openBtn);
+        toolBar.add(saveBtn);
+        toolBar.add(exportBtn);
+        toolBar.add(saveTicksBtn);
+        toolBar.addSeparator();
+        
+        // History Ops
+        JButton undoBtn = createIconButton("icon12.png", "Undo");
+        undoBtn.addActionListener(e -> {
+            if (appState.getHistoryManager().canUndo()) {
+                appState.getHistoryManager().undo();
+                canvas.repaint();
+            }
+        });
+        
+        JButton redoBtn = createIconButton("icon5.png", "Redo");
+        redoBtn.addActionListener(e -> {
+            if (appState.getHistoryManager().canRedo()) {
+                appState.getHistoryManager().redo();
+                canvas.repaint();
+            }
+        });
+        
+        // Initial state
+        undoBtn.setEnabled(appState.getHistoryManager().canUndo());
+        redoBtn.setEnabled(appState.getHistoryManager().canRedo());
+        
+        // Listen to history changes
+        appState.getHistoryManager().addListener((canUndo, canRedo, isModified) -> {
+            if (!exportFocusMode) {
+                undoBtn.setEnabled(canUndo);
+                redoBtn.setEnabled(canRedo);
+            }
+        });
+        
+        toolBar.add(undoBtn);
+        toolBar.add(redoBtn);
+        toolBar.addSeparator();
+        
+        // Mouse Modes
+        JButton handBtn = createSVGIconButton("ic_hand.svg", "Hand tool", 24,24, lineColor);
+        handBtn.addActionListener(e -> canvas.setActiveTool(tool.handTool));
+
+        JButton stickBtn = createSVGIconButton("ic_stick.svg", "Stick point tool",20,20,lineColor);
+        stickBtn.addActionListener(e -> canvas.setActiveTool(tool.stickTool));
+
+        JButton p2pBtn = createSVGIconButton("ic_p2p.svg", "Point to Point measurement tool",20,20,null);
+        p2pBtn.addActionListener(e -> {
+            tool.p2pTool.clearCompletedLines();
+            canvas.setActiveTool(tool.p2pTool);
+        });
+        JButton gridBtn = createSVGIconButton("ic_grid.svg", "Draw Grid",24,24, lineColor);
+        gridBtn.addActionListener(e -> canvas.setActiveTool(tool.gridTool));
+
+        JButton selectBtn = createSVGIconButton("ic_select.svg", "Select Tool (A)", 24, 24, lineColor);
+        selectBtn.addActionListener(e -> canvas.setActiveTool(tool.selectTool));
+
+        JButton lineBtn = createSVGIconButton("ic_line.svg", "Draw Line Tool (L)", 24, 24, lineColor);
+        lineBtn.addActionListener(e -> canvas.setActiveTool(tool.lineTool));
+
+        JButton cropBtn = createSVGIconButton(
+                "ic_crop.svg",
+                "Crop Image",
+                24,24, lineColor
+                );
+        cropBtn.addActionListener(e -> canvas.setActiveTool(new tools.CropTool(configManager)));
+        
+        JButton zoomBtn = createSVGIconButton("ic_zoom.svg", "Zoom tool",24,24,lineColor);
+        zoomBtn.addActionListener(e -> {
+            if (canvas.getActiveTool() instanceof tools.ZoomCanvasTool) {
+                ((tools.ZoomCanvasTool) canvas.getActiveTool()).toggleMode();
+                canvas.updateCursor();
+            } else {
+                canvas.setActiveTool(new tools.ZoomCanvasTool());
+            }
+        });
+
+        JButton zoomActualSize = createSVGIconButton("actual_size.svg", "ActualSize", 20, 16,null);
+        zoomActualSize.addActionListener(e -> {
+            appState.setCurrentZoom(1.0f);
+            appState.getCanvasState().setImageOffsetX(ImageCanvas.CANVAS_PADDING);
+            appState.getCanvasState().setImageOffsetY(5);
+            scrollPane.getViewport().setViewPosition(new Point(0, 0));
+            canvas.repaint();
+        });
+        
+        // JComboBox for Stroke Width (Line Tool)
+        strokeWidthComboBox = new JComboBox<>(new Integer[]{1, 2, 3, 5, 8, 13});
+        strokeWidthComboBox.setSelectedItem(appState.getActiveLineStrokeWidth());
+        strokeWidthComboBox.setVisible(false);
+        strokeWidthComboBox.setMaximumSize(new Dimension(80, 26));
+        strokeWidthComboBox.setToolTipText("Line Stroke Width");
+        strokeWidthComboBox.setRenderer(new ListCellRenderer<Integer>() {
+            @Override
+            public Component getListCellRendererComponent(JList<? extends Integer> list, Integer value, int index, boolean isSelected, boolean cellHasFocus) {
+                int thickness = (value != null) ? value : 2;
+                JPanel panel = new JPanel() {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        super.paintComponent(g);
+                        Graphics2D g2 = (Graphics2D) g;
+                        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                        g2.setColor(appState.getBrushColor());
+                        g2.setStroke(new BasicStroke(thickness, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        int y = getHeight() / 2;
+                        g2.drawLine(10, y, getWidth() - 10, y);
+                    }
+                };
+                panel.setPreferredSize(new Dimension(80, 24));
+                if (isSelected) {
+                    panel.setBackground(Color.LIGHT_GRAY);
+                } else {
+                    panel.setBackground(list.getBackground());
+                }
+                return panel;
+            }
+        });
+        strokeWidthComboBox.addActionListener(evt -> {
+            Integer sel = (Integer) strokeWidthComboBox.getSelectedItem();
+            if (sel != null) {
+                appState.setActiveLineStrokeWidth(sel);
+            }
+        });
+
+        // Listen to active tool changes
+        canvas.addPropertyChangeListener(evt -> {
+            if ("activeTool".equals(evt.getPropertyName())) {
+                tools.Tool activeTool = canvas.getActiveTool();
+                handBtn.setEnabled(!(activeTool instanceof tools.HandTool));
+                if (exportFocusMode) {
+                    stickBtn.setEnabled(false);
+                    p2pBtn.setEnabled(false);
+                    gridBtn.setEnabled(false);
+                    lineBtn.setEnabled(false);
+                    cropBtn.setEnabled(false);
+                } else {
+                    stickBtn.setEnabled(!(activeTool instanceof tools.StickTool));
+                    p2pBtn.setEnabled(!(activeTool instanceof tools.P2PTool));
+                    gridBtn.setEnabled(!(activeTool instanceof tools.GridTool));
+                    selectBtn.setEnabled(!(activeTool instanceof tools.SelectTool));
+                    lineBtn.setEnabled(!(activeTool instanceof tools.LineTool));
+                    cropBtn.setEnabled(!(activeTool instanceof tools.CropTool));
+                }
+                
+                // Toggle Stroke Width Dropdown visibility
+                strokeWidthComboBox.setVisible(activeTool instanceof tools.LineTool);
+                strokeWidthComboBox.revalidate();
+                strokeWidthComboBox.repaint();
+
+                // Deselect grid if switching to a tool other than Hand, Zoom, or Select
+                if (!(activeTool instanceof tools.HandTool) && !(activeTool instanceof tools.ZoomCanvasTool) && !(activeTool instanceof tools.SelectTool)) {
+                    appState.getCanvasState().setSelectedGrid(null);
+                }
+                
+                // Zoom is toggleable, so always enabled
+            }
+        });
+
+        toolBar.add(handBtn);
+        toolBar.add(stickBtn);
+        toolBar.add(p2pBtn);
+        toolBar.add(gridBtn);
+        toolBar.add(selectBtn);
+        toolBar.add(lineBtn);
+        toolBar.add(cropBtn);
+        toolBar.add(zoomBtn);
+        toolBar.add(zoomActualSize);
+        
+        toolBar.addSeparator();
+        
+        // Data & Settings
+        JButton exportExcelBtn = createSVGIconButton("ic_export.svg", "Export Stick point to Excel",20,20,lineColor);
+        exportExcelBtn.addActionListener(e -> performExportToExcel());
+        
+        JButton settingsBtn = createSVGIconButton("ic_setting.svg", "Settings", 20,20, Color.decode("#04aeda"));
+        settingsBtn.addActionListener(e -> new ui.dialogs.SettingsDialog(this, appState).setVisible(true));
+        
+        toolBar.add(exportExcelBtn);
+        toolBar.add(settingsBtn);
+        toolBar.addSeparator();
+        
+        // Color
+        JButton colorBtn = new JButton("         ");
+        colorBtn.setBackground(appState.getBrushColor());
+        colorBtn.setPreferredSize(new Dimension(80, 30));
+        colorBtn.setOpaque(true);
+        colorBtn.setBorderPainted(false);
+        colorBtn.setToolTipText("Select Brush Color");
+        colorBtn.addActionListener(e -> {
+            Color newColor = JColorChooser.showDialog(this, "Select Brush Color", appState.getBrushColor());
+            if (newColor != null) {
+                appState.setBrushColor(newColor);
+                colorBtn.setBackground(newColor);
+            }
+        });
+        toolBar.add(colorBtn);
+        toolBar.add(strokeWidthComboBox);
+        toolBar.addSeparator();
+        initColorPlate(toolBar, colorBtn);
+
+        toolBar.add(Box.createHorizontalGlue());
+        saveStatusIcon = new SaveStatusIcon();
+        toolBar.add(saveStatusIcon);
+        toolBar.add(Box.createHorizontalStrut(10));
+
+        add(toolBar, BorderLayout.NORTH);
+        
+        disableInExportMode.add(stickBtn);
+        disableInExportMode.add(p2pBtn);
+        disableInExportMode.add(gridBtn);
+        disableInExportMode.add(cropBtn);
+        disableInExportMode.add(undoBtn);
+        disableInExportMode.add(redoBtn);
+        disableInExportMode.add(openBtn);
+        disableInExportMode.add(exportBtn);
+        disableInExportMode.add(saveTicksBtn);
+        disableInExportMode.add(colorBtn);
+        disableInExportMode.add(saveBtn);
+        disableInExportMode.add(exportExcelBtn);
+        disableInExportMode.add(settingsBtn);
+    }
+
+    private void initColorPlate(JToolBar toolBar, JButton colorBtn) {
+        Color[] colors = new  Color[] {Color.RED,Color.BLUE,
+                Color.GREEN, Color.BLACK,Color.WHITE,Color.YELLOW,
+                Color.GRAY, Color.DARK_GRAY, Color.CYAN, Color.MAGENTA
+        };
+        for (Color color : colors) {
+            JButton button = new JButton("      ");
+            button.setBackground(color);
+            button.setOpaque(true);
+            button.setBorderPainted(true);
+            button.addActionListener(e -> {
+                appState.setBrushColor(color);
+                colorBtn.setBackground(color);
+            });
+            toolBar.add(button);
+        }
+    }
+
+    private void checkForRecovery() {
+        File autoSaveFile = autoSaveManager.getAutoSaveFile();
+        if (autoSaveFile != null) {
+            int result = JOptionPane.showConfirmDialog(this,
+                    "Found an unsaved session. Would you like to restore your work?",
+                    "Session Recovery",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE);
+
+            if (result == JOptionPane.YES_OPTION) {
+                autoSaveManager.restoreSession(autoSaveFile, this);
+            } else {
+                autoSaveManager.cleanup();
+            }
+        }
+    }
+
+    @Override
+    public void onRecoveryStarted() {
+        recoveryProgressBar.setVisible(true);
+        recoveryProgressBar.setValue(0);
+        recoveryProgressBar.setString("Starting recovery...");
+        setTitle("Restoring session...");
+        setEnabled(false); // Block interaction during recovery
+    }
+
+    @Override
+    public void updateProgress(int percent, String message) {
+        SwingUtilities.invokeLater(() -> {
+            recoveryProgressBar.setValue(percent);
+            recoveryProgressBar.setString(message);
+        });
+    }
+
+    @Override
+    public void onRecoveryFinished(String finalTitle) {
+        SwingUtilities.invokeLater(() -> {
+            recoveryProgressBar.setVisible(false);
+            setTitle(finalTitle);
+            setEnabled(true);
+            canvas.repaint();
+        });
+    }
+
+    @Override
+    public void onRecoveryError(String message) {
+        SwingUtilities.invokeLater(() -> {
+            recoveryProgressBar.setVisible(false);
+            setEnabled(true);
+            updateWindowTitle();
+            JOptionPane.showMessageDialog(this, message, "Recovery Error", JOptionPane.ERROR_MESSAGE);
+        });
+    }
+
+    @Override
+    public void setCanvasImage(BufferedImage img) {
+        canvas.setBackgroundImage(img);
+    }
+
+    @Override
+    public core.state.AppState getAppState() {
+        return appState;
+    }
+
+    @Override
+    public ui.canvas.ImageCanvas getCanvas() {
+        return canvas;
+    }
+
+    public void retranslateUI() {
+        applyI18n(this.getRootPane());
+        if (canvas.getComponentPopupMenu() != null) {
+            applyI18n((JComponent) canvas.getComponentPopupMenu());
+        }
+        if (this.getJMenuBar() != null) {
+            applyI18n(this.getJMenuBar());
+        }
+    }
+
+    private void applyI18n(JComponent c) {
+        String textKey = (String) c.getClientProperty("i18n.text");
+        if (textKey != null) {
+            if (c instanceof AbstractButton) {
+                ((AbstractButton) c).setText(core.i18n.LanguageManager.getString(textKey));
+            } else if (c instanceof JLabel) {
+                ((JLabel) c).setText(core.i18n.LanguageManager.getString(textKey));
+            }
+        }
+        
+        String tooltipKey = (String) c.getClientProperty("i18n.tooltip");
+        if (tooltipKey != null) {
+            c.setToolTipText(core.i18n.LanguageManager.getString(tooltipKey));
+        }
+
+        for (Component child : c.getComponents()) {
+            if (child instanceof JComponent) {
+                applyI18n((JComponent) child);
+            }
+        }
+        if (c instanceof JMenu) {
+            for (Component child : ((JMenu) c).getMenuComponents()) {
+                if (child instanceof JComponent) {
+                    applyI18n((JComponent) child);
+                }
+            }
+        }
+    }
+
+    private void setI18nText(AbstractButton btn, String key) {
+        btn.putClientProperty("i18n.text", key);
+        btn.setText(core.i18n.LanguageManager.getString(key));
+    }
+    
+    private void setI18nTooltip(JComponent c, String key) {
+        c.putClientProperty("i18n.tooltip", key);
+        c.setToolTipText(core.i18n.LanguageManager.getString(key));
+    }
+}

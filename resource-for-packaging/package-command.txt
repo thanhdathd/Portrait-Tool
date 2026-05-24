@@ -1,0 +1,21 @@
+lệnh build custom runtime (JVM) 
+jlink --add-modules java.base,java.datatransfer,java.desktop,java.logging,java.prefs,java.sql,java.xml --strip-debug --compress zip-6 --no-header-files --no-man-pages --output runtime
+
+đóng gói msi trên window:
+jpackage --type msi --input . --dest output --name "PortraitTool" --main-jar portrai-tool.jar --main-class core.launcher.AppLauncher --add-modules ALL-MODULE-PATH --app-version 2.0.0 --vendor "Phi Thanh Dat" --description "Measuring and constructing outline sketch for portrait drawing" --copyright "Copyright © 2026 Phi Thanh Dat. All rights reserved." --license-file resources/LICENSE.rtf --icon resources/app.ico --file-associations resources/file-associations.properties --win-shortcut --win-menu --win-dir-chooser --verbose
+
+linux app-image
+jpackage --type app-image --input . --dest output --name "PortraitTool" --main-jar portrai-tool.jar --main-class core.launcher.AppLauncher --add-modules ALL-MODULE-PATH --app-version 2.0.0 --vendor "Phi Thanh Dat" --description "App for measuring and constructing outline sketch for portrait drawing" --icon resources/ic_p_512.png --verbose
+
+đóng gói AppImage file
+cd vào tm díst/output
+copy file AppRun và PortraitTool.desktop vao tm PortraitTool
+copy file PortraitTool.png trong tm PortraitTool/lib ra tm PortraitTool
+
+chạy
+appimagetool PortraitTool PortraitTool-2.0.0.AppImage
+
+thêm permíssion
+chmod +x PortraitTool-2.0.0.AppImage
+
+file PortraitTool-2.0.0.AppImage đã săn sàng

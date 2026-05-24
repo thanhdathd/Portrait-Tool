@@ -1,0 +1,17 @@
+LICENSE AGREEMENT
+
+Tên phần mềm          Portrait Tool
+Phiên bản             2.0.0
+Nhà phát triển        Phí Thành Đạt
+Năm bản quyền         2026
+
+Bản quyền © 2026 Phí Thành Đạt. All rights reserved.
+
+
+BẢO HÀNH
+Phần mềm được cung cấp NHƯ HIỆN TẠI mà không có bất kỳ bảo hành nào, 
+bao gồm nhưng không giới hạn bảo hành về tính thương mại hoặc phù hợp cho mục đích cụ thể.
+
+Liên hệ hỗ trợ phithanhdathd@gmail.com
+
+© 2026 Phí Thành Đạt. All Rights Reserved.

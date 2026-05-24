@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product 
+        Id="*" 
+        Name="$(var.JpAppName)" 
+        Version="$(var.JpAppVersion)" 
+        Manufacturer="$(var.JpAppVendor)" 
+        Language="1033"
+        Codepage="1258">
+
+        <Package Id="*" Keywords="Installer" InstallerVersion="500" 
+                 Languages="1033" Compressed="yes" SummaryCodepage="1258" />
+    </Product>
+</Wix>
